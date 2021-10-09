@@ -30,7 +30,12 @@ Film = namedtuple(
 Metadata = namedtuple(
     'Metadata',
     ['title', 'director', 'year', 'duration', 'country', 'plot', 'plotoutline',
-     'genre', 'originaltitle', 'rating', 'votes', 'castandrole', 'tagline', 'dateadded' ,'trailer', 'image']
+     'genre', 'originaltitle', 'rating', 'votes', 'castandrole', 'dateadded' ,'trailer', 'image']
+)
+
+Categories = namedtuple(
+    'Categories',
+    ['ressource', 'type']
 )
 
 
@@ -41,6 +46,8 @@ class Mubi(object):
         "login": urljoin(_URL_MUBI, "api/v2/sessions"),
         "startup": urljoin(_URL_MUBI, "api/v2/app_startup"),
         "films": urljoin(_URL_MUBI, "/api/v2/film_programmings"),
+        "film_groups": urljoin(_URL_MUBI, "/api/v2/layout"),
+        "films_in_group": urljoin(_URL_MUBI, "/api/v2/film_groups/%s/film_group_items"),
         # "film": urljoin(_URL_MUBI, "services/android/films/%s"),
         "set_watching": urljoin(_URL_MUBI, "api/v2/films/%s/playback_languages"),
         # "set_watching": urljoin(_URL_MUBI, "api/v1/films/%s/viewing/watching"),
@@ -139,19 +146,57 @@ class Mubi(object):
     #     self._simplecache.set(self._cache_id % film_id, r.text, expiration=datetime.timedelta(days=32))
     #     return json.loads(r.text)
 
+    def get_film_groups(self):
+        args = "?filter_tvod=true"
+        r = self._session.get(self._mubi_urls['film_groups'] + args)
+        if r.status_code != 200:
+            xbmc.log("Invalid status code "+ str(r.status_code) + " getting list of categories", 4)
+            xbmc.log(self._mubi_urls['categories'] + args, 4)
+
+        film_groups = (''.join(r.text)).encode('utf-8')
+
+        categories = []
+        for group in json.loads(film_groups):
+            if group["type"] == "FilmGroup":
+                r = self._session.get(urljoin(self._URL_MUBI, group["resource"]))
+
+                film_group = json.loads((''.join(r.text)).encode('utf-8'))
+                if film_group:
+                    category = {
+                        "title": film_group[0]["full_title"],
+                        "id": film_group[0]["id"],
+                        "type": group["type"]
+                    }
+                    xbmc.log("Ressource %s " % group["resource"], 1)
+                    xbmc.log("Group title %s " % film_group[0]["full_title"], 1)
+                    categories.append(category)
+            elif group["type"] == "FilmProgramming":
+                category = {
+                    "title": "Film of the day",
+                    "id": '-1',
+                    "type": group["type"]
+                }
+                categories.append(category)
+
+        return categories
+
     def get_film_metadata(self, film_overview):
         film_id = film_overview['film']['id']
-        available_at = dateutil.parser.parse(film_overview['available_at'])
-        expires_at = dateutil.parser.parse(film_overview['expires_at'])
 
-        # Check film is valid, has not expired and is not preview
-        now = datetime.datetime.now(available_at.tzinfo)
-        if available_at > now:
-            xbmc.log("Film %s is not yet available" % film_id, 2)
-            return None
-        elif expires_at < now:
-            xbmc.log("Film %s has expired" % film_id, 2)
-            return None
+        available_at = str(datetime.date.today())
+        if "available_at" in film_overview:
+            available_at = dateutil.parser.parse(film_overview['available_at'])
+            expires_at = dateutil.parser.parse(film_overview['expires_at'])
+
+            # Check film is valid, has not expired and is not preview
+            now = datetime.datetime.now(available_at.tzinfo)
+            if available_at > now:
+                xbmc.log("Film %s is not yet available" % film_id, 2)
+                return None
+            elif expires_at < now:
+                xbmc.log("Film %s has expired" % film_id, 2)
+                return None
+            available_at = str(available_at)
 
         web_url = film_overview['film']['web_url']
 
@@ -173,26 +218,42 @@ class Mubi(object):
             rating=film_overview['film']['average_rating_out_of_ten'],
             votes=film_overview['film']['number_of_ratings'],
             castandrole="",
-            tagline=film_overview['our_take'],
-            dateadded = film_overview['available_at'],
+            dateadded = available_at,
             trailer=film_overview['film']['trailer_url'],
             image = film_overview['film']['still_url']
         )
         return Film(film_overview['film']['title'], film_id, film_overview['film']['stills']['standard'], web_url, metadata)
+
+    def get_films_in_category_json(self, category):
+        # Get list of available films
+        args = "?filter_tvod=true"
+        r = self._session.get(self._mubi_urls['films_in_group'] % str(category) + args)
+        if r.status_code != 200:
+            xbmc.log("Invalid status code for film groups: "+ str(r.status_code) + " getting list of films", 4)
+            xbmc.log(self._mubi_urls['films_in_group'] % str(category) + args, 4)
+
+        return r.text
 
     def get_now_showing_json(self):
         # Get list of available films
         args = "?accept-language=%s&client=%s&client-version=%s&client-device-identifier=%s&client-app=%s&client-device-os=%s" % (ACCEPT_LANGUAGE, CLIENT,APP_VERSION_CODE, self._udid, CLIENT_APP, CLIENT_DEVICE_OS)
         r = self._session.get(self._mubi_urls['films'] + args)
         if r.status_code != 200:
-            xbmc.log("Invalid status code "+ str(r.status_code) + " getting list of films", 4)
+            xbmc.log("Invalid status code for films of the day: "+ str(r.status_code) + " getting list of films", 4)
             xbmc.log(self._mubi_urls['films'] + args, 4)
+
         return r.text
 
-    def now_showing(self):
-        films = [self.get_film_metadata(film) for film in json.loads(self.get_now_showing_json())]
-        for f in films:
-                print(f)
+    def now_showing(self, category_id):
+
+        xbmc.log("category_id: %s; category_id type: %s" % (category_id, type(category_id)), 4)
+
+        if category_id==str(-1):
+             films = [self.get_film_metadata(film) for film in json.loads(self.get_now_showing_json())]
+        else:
+             films = [self.get_film_metadata(film) for film in json.loads(self.get_films_in_category_json(category_id))["film_group_items"]]
+
+
         return [f for f in films if f]
 
     # def set_reel(self, film_id, reel_id):

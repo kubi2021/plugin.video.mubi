@@ -10,6 +10,10 @@ from urllib.parse import urlencode, parse_qsl
 # In order to load the movie in the external browser
 import webbrowser
 
+# In order to manipulate files and folders
+import os
+
+
 # DRM = 'widevine'
 # PROTOCOL = 'mpd'
 
@@ -71,6 +75,9 @@ LICENSE_URL_HEADERS = (
 #plugin = (PLUGIN_NAME, PLUGIN_ID, __file__)
 plugin = xbmcaddon.Addon()
 
+# xbmc.translatePath is deprecated and might be removed in future kodi versions. Please use xbmcvfs.translatePath instead.
+plugin_userdata_path = xbmc.translatePath( plugin.getAddonInfo('profile') )
+
 if not plugin.getSetting("username") or not plugin.getSetting("password"):
     plugin.openSettings()
 
@@ -82,7 +89,7 @@ _URL = sys.argv[0]
 _HANDLE = int(sys.argv[1])
 
 # Static categories
-VIDEOS = {'Film of the day': []}
+# VIDEOS = {'Film of the day': []}
 
 
 def get_url(**kwargs):
@@ -95,39 +102,39 @@ def get_url(**kwargs):
     """
     return '{}?{}'.format(_URL, urlencode(kwargs))
 
-def get_categories():
-    """
-    Get the list of video categories.
+# def get_categories():
+#     """
+#     Get the list of video categories.
+#
+#     Here you can insert some parsing code that retrieves
+#     the list of video categories (e.g. 'Movies', 'TV-shows', 'Documentaries' etc.)
+#     from some site or API.
+#
+#     .. note:: Consider using `generator functions <https://wiki.python.org/moin/Generators>`_
+#         instead of returning lists.
+#
+#     :return: The list of video categories
+#     :rtype: types.GeneratorType
+#     """
+#     return VIDEOS.keys()
 
-    Here you can insert some parsing code that retrieves
-    the list of video categories (e.g. 'Movies', 'TV-shows', 'Documentaries' etc.)
-    from some site or API.
 
-    .. note:: Consider using `generator functions <https://wiki.python.org/moin/Generators>`_
-        instead of returning lists.
-
-    :return: The list of video categories
-    :rtype: types.GeneratorType
-    """
-    return VIDEOS.keys()
-
-
-def get_videos(category):
-    """
-    Get the list of videofiles/streams.
-
-    Here you can insert some parsing code that retrieves
-    the list of video streams in the given category from some site or API.
-
-    .. note:: Consider using `generators functions <https://wiki.python.org/moin/Generators>`_
-        instead of returning lists.
-
-    :param category: Category name
-    :type category: str
-    :return: the list of videos in the category
-    :rtype: list
-    """
-    return VIDEOS[category]
+# def get_videos(category):
+#     """
+#     Get the list of videofiles/streams.
+#
+#     Here you can insert some parsing code that retrieves
+#     the list of video streams in the given category from some site or API.
+#
+#     .. note:: Consider using `generators functions <https://wiki.python.org/moin/Generators>`_
+#         instead of returning lists.
+#
+#     :param category: Category name
+#     :type category: str
+#     :return: the list of videos in the category
+#     :rtype: list
+#     """
+#     return VIDEOS[category]
 
 
 def list_categories():
@@ -141,29 +148,20 @@ def list_categories():
     # for this type of content.
     xbmcplugin.setContent(_HANDLE, 'videos')
     # Get video categories
-    categories = get_categories()
+    # categories = get_categories()
+    categories = mubi.get_film_groups()
     # Iterate through categories
-    for category in categories:
+    for item in categories:
         # Create a list item with a text label and a thumbnail image.
-        list_item = xbmcgui.ListItem(label=category)
-        # Set graphics (thumbnail, fanart, banner, poster, landscape etc.) for the list item.
-        # Here we use the same image for all items for simplicity's sake.
-        # In a real-life plugin you need to set each image accordingly.
-        # list_item.setArt({'thumb': VIDEOS[category][0]['thumb'],
-        #                   'icon': VIDEOS[category][0]['thumb'],
-        #                   'fanart': VIDEOS[category][0]['thumb']})
-        # Set additional info for the list item.
-        # Here we use a category name for both properties for for simplicity's sake.
-        # setInfo allows to set various information for an item.
-        # For available properties see the following link:
-        # https://codedocs.xyz/xbmc/xbmc/group__python__xbmcgui__listitem.html#ga0b71166869bda87ad744942888fb5f14
-        # 'mediatype' is needed for a skin to display info for this ListItem correctly.
-        list_item.setInfo('video', {'title': category,
-                                    'genre': category,
+        list_item = xbmcgui.ListItem(label=item['title'])
+
+        list_item.setInfo('video', {'title': item['title'],
                                     'mediatype': 'video'})
+
         # Create a URL for a plugin recursive call.
         # Example: plugin://plugin.video.example/?action=listing&category=Animals
-        url = get_url(action='listing', category=category)
+        url = get_url(action='listing', category=item['id'])
+
         # is_folder = True means that this item opens a sub-list of lower level items.
         is_folder = True
         # Add our item to the Kodi virtual folder listing.
@@ -183,12 +181,13 @@ def list_videos(category):
     """
     # Set plugin category. It is displayed in some skins as the name
     # of the current section.
-    xbmcplugin.setPluginCategory(_HANDLE, category)
+    # xbmcplugin.setPluginCategory(_HANDLE, category['title'])
     # Set plugin content. It allows Kodi to select appropriate views
     # for this type of content.
     xbmcplugin.setContent(_HANDLE, 'videos')
     # Get the list of videos in the category.
-    films = mubi.now_showing()
+
+    films = mubi.now_showing(category)
 
     # Iterate through videos.
     for film in films:
@@ -201,17 +200,15 @@ def list_videos(category):
         list_item.setInfo('video', {'title': film.title,
                                     'originaltitle': film.metadata.originaltitle,
                                     'genre': film.metadata.genre,
-                                    'country': str(film.metadata.country),
-                                    'year': film.metadata.year,
-                                    'rating': film.metadata.rating,
-                                    # 'cast': ,
-                                    'director': str(film.metadata.director),
-                                    'plot': film.metadata.plot,
-                                    'plotoutline': film.metadata.plotoutline,
-                                    'duration': film.metadata.duration,
-                                    'tagline':film.metadata.tagline,
-                                    'trailer': film.metadata.trailer,
-                                    'dateadded': film.metadata.dateadded,
+                                    # 'country': str(film.metadata.country),
+                                    # 'year': film.metadata.year,
+                                    # 'rating': film.metadata.rating,
+                                    # 'director': str(film.metadata.director),
+                                    # 'plot': film.metadata.plot,
+                                    # 'plotoutline': film.metadata.plotoutline,
+                                    # 'duration': film.metadata.duration,
+                                    # 'trailer': film.metadata.trailer,
+                                    # 'dateadded': film.metadata.dateadded,
                                     'mediatype': 'video'})
 
         # Set graphics (thumbnail, fanart, banner, poster, landscape etc.) for the list item.
@@ -241,6 +238,18 @@ def list_videos(category):
         # Add our item to the Kodi virtual folder listing.
         xbmcplugin.addDirectoryItem(_HANDLE, url, list_item, is_folder)
 
+        ## Create the strm files in special://userdata/addon_data/plugin.video.mubi
+        file_name = film.title + ' (' + str(film.metadata.year) + ')'
+        path = plugin_userdata_path + '/' + file_name
+        try:
+            os.mkdir(path)
+        except OSError as error:
+            xbmc.log("Error while creating the library: %s" % error, 2)
+
+        f = open(path+'/'+file_name+'.strm', "w")
+        f.write(url)
+        f.close()
+
     # Add a sort method for the virtual folder items (alphabetically, ignore articles)
     xbmcplugin.addSortMethod(_HANDLE, xbmcplugin.SORT_METHOD_NONE)
 
@@ -249,36 +258,36 @@ def list_videos(category):
 
 
 # Function to play video within Mubi. Currently not working because of DRMs
-def play_video(identifier):
-    """
-    Play a video by the provided path.
-
-    :param path: Fully-qualified video URL
-    :type path: str
-    """
-    # Create a playable item with a path to play.
-    # play_item = xbmcgui.ListItem(path=path)
-    # Pass the item to the Kodi player.
-    # xbmcplugin.setResolvedUrl(_HANDLE, True, listitem=play_item)
-
-    mubi_resolved_info = mubi.get_play_url(identifier)
-    mubi_film = xbmcgui.ListItem(path=mubi_resolved_info['url'])
-
-    if mubi_resolved_info['is_mpd']:
-
-        mubi_film.setProperty('inputstream', 'inputstream.adaptive')
-        mubi_film.setProperty('inputstream.adaptive.manifest_type', 'mpd')
-
-        if mubi_resolved_info['drm_header'] is not None:
-            xbmc.log('DRM Header: %s' %mubi_resolved_info['drm_header'].decode(), 2)
-            xbmc.log('LICENSE_URL_HEADERS: %s' % LICENSE_URL_HEADERS, 2)
-            mubi_film.setProperty('inputstream.adaptive.license_type', "com.widevine.alpha")
-            mubi_film.setProperty('inputstream.adaptive.license_key', LICENSE_URL + '|' + LICENSE_URL_HEADERS + '&CL-KEY=' + mubi_resolved_info['drm_header'].decode() + '&CL-USER-ID='+ str(mubi_resolved_info['userId']) +'&CL-SESSION-ID='+ str(mubi_resolved_info['token']) + '&CL-ASSET-ID='+ str(mubi_resolved_info['drm_asset_id']) +'|R{SSM}|JBlicense')
-            # mubi_film.setProperty('inputstream.adaptive.license_key', LICENSE_URL + '|' + LICENSE_URL_HEADERS + '&dt-custom-data=' + mubi_resolved_info['drm_header'].decode() + '|R{SSM}|JBlicense')
-            # mubi_film.setProperty('inputstream.adaptive.license_key', LICENSE_URL + '|' + LICENSE_URL_HEADERS + '&dt-custom-data=' + mubi_resolved_info['drm_header'] + '|R{SSM}|JBlicense')
-            mubi_film.setMimeType('application/dash+xml')
-            mubi_film.setContentLookup(False)
-    return xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem=mubi_film)
+# def play_video(identifier):
+#     """
+#     Play a video by the provided path.
+#
+#     :param path: Fully-qualified video URL
+#     :type path: str
+#     """
+#     # Create a playable item with a path to play.
+#     # play_item = xbmcgui.ListItem(path=path)
+#     # Pass the item to the Kodi player.
+#     # xbmcplugin.setResolvedUrl(_HANDLE, True, listitem=play_item)
+#
+#     mubi_resolved_info = mubi.get_play_url(identifier)
+#     mubi_film = xbmcgui.ListItem(path=mubi_resolved_info['url'])
+#
+#     if mubi_resolved_info['is_mpd']:
+#
+#         mubi_film.setProperty('inputstream', 'inputstream.adaptive')
+#         mubi_film.setProperty('inputstream.adaptive.manifest_type', 'mpd')
+#
+#         if mubi_resolved_info['drm_header'] is not None:
+#             xbmc.log('DRM Header: %s' %mubi_resolved_info['drm_header'].decode(), 2)
+#             xbmc.log('LICENSE_URL_HEADERS: %s' % LICENSE_URL_HEADERS, 2)
+#             mubi_film.setProperty('inputstream.adaptive.license_type', "com.widevine.alpha")
+#             mubi_film.setProperty('inputstream.adaptive.license_key', LICENSE_URL + '|' + LICENSE_URL_HEADERS + '&CL-KEY=' + mubi_resolved_info['drm_header'].decode() + '&CL-USER-ID='+ str(mubi_resolved_info['userId']) +'&CL-SESSION-ID='+ str(mubi_resolved_info['token']) + '&CL-ASSET-ID='+ str(mubi_resolved_info['drm_asset_id']) +'|R{SSM}|JBlicense')
+#             # mubi_film.setProperty('inputstream.adaptive.license_key', LICENSE_URL + '|' + LICENSE_URL_HEADERS + '&dt-custom-data=' + mubi_resolved_info['drm_header'].decode() + '|R{SSM}|JBlicense')
+#             # mubi_film.setProperty('inputstream.adaptive.license_key', LICENSE_URL + '|' + LICENSE_URL_HEADERS + '&dt-custom-data=' + mubi_resolved_info['drm_header'] + '|R{SSM}|JBlicense')
+#             mubi_film.setMimeType('application/dash+xml')
+#             mubi_film.setContentLookup(False)
+#     return xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem=mubi_film)
 
 
 def play_video_ext(web_url):
