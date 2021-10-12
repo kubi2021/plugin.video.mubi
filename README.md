@@ -14,10 +14,12 @@ What works:
 
 - Fetching the 30 MUBI Films Of The Day, including the metadata
 - (Tested on MacOS only) open the movie in your external browser to player
+- Fetching all playable Mubi movies in Kodi
+
 
 What doesn't work (yet):
 
-- Fetching all playable Mubi movies in Kodi
+- listing the movies in the Kodi movies library
 - Playing the movie within Kodi (DRM issues to solve)
 
 
