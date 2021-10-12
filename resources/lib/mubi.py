@@ -64,14 +64,14 @@ class Mubi(object):
         })
 
     def get_film_list(self, type, id):
-    """
-    Mubi has 2 categories of films:
-    - Filmprogramming: the movie of the day, available for 30 days
-    - Film Group: each film group call returns multiple categories, such as Top 1000, or Mubi releases, for example.
+        """
+        Mubi has 2 categories of films:
+        - Filmprogramming: the movie of the day, available for 30 days
+        - Film Group: each film group call returns multiple categories, such as Top 1000, or Mubi releases, for example.
 
-    This function query the list of films and then query the metadata for each film.
-    Ultimately, it returns a nametupl of films.
-    """
+        This function query the list of films and then query the metadata for each film.
+        Ultimately, it returns a nametupl of films.
+        """
 
 
         if type=="FilmProgramming":
@@ -82,10 +82,10 @@ class Mubi(object):
         return [f for f in films if f]
 
     def get_now_showing_json(self):
-    """
-    Calls the API and get the list of the 30 films of the day.
+        """
+        Calls the API and get the list of the 30 films of the day.
 
-    """
+        """
         # Get list of available films
         args = "?accept-language=%s&client=%s&client-version=%s&client-device-identifier=%s&client-app=%s&client-device-os=%s" % (ACCEPT_LANGUAGE, CLIENT,APP_VERSION_CODE, self._udid, CLIENT_APP, CLIENT_DEVICE_OS)
         r = self._session.get(self._mubi_urls['films'] + args)
@@ -96,12 +96,12 @@ class Mubi(object):
 
 
     def get_film_groups(self):
-    """
-    Query film groups. Each call to film groups returns one or many film category, such as Top 1000, or Mubi releases, for example.
+        """
+        Query film groups. Each call to film groups returns one or many film category, such as Top 1000, or Mubi releases, for example.
 
-    It will return a list of category.
+        It will return a list of category.
 
-    """
+        """
 
         args = "?filter_tvod=true"
         r = self._session.get(self._mubi_urls['film_groups'] + args)
@@ -143,11 +143,11 @@ class Mubi(object):
 
 
     def get_films_in_category_json(self, category):
-    """
-    Each category (such as Mubi top 1000) contains a list of films.
-    This function queries the API and gets all the films in the category.
+        """
+        Each category (such as Mubi top 1000) contains a list of films.
+        This function queries the API and gets all the films in the category.
 
-    """
+        """
 
         total_results = []
 
@@ -175,10 +175,10 @@ class Mubi(object):
 
 
     def get_film_metadata(self, film_overview):
-    """
-    For each film, this function will query the API to get the metadata.
+        """
+        For each film, this function will query the API to get the metadata.
 
-    """
+        """
         film_id = film_overview['film']['id']
 
         available_at = str(datetime.date.today())
