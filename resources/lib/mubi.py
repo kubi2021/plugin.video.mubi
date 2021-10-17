@@ -9,6 +9,7 @@ from collections import namedtuple
 import xbmc
 from urllib.parse import urljoin
 
+
 APP_VERSION_CODE = '6.06'
 ACCEPT_LANGUAGE = 'en-US'
 CLIENT = 'android'
@@ -19,7 +20,7 @@ USER_AGENT = 'Mozilla/5.0 (Linux; Android 8.0.0; SM-G960F Build/R16NW) AppleWebK
 
 Film = namedtuple(
     'Film',
-    ['title', 'mubi_id', 'artwork', 'web_url','metadata']
+    ['title', 'mubi_id', 'artwork', 'web_url', 'category','metadata']
 )
 
 Metadata = namedtuple(
@@ -63,7 +64,7 @@ class Mubi(object):
             'client-device-identifier': str(self._udid)
         })
 
-    def get_film_list(self, type, id):
+    def get_film_list(self, type, id, category_name):
         """
         Mubi has 2 categories of films:
         - Filmprogramming: the movie of the day, available for 30 days
@@ -75,9 +76,9 @@ class Mubi(object):
 
 
         if type=="FilmProgramming":
-             films = [self.get_film_metadata(film) for film in (self.get_now_showing_json())]
+             films = [self.get_film_metadata(film, category_name) for film in (self.get_now_showing_json())]
         elif type=="FilmGroup":
-             films = [self.get_film_metadata(film) for film in (self.get_films_in_category_json(id))]
+             films = [self.get_film_metadata(film, category_name) for film in (self.get_films_in_category_json(id))]
 
         return [f for f in films if f]
 
@@ -162,7 +163,6 @@ class Mubi(object):
         total_results = total_results + data["film_group_items"]
 
         # While data['next'] isn't empty, let's download the next page, too
-        xbmc.log("total pages: %s " %str(data['meta']['next_page']) , 4)
         for page_num in range(1, data['meta']['total_pages']):
 
             args = "?page="+ str(page_num) + "&per_page="+ str(per_page) +"&filter_tvod=true"
@@ -174,7 +174,7 @@ class Mubi(object):
         return total_results
 
 
-    def get_film_metadata(self, film_overview):
+    def get_film_metadata(self, film_overview, category_name):
         """
         For each film, this function will query the API to get the metadata.
 
@@ -216,7 +216,7 @@ class Mubi(object):
             trailer=film_overview['film']['trailer_url'],
             image = film_overview['film']['still_url']
         )
-        return Film(film_overview['film']['title'], film_id, film_overview['film']['stills']['standard'], web_url, metadata)
+        return Film(film_overview['film']['title'], film_id, film_overview['film']['stills']['standard'], web_url, category_name, metadata)
 
 
 

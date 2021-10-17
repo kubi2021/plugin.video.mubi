@@ -1,17 +1,24 @@
 from __future__ import absolute_import, division, unicode_literals
 import sys
 from resources.lib.mubi import Mubi
+from resources.lib.library import write_strm_files
 import xbmcplugin
 import xbmcgui
 import xbmcaddon
 import xbmc
 from urllib.parse import urlencode, parse_qsl
+from pathlib import Path
 
 # In order to load the movie in the external browser
 import webbrowser
 
 
+
 plugin = xbmcaddon.Addon()
+
+# xbmc.translatePath is deprecated and might be removed in future kodi versions. Please use xbmcvfs.translatePath instead.
+plugin_userdata_path = Path(xbmc.translatePath( plugin.getAddonInfo('profile') ))
+
 
 if not plugin.getSetting("username") or not plugin.getSetting("password"):
     plugin.openSettings()
@@ -32,6 +39,86 @@ def get_url(**kwargs):
     :rtype: str
     """
     return '{}?{}'.format(_URL, urlencode(kwargs))
+
+def main_navigation():
+    # Set plugin category. It is displayed in some skins as the name
+    # of the current section.
+    xbmcplugin.setPluginCategory(_HANDLE, 'Mubi')
+    # Set plugin content. It allows Kodi to select appropriate views
+    # for this type of content.
+    xbmcplugin.setContent(_HANDLE, 'videos')
+
+    main_navigation_items = [
+        {
+            "label": "Browse Mubi films by category",
+            "description": "Browse Mubi films by category",
+            "action": "list_categories"
+        },
+        {
+            "label": "Sync all Mubi films locally",
+            "description": "This will create a local folder with all films information, such that it can be imported in the standard Kodi media library. After sync make sure to add the video source special://userdata/addon_data/plugin.video.mubi and update your library.",
+            "action": "sync_locally"
+        }
+    ]
+
+    for item in main_navigation_items:
+
+        # Create a list item with a text label and a thumbnail image.
+        list_item = xbmcgui.ListItem(label=item['label'])
+
+        list_item.setInfo('video', {'title': item['label'],
+                                    'plot': item['description'],
+                                    'mediatype': 'video'})
+
+        # Create a URL for a plugin recursive call.
+        # Example: plugin://plugin.video.example/?action=listing&category=Animals
+        url = get_url(action=item['action'])
+
+        # is_folder = True means that this item opens a sub-list of lower level items.
+        is_folder = True
+        # Add our item to the Kodi virtual folder listing.
+        xbmcplugin.addDirectoryItem(_HANDLE, url, list_item, is_folder)
+
+    # Add a sort method for the virtual folder items (alphabetically, ignore articles)
+    xbmcplugin.addSortMethod(_HANDLE, xbmcplugin.SORT_METHOD_NONE)
+
+    # Finish creating a virtual folder.
+    xbmcplugin.endOfDirectory(_HANDLE)
+
+def sync_locally():
+
+    pDialog = xbmcgui.DialogProgress()
+
+    pDialog.create('Syncing with Mubi', 'Fetching all categories ...')
+
+    # fetch all cagetories
+    categories = mubi.get_film_groups()
+
+    category = categories[0]
+    all_films = mubi.get_film_list(category["type"], category["id"], category["title"])
+
+    # build up the entire list of films
+    # all_films = []
+    # for idx,category in enumerate(categories):
+    #     percent = int(idx / len(categories) * 100)
+    #     pDialog.update(percent, 'Fetching ' + category["title"])
+    #     films = mubi.get_film_list(category["type"], category["id"], category["title"])
+    #     all_films.extend(films)
+    #     if (pDialog.iscanceled()):
+    #         pDialog.close()
+    #         return None
+
+    films_with_kodi_url=[]
+    for film in all_films:
+        film_with_kodi_url = {
+            'film': film,
+            'url': get_url(action='play_ext', web_url=film.web_url)
+        }
+        films_with_kodi_url.append(film_with_kodi_url)
+
+    pDialog.update(100, "Writing files...")
+    write_strm_files(plugin_userdata_path, films_with_kodi_url)
+    pDialog.close()
 
 def list_categories():
     """
@@ -68,7 +155,7 @@ def list_categories():
 
         # Create a URL for a plugin recursive call.
         # Example: plugin://plugin.video.example/?action=listing&category=Animals
-        url = get_url(action='listing', type=category["type"], id=category["id"])
+        url = get_url(action='listing', type=category["type"], id=category["id"], category_name=category['title'])
 
         # is_folder = True means that this item opens a sub-list of lower level items.
         is_folder = True
@@ -82,7 +169,7 @@ def list_categories():
     xbmcplugin.endOfDirectory(_HANDLE)
 
 
-def list_videos(type, id):
+def list_videos(type, id, category_name):
     """
     Create the list of playable videos in the Kodi interface.
 
@@ -97,7 +184,7 @@ def list_videos(type, id):
     xbmcplugin.setContent(_HANDLE, 'videos')
 
     # Get the list of films in the selected category.
-    films = mubi.get_film_list(type, id)
+    films = mubi.get_film_list(type, id, category_name)
 
     # Iterate through the films
     for film in films:
@@ -150,6 +237,7 @@ def list_videos(type, id):
         # Add our item to the Kodi virtual folder listing.
         xbmcplugin.addDirectoryItem(_HANDLE, url, list_item, is_folder)
 
+
     # Add a sort method for the virtual folder items (alphabetically, ignore articles)
     xbmcplugin.addSortMethod(_HANDLE, xbmcplugin.SORT_METHOD_NONE)
 
@@ -180,9 +268,15 @@ def router(paramstring):
     params = dict(parse_qsl(paramstring))
     # Check the parameters passed to the plugin
     if params:
-        if params['action'] == 'listing':
+        if params['action'] == 'list_categories':
             # Display the list of videos in a provided category.
-            list_videos(params['type'], params['id'])
+            list_categories()
+        elif params['action'] == 'sync_locally':
+            # Display the list of videos in a provided category.
+            sync_locally()
+        elif params['action'] == 'listing':
+            # Display the list of videos in a provided category.
+            list_videos(params['type'], params['id'], params['category_name'])
         elif params['action'] == 'play':
             # Play a video from a provided URL.
             play_video(params['identifier'])
@@ -194,7 +288,7 @@ def router(paramstring):
     else:
         # If the plugin is called from Kodi UI without any parameters,
         # display the list of video categories
-        list_categories()
+        main_navigation()
 
 
 if __name__ == '__main__':
