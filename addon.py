@@ -94,19 +94,19 @@ def sync_locally():
     # fetch all cagetories
     categories = mubi.get_film_groups()
 
-    category = categories[0]
-    all_films = mubi.get_film_list(category["type"], category["id"], category["title"])
+    # category = categories[0]
+    # all_films = mubi.get_film_list(category["type"], category["id"], category["title"])
 
     # build up the entire list of films
-    # all_films = []
-    # for idx,category in enumerate(categories):
-    #     percent = int(idx / len(categories) * 100)
-    #     pDialog.update(percent, 'Fetching ' + category["title"])
-    #     films = mubi.get_film_list(category["type"], category["id"], category["title"])
-    #     all_films.extend(films)
-    #     if (pDialog.iscanceled()):
-    #         pDialog.close()
-    #         return None
+    all_films = []
+    for idx,category in enumerate(categories):
+        percent = int(idx / len(categories) * 100)
+        pDialog.update(percent, 'Fetching ' + category["title"])
+        films = mubi.get_film_list(category["type"], category["id"], category["title"])
+        all_films.extend(films)
+        if (pDialog.iscanceled()):
+            pDialog.close()
+            return None
 
     films_with_kodi_url=[]
     for film in all_films:
