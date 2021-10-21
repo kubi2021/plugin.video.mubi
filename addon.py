@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, unicode_literals
 import sys
 from resources.lib.mubi import Mubi
-from resources.lib.library import write_strm_files
+import resources.lib.library as library
 import xbmcplugin
 import xbmcgui
 import xbmcaddon
@@ -102,12 +102,15 @@ def sync_locally():
     for idx,category in enumerate(categories):
         percent = int(idx / len(categories) * 100)
         pDialog.update(percent, 'Fetching ' + category["title"])
+
         films = mubi.get_film_list(category["type"], category["id"], category["title"])
         all_films.extend(films)
+
         if (pDialog.iscanceled()):
             pDialog.close()
             return None
 
+    ## Add action URL to the films so that they can be launched by Mubi
     films_with_kodi_url=[]
     for film in all_films:
         film_with_kodi_url = {
@@ -116,8 +119,19 @@ def sync_locally():
         }
         films_with_kodi_url.append(film_with_kodi_url)
 
-    pDialog.update(100, "Writing files...")
-    write_strm_files(plugin_userdata_path, films_with_kodi_url)
+    # merge the duplicates, keep multiple categories per film
+    merged_films = library.merge_duplicates(films_with_kodi_url)
+
+    # write the files one by one
+    for idx,film in enumerate(merged_films):
+        percent = int(idx / len(categories) * 100)
+        pDialog.update(percent, 'Creating local data ' + film["title"])
+        library.write_files(plugin_userdata_path, film)
+
+        if (pDialog.iscanceled()):
+            pDialog.close()
+            return None
+
     pDialog.close()
 
 def list_categories():

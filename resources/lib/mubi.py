@@ -203,7 +203,7 @@ class Mubi(object):
             title=film_overview['film']['title'],
             director=film_overview['film']['directors'],
             year=film_overview['film']['year'],
-            duration=film_overview['film']['duration'] * 60,  # This is in seconds
+            duration=film_overview['film']['duration'],
             country=film_overview['film']['historic_countries'],
             plot=film_overview['film']['default_editorial'],
             plotoutline = film_overview['film']['short_synopsis'],
