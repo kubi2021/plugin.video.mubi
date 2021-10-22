@@ -124,8 +124,8 @@ def sync_locally():
 
     # write the files one by one
     for idx,film in enumerate(merged_films):
-        percent = int(idx / len(categories) * 100)
-        pDialog.update(percent, 'Creating local data ' + film["title"])
+        percent = int(idx / len(merged_films) * 100)
+        pDialog.update(percent, 'Creating local data for movie ' + str(idx) + ' of ' + str(len(merged_films)) + ':\n' + film["title"])
         library.write_files(plugin_userdata_path, film)
 
         if (pDialog.iscanceled()):

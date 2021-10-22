@@ -93,44 +93,44 @@ def get_nfo_tree(metadata, categories, trailer_path):
     title = ET.SubElement(movie, 'title')
     title.text = metadata.title
 
-    # originaltitle = ET.SubElement(movie, 'originaltitle')
-    # originaltitle.text = metadata.originaltitle
-    #
-    # ratings = ET.SubElement(movie, 'ratings')
-    # rating = ET.SubElement(ratings, 'rating')
-    # rating.set('name', 'MUBI')
-    # rating.set('name', 'MUBI')
-    # rating.set('default', 'True')
-    # value = ET.SubElement(rating, 'value')
-    # value.text = str(metadata.rating)
-    # votes = ET.SubElement(rating, 'votes')
-    # votes.text = str(metadata.votes)
-    #
-    # plot = ET.SubElement(movie, 'plot')
-    # plot.text = metadata.plot
-    #
-    # outline = ET.SubElement(movie, 'outline')
-    # outline.text = metadata.plotoutline
+    originaltitle = ET.SubElement(movie, 'originaltitle')
+    originaltitle.text = metadata.originaltitle
+
+    ratings = ET.SubElement(movie, 'ratings')
+    rating = ET.SubElement(ratings, 'rating')
+    rating.set('name', 'MUBI')
+    rating.set('name', 'MUBI')
+    rating.set('default', 'True')
+    value = ET.SubElement(rating, 'value')
+    value.text = str(metadata.rating)
+    votes = ET.SubElement(rating, 'votes')
+    votes.text = str(metadata.votes)
+
+    plot = ET.SubElement(movie, 'plot')
+    plot.text = metadata.plot
+
+    outline = ET.SubElement(movie, 'outline')
+    outline.text = metadata.plotoutline
 
     runtime = ET.SubElement(movie, 'runtime')
     runtime.text = str(metadata.duration)
 
-    # country = ET.SubElement(movie, 'country')
-    # country.text = metadata.country[0]
+    country = ET.SubElement(movie, 'country')
+    country.text = metadata.country[0]
 
     for regisseur in metadata.director:
         director = ET.SubElement(movie, 'director')
         director.text = str(regisseur['name'])
 
-    # year = ET.SubElement(movie, 'year')
-    # year.text = str(metadata.year)
+    year = ET.SubElement(movie, 'year')
+    year.text = str(metadata.year)
 
     trailer = ET.SubElement(movie, 'trailer')
     trailer.text = str(trailer_path)
 
-    # thumb = ET.SubElement(movie, 'thumb')
-    # thumb.set('aspect', 'poster')
-    # thumb.text = metadata.image
+    thumb = ET.SubElement(movie, 'thumb')
+    thumb.set('aspect', 'poster')
+    thumb.text = metadata.image
 
     for category in categories:
         tag = ET.SubElement(movie, 'tag')
