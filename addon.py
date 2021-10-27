@@ -8,6 +8,7 @@ import xbmcaddon
 import xbmc
 from urllib.parse import urlencode, parse_qsl
 from pathlib import Path
+import os
 
 # In order to load the movie in the external browser
 import webbrowser
@@ -88,7 +89,6 @@ def main_navigation():
 def sync_locally():
 
     pDialog = xbmcgui.DialogProgress()
-
     pDialog.create('Syncing with Mubi', 'Fetching all categories ...')
 
     # fetch all cagetories
@@ -110,23 +110,40 @@ def sync_locally():
             pDialog.close()
             return None
 
-    ## Add action URL to the films so that they can be launched by Mubi
-    films_with_kodi_url=[]
-    for film in all_films:
-        film_with_kodi_url = {
-            'film': film,
-            'url': get_url(action='play_ext', web_url=film.web_url)
-        }
-        films_with_kodi_url.append(film_with_kodi_url)
+    # create plugin folder if not existing
+    if not os.path.exists(plugin_userdata_path):
+        os.makedirs(plugin_userdata_path)
 
     # merge the duplicates, keep multiple categories per film
-    merged_films = library.merge_duplicates(films_with_kodi_url)
+    merged_films = library.merge_duplicates(all_films )
 
-    # write the files one by one
+    # Create files (STRM and NFO)
     for idx,film in enumerate(merged_films):
         percent = int(idx / len(merged_films) * 100)
         pDialog.update(percent, 'Creating local data for movie ' + str(idx) + ' of ' + str(len(merged_films)) + ':\n' + film["title"])
-        library.write_files(plugin_userdata_path, film)
+
+        # prepare file name and path
+        clean_title = (film['title']).replace("/"," ")
+        film_folder_name = Path(clean_title + ' (' + str(film['metadata'].year) + ')')
+        film_path = plugin_userdata_path / film_folder_name
+
+        ## Create the folder
+        try:
+            os.mkdir(film_path)
+        except OSError as error:
+            xbmc.log("Error while creating the library: %s" % error, 2)
+
+        # create strm file
+        film_file_name = clean_title + ' (' + str(film['metadata'].year) + ').strm'
+        film_strm_file = film_path / film_file_name
+        kodi_movie_url = get_url(action='play_ext', web_url=film['web_url'])
+        library.write_strm_file(film_strm_file, film, kodi_movie_url)
+
+        # create nfo file
+        nfo_file_name = clean_title + ' (' + str(film['metadata'].year) + ').nfo'
+        nfo_file = film_path / nfo_file_name
+        kodi_trailer_url = get_url(action='play_trailer', url=film['metadata'].trailer)
+        library.write_nfo_file(nfo_file, film, kodi_trailer_url)
 
         if (pDialog.iscanceled()):
             pDialog.close()
@@ -268,6 +285,39 @@ def play_video_ext(web_url):
     """
     webbrowser.open_new_tab(web_url)
 
+def play_trailer(url):
+    """
+    Play a video by the provided path.
+
+    :param path: Fully-qualified video URL
+    :type path: str
+    """
+    # Create a playable item with a path to play.
+    play_item = xbmcgui.ListItem(path=url)
+    # Pass the item to the Kodi player.
+    xbmcplugin.setResolvedUrl(_HANDLE, True, listitem=play_item)
+
+    # list_item = xbmcgui.ListItem(label='trailer')
+    # list_item.setProperty('IsPlayable', 'true')
+    # is_folder = False
+    #
+    # mubi_resolved_info = mubi.get_play_url(identifier)
+    # mubi_film = xbmcgui.ListItem(path=mubi_resolved_info['url'])
+    #
+    # if mubi_resolved_info['is_mpd']:
+    #
+    #     mubi_film.setProperty('inputstream', 'inputstream.adaptive')
+    #     mubi_film.setProperty('inputstream.adaptive.manifest_type', 'mpd')
+    #
+    #     if mubi_resolved_info['drm_header'] is not None:
+    #         xbmc.log('DRM Header: %s' %mubi_resolved_info['drm_header'].decode(), 2)
+    #         xbmc.log('LICENSE_URL_HEADERS: %s' % LICENSE_URL_HEADERS, 2)
+    #         mubi_film.setProperty('inputstream.adaptive.license_type', "com.widevine.alpha")
+    #         mubi_film.setProperty('inputstream.adaptive.license_key', LICENSE_URL + '|' + LICENSE_URL_HEADERS + '&CL-KEY=' + mubi_resolved_info['drm_header'].decode() + '&CL-USER-ID='+ str(mubi_resolved_info['userId']) +'&CL-SESSION-ID='+ str(mubi_resolved_info['token']) + '&CL-ASSET-ID='+ str(mubi_resolved_info['drm_asset_id']) +'|R{SSM}|JBlicense')
+    #         mubi_film.setMimeType('application/dash+xml')
+    #         mubi_film.setContentLookup(False)
+    # return xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem=mubi_film)
+
 
 def router(paramstring):
     """
@@ -297,6 +347,9 @@ def router(paramstring):
         elif params['action'] == 'play_ext':
             # Play a video from a provided URL.
             play_video_ext(params['web_url'])
+        elif params['action'] == 'play_trailer':
+            # Play a video from a provided URL.
+            play_trailer(params['url'])
         else:
             raise ValueError('Invalid paramstring: {}!'.format(paramstring))
     else:
