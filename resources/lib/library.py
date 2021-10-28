@@ -15,12 +15,31 @@ def write_strm_file(film_strm_file, film, kodi_url):
     except OSError as error:
         xbmc.log("Error while creating the file: %s" % error, 2)
 
-def write_nfo_file(nfo_file, film, kodi_trailer_url):
+def get_imdb_url(title,year, omdbapiKey):
+
+    #Fetch Movie Data
+    data_URL = 'http://www.omdbapi.com/?apikey='+omdbapiKey
+    params = {
+        't':title,
+        'type':'movie',
+        'y':year
+    }
+    response = requests.get(data_URL,params=params).json()
+    if 'imdbID' in response:
+        imdb_url = "https://www.imdb.com/title/" + response['imdbID']
+        return imdb_url
+    else:
+        return ''
+
+def write_nfo_file(nfo_file, film, kodi_trailer_url, omdbapiKey):
 
     nfo_tree = get_nfo_tree(film['metadata'], film['categories'], kodi_trailer_url)
     try:
         f = open(nfo_file, "wb")
         f.write(nfo_tree)
+        if omdbapiKey:
+            imdb_url = get_imdb_url(film['metadata'].originaltitle,film['metadata'].year, omdbapiKey ).encode('utf-8')
+            f.write(imdb_url)
         f.close()
     except OSError as error:
         xbmc.log("Error while creating the file: %s" % error, 2)
@@ -68,7 +87,7 @@ def get_nfo_tree(metadata, categories, kodi_trailer_url):
     rating = ET.SubElement(ratings, 'rating')
     rating.set('name', 'MUBI')
     rating.set('name', 'MUBI')
-    rating.set('default', 'True')
+    # rating.set('default', 'True')
     value = ET.SubElement(rating, 'value')
     value.text = str(metadata.rating)
     votes = ET.SubElement(rating, 'votes')
@@ -85,6 +104,9 @@ def get_nfo_tree(metadata, categories, kodi_trailer_url):
 
     country = ET.SubElement(movie, 'country')
     country.text = metadata.country[0]
+
+    # genre = ET.SubElement(movie, 'genre')
+    # genre.text = metadata.genre
 
     for regisseur in metadata.director:
         director = ET.SubElement(movie, 'director')

@@ -42,7 +42,10 @@ class Mubi(object):
         "get_url": urljoin(_URL_MUBI, "api/v2/films/%s/reels/%s/secure_url")
     }
 
-    def __init__(self, username, password):
+    ## once we introduce the mubi login, remove the "random"
+    # def __init__(self, username, password):
+    def __init__(self, username="random", password="random"):
+
         self._username = username
         self._password = password
         self._cache_id = "plugin.video.mubi.filminfo.%s"

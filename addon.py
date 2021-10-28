@@ -21,10 +21,7 @@ plugin = xbmcaddon.Addon()
 plugin_userdata_path = Path(xbmc.translatePath( plugin.getAddonInfo('profile') ))
 
 
-if not plugin.getSetting("username") or not plugin.getSetting("password"):
-    plugin.openSettings()
-
-mubi = Mubi(plugin.getSetting("username"), plugin.getSetting("password"))
+mubi = Mubi()
 
 # Get the plugin url in plugin:// notation.
 _URL = sys.argv[0]
@@ -143,7 +140,7 @@ def sync_locally():
         nfo_file_name = clean_title + ' (' + str(film['metadata'].year) + ').nfo'
         nfo_file = film_path / nfo_file_name
         kodi_trailer_url = get_url(action='play_trailer', url=film['metadata'].trailer)
-        library.write_nfo_file(nfo_file, film, kodi_trailer_url)
+        library.write_nfo_file(nfo_file, film, kodi_trailer_url, plugin.getSetting("omdbapiKey"))
 
         if (pDialog.iscanceled()):
             pDialog.close()
