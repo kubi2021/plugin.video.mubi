@@ -29,3 +29,6 @@ Temporary Items
 # Byte-compiled / optimized / DLL files
 __pycache__/
 .pyc
+.DS_Store
+__pycache__/addon.cpython-38.opt-1.pyc
+resources/lib/__pycache__/
