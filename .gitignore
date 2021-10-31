@@ -32,3 +32,4 @@ __pycache__/
 .DS_Store
 __pycache__/addon.cpython-38.opt-1.pyc
 resources/lib/__pycache__/
+resources/.DS_Store

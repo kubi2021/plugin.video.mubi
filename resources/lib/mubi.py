@@ -10,24 +10,39 @@ import xbmc
 from urllib.parse import urljoin
 
 
-APP_VERSION_CODE = '6.06'
-ACCEPT_LANGUAGE = 'en-US'
-CLIENT = 'android'
-CLIENT_APP = 'mubi'
-CLIENT_DEVICE_OS = '8.0'
-USER_AGENT = 'Mozilla/5.0 (Linux; Android 8.0.0; SM-G960F Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.84 Mobile Safari/537.36'
+APP_VERSION_CODE = "6.06"
+ACCEPT_LANGUAGE = "en-US"
+CLIENT = "android"
+CLIENT_APP = "mubi"
+CLIENT_DEVICE_OS = "8.0"
+USER_AGENT = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G960F Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.84 Mobile Safari/537.36"
 
 
 Film = namedtuple(
-    'Film',
-    ['title', 'mubi_id', 'artwork', 'web_url', 'category','metadata']
+    "Film", ["title", "mubi_id", "artwork", "web_url", "category", "metadata"]
 )
 
 Metadata = namedtuple(
-    'Metadata',
-    ['title', 'director', 'year', 'duration', 'country', 'plot', 'plotoutline',
-     'genre', 'originaltitle', 'rating', 'votes', 'castandrole', 'dateadded' ,'trailer', 'image']
+    "Metadata",
+    [
+        "title",
+        "director",
+        "year",
+        "duration",
+        "country",
+        "plot",
+        "plotoutline",
+        "genre",
+        "originaltitle",
+        "rating",
+        "votes",
+        "castandrole",
+        "dateadded",
+        "trailer",
+        "image",
+    ],
 )
+
 
 class Mubi(object):
     _URL_MUBI = "https://mubi.com"
@@ -39,7 +54,7 @@ class Mubi(object):
         "films_in_group": urljoin(_URL_MUBI, "/api/v2/film_groups/%s/film_group_items"),
         "set_watching": urljoin(_URL_MUBI, "api/v2/films/%s/playback_languages"),
         "set_reel": urljoin(_URL_MUBI, "api/v2/films/%s/viewing"),
-        "get_url": urljoin(_URL_MUBI, "api/v2/films/%s/reels/%s/secure_url")
+        "get_url": urljoin(_URL_MUBI, "api/v2/films/%s/reels/%s/secure_url"),
     }
 
     ## once we introduce the mubi login, remove the "random"
@@ -50,22 +65,26 @@ class Mubi(object):
         self._password = password
         self._cache_id = "plugin.video.mubi.filminfo.%s"
         # Need a 20 digit id, hash username to make it predictable
-        self._udid = int(hashlib.sha1(username.encode('utf-8')).hexdigest(), 32) % (10 ** 20)
+        self._udid = int(hashlib.sha1(username.encode("utf-8")).hexdigest(), 32) % (
+            10 ** 20
+        )
         self._token = None
         self._userid = None
         self._country = None
         self._session = requests.Session()
-        self._session.headers.update({
-            'accept-language': ACCEPT_LANGUAGE,
-            'client': CLIENT,
-            'client-version': APP_VERSION_CODE,
-            'client-app': CLIENT_APP,
-            'client-device-os': CLIENT_DEVICE_OS,
-            'user-agent': USER_AGENT,
-            'if-none-match': 'W/"505d0033184d7877a3b351d8c94b6211"',
-            'accept': 'application/json, text/plain, */*',
-            'client-device-identifier': str(self._udid)
-        })
+        self._session.headers.update(
+            {
+                "accept-language": ACCEPT_LANGUAGE,
+                "client": CLIENT,
+                "client-version": APP_VERSION_CODE,
+                "client-app": CLIENT_APP,
+                "client-device-os": CLIENT_DEVICE_OS,
+                "user-agent": USER_AGENT,
+                "if-none-match": 'W/"505d0033184d7877a3b351d8c94b6211"',
+                "accept": "application/json, text/plain, */*",
+                "client-device-identifier": str(self._udid),
+            }
+        )
 
     def get_film_list(self, type, id, category_name):
         """
@@ -77,11 +96,16 @@ class Mubi(object):
         Ultimately, it returns a nametupl of films.
         """
 
-
-        if type=="FilmProgramming":
-             films = [self.get_film_metadata(film, category_name) for film in (self.get_now_showing_json())]
-        elif type=="FilmGroup":
-             films = [self.get_film_metadata(film, category_name) for film in (self.get_films_in_category_json(id))]
+        if type == "FilmProgramming":
+            films = [
+                self.get_film_metadata(film, category_name)
+                for film in (self.get_now_showing_json())
+            ]
+        elif type == "FilmGroup":
+            films = [
+                self.get_film_metadata(film, category_name)
+                for film in (self.get_films_in_category_json(id))
+            ]
 
         return [f for f in films if f]
 
@@ -91,13 +115,27 @@ class Mubi(object):
 
         """
         # Get list of available films
-        args = "?accept-language=%s&client=%s&client-version=%s&client-device-identifier=%s&client-app=%s&client-device-os=%s" % (ACCEPT_LANGUAGE, CLIENT,APP_VERSION_CODE, self._udid, CLIENT_APP, CLIENT_DEVICE_OS)
-        r = self._session.get(self._mubi_urls['films'] + args)
+        args = (
+            "?accept-language=%s&client=%s&client-version=%s&client-device-identifier=%s&client-app=%s&client-device-os=%s"
+            % (
+                ACCEPT_LANGUAGE,
+                CLIENT,
+                APP_VERSION_CODE,
+                self._udid,
+                CLIENT_APP,
+                CLIENT_DEVICE_OS,
+            )
+        )
+        r = self._session.get(self._mubi_urls["films"] + args)
         if r.status_code != 200:
-            xbmc.log("Invalid status code for films of the day: "+ str(r.status_code) + " getting list of films", 4)
-            xbmc.log(self._mubi_urls['films'] + args, 4)
+            xbmc.log(
+                "Invalid status code for films of the day: "
+                + str(r.status_code)
+                + " getting list of films",
+                4,
+            )
+            xbmc.log(self._mubi_urls["films"] + args, 4)
         return r.json()
-
 
     def get_film_groups(self):
         """
@@ -108,19 +146,24 @@ class Mubi(object):
         """
 
         args = "?filter_tvod=true"
-        r = self._session.get(self._mubi_urls['film_groups'] + args)
+        r = self._session.get(self._mubi_urls["film_groups"] + args)
         if r.status_code != 200:
-            xbmc.log("Invalid status code "+ str(r.status_code) + " getting list of categories", 4)
-            xbmc.log(self._mubi_urls['categories'] + args, 4)
+            xbmc.log(
+                "Invalid status code "
+                + str(r.status_code)
+                + " getting list of categories",
+                4,
+            )
+            xbmc.log(self._mubi_urls["categories"] + args, 4)
 
-        film_groups = (''.join(r.text)).encode('utf-8')
+        film_groups = ("".join(r.text)).encode("utf-8")
 
         categories = []
         for group in json.loads(film_groups):
             if group["type"] == "FilmGroup":
                 r = self._session.get(urljoin(self._URL_MUBI, group["resource"]))
 
-                film_group = json.loads((''.join(r.text)).encode('utf-8'))
+                film_group = json.loads(("".join(r.text)).encode("utf-8"))
                 if film_group:
                     for item in film_group:
                         category = {
@@ -128,7 +171,7 @@ class Mubi(object):
                             "id": item["id"],
                             "description": item["description"],
                             "image": item["image"],
-                            "type": group["type"]
+                            "type": group["type"],
                         }
                         xbmc.log("Ressource %s " % group["resource"], 1)
                         xbmc.log("Group title %s " % item["full_title"], 1)
@@ -136,15 +179,14 @@ class Mubi(object):
             elif group["type"] == "FilmProgramming":
                 category = {
                     "title": "Film of the day",
-                    "id": '-1',
+                    "id": "-1",
                     "description": "Movie of the day, for the past 30 days",
                     "image": "",
-                    "type": group["type"]
+                    "type": group["type"],
                 }
                 categories.append(category)
 
         return categories
-
 
     def get_films_in_category_json(self, category):
         """
@@ -158,36 +200,51 @@ class Mubi(object):
         # Grab the search results
         page_num = 1
         per_page = 20
-        args = "?page="+ str(page_num) + "&per_page="+ str(per_page) +"&filter_tvod=true"
-        response = self._session.get(self._mubi_urls['films_in_group'] % str(category) + args)
+        args = (
+            "?page="
+            + str(page_num)
+            + "&per_page="
+            + str(per_page)
+            + "&filter_tvod=true"
+        )
+        response = self._session.get(
+            self._mubi_urls["films_in_group"] % str(category) + args
+        )
         data = response.json()
 
         # Store the first page of results
         total_results = total_results + data["film_group_items"]
 
         # While data['next'] isn't empty, let's download the next page, too
-        for page_num in range(1, data['meta']['total_pages']):
+        for page_num in range(1, data["meta"]["total_pages"]):
 
-            args = "?page="+ str(page_num) + "&per_page="+ str(per_page) +"&filter_tvod=true"
-            response = self._session.get(self._mubi_urls['films_in_group'] % str(category) + args)
+            args = (
+                "?page="
+                + str(page_num)
+                + "&per_page="
+                + str(per_page)
+                + "&filter_tvod=true"
+            )
+            response = self._session.get(
+                self._mubi_urls["films_in_group"] % str(category) + args
+            )
             data = response.json()
             # Store the current page of results
             total_results = total_results + data["film_group_items"]
 
         return total_results
 
-
     def get_film_metadata(self, film_overview, category_name):
         """
         For each film, this function will query the API to get the metadata.
 
         """
-        film_id = film_overview['film']['id']
+        film_id = film_overview["film"]["id"]
 
         available_at = str(datetime.date.today())
         if "available_at" in film_overview:
-            available_at = dateutil.parser.parse(film_overview['available_at'])
-            expires_at = dateutil.parser.parse(film_overview['expires_at'])
+            available_at = dateutil.parser.parse(film_overview["available_at"])
+            expires_at = dateutil.parser.parse(film_overview["expires_at"])
 
             # Check film is valid, has not expired and is not preview
             now = datetime.datetime.now(available_at.tzinfo)
@@ -199,29 +256,34 @@ class Mubi(object):
                 return None
             available_at = str(available_at)
 
-        web_url = film_overview['film']['web_url']
+        web_url = film_overview["film"]["web_url"]
 
         # Build film metadata object
         metadata = Metadata(
-            title=film_overview['film']['title'],
-            director=film_overview['film']['directors'],
-            year=film_overview['film']['year'],
-            duration=film_overview['film']['duration'],
-            country=film_overview['film']['historic_countries'],
-            plot=film_overview['film']['default_editorial'],
-            plotoutline = film_overview['film']['short_synopsis'],
-            genre= film_overview['film']['genres'],
-            originaltitle=film_overview['film']['original_title'],
-            rating=film_overview['film']['average_rating_out_of_ten'],
-            votes=film_overview['film']['number_of_ratings'],
+            title=film_overview["film"]["title"],
+            director=film_overview["film"]["directors"],
+            year=film_overview["film"]["year"],
+            duration=film_overview["film"]["duration"],
+            country=film_overview["film"]["historic_countries"],
+            plot=film_overview["film"]["default_editorial"],
+            plotoutline=film_overview["film"]["short_synopsis"],
+            genre=film_overview["film"]["genres"],
+            originaltitle=film_overview["film"]["original_title"],
+            rating=film_overview["film"]["average_rating_out_of_ten"],
+            votes=film_overview["film"]["number_of_ratings"],
             castandrole="",
-            dateadded = available_at,
-            trailer=film_overview['film']['trailer_url'],
-            image = film_overview['film']['still_url']
+            dateadded=available_at,
+            trailer=film_overview["film"]["trailer_url"],
+            image=film_overview["film"]["still_url"],
         )
-        return Film(film_overview['film']['title'], film_id, film_overview['film']['stills']['standard'], web_url, category_name, metadata)
-
-
+        return Film(
+            film_overview["film"]["title"],
+            film_id,
+            film_overview["film"]["stills"]["standard"],
+            web_url,
+            category_name,
+            metadata,
+        )
 
 
 ###### DRM SECTION #######
@@ -276,63 +338,62 @@ class Mubi(object):
 #     return
 
 
+# def get_play_url(self, film_id, reel_id = -1):
+#     # reels probably refer to different streams of the same movie (usually when the movie is available in two dub versions)
+#     # it is necessary to tell the API that one wants to watch a film before requesting the movie URL from the API, otherwise
+#     # the URL will not be delivered.
+#     # this can be done by either calling
+#     #     [1] api/v1/{film_id}/viewing/set_reel, or
+#     #     [2] api/v1/{film_id}/viewing/watching
+#     # the old behavior of the addon was calling [1], as the reel id could be known from loading the film list.
+#     # however, with the new feature of playing a movie by entering the MUBI web url, the reel id is not always known (i.e.
+#     # if the film is taken from the library, rather than from the "now showing" section).
+#     # by calling [2], the default reel id for a film (which is usually the original dub version of the movie) is returned.
+#
+#     # set the current reel before playing the movie (if the reel was never set, the movie URL will not be delivered)
+#     payload = {'reel_id': reel_id, 'sidecar_subtitle_language_code': 'eng'}
+#     r = self._session.post((self._mubi_urls['set_reel'] % str(film_id)), data=payload)
+#     result = (''.join(r.text)).encode('utf-8')
+#     xbmc.log("Set reel response: %s" % result, 2)
+#
+#     reel_id = self.set_watching(film_id)
+#
+#     # get the movie URL
+#     args = "?download=false"
+#     xbmc.log("Headers are: %s" % self._session.headers, 4)
+#     r = self._session.get((self._mubi_urls['get_url'] % (str(film_id), str(reel_id))) + args)
+#     result = (''.join(r.text)).encode('utf-8')
+#     if r.status_code != 200:
+#         xbmc.log("Could not get secure URL for film %s with reel_id=%s" % (film_id, reel_id), 4)
+#         xbmc.log("Request was: %s" % r.url, 4)
+#         xbmc.log("Request was: %s" % r.headers, 4)
+#         xbmc.log("Request was: %s" % r.cookies, 4)
+#
+#     xbmc.log("Request was: %s" % r.url, 4)
+#     xbmc.log("Response was: (%s) %s" % (r.status_code, result), 2)
+#     url = json.loads(result)["url"]
+#     drm_asset_id = json.loads(result)["drm"]["asset_id"]
+#
+#     # return the video info
+#     item_result = {
+#         'url': url,
+#         'is_mpd': "mpd" in url,
+#         'token': self._token,
+#         'userId': self._userid,
+#         'drm_asset_id' : drm_asset_id,
+#         'drm_header': base64.b64encode(('{"userId":' + str(self._userid) + ',"sessionId":"' + self._token + '","merchant":"mubi"}').encode())
+#     }
+#
+#     return item_result
 
-    # def get_play_url(self, film_id, reel_id = -1):
-    #     # reels probably refer to different streams of the same movie (usually when the movie is available in two dub versions)
-    #     # it is necessary to tell the API that one wants to watch a film before requesting the movie URL from the API, otherwise
-    #     # the URL will not be delivered.
-    #     # this can be done by either calling
-    #     #     [1] api/v1/{film_id}/viewing/set_reel, or
-    #     #     [2] api/v1/{film_id}/viewing/watching
-    #     # the old behavior of the addon was calling [1], as the reel id could be known from loading the film list.
-    #     # however, with the new feature of playing a movie by entering the MUBI web url, the reel id is not always known (i.e.
-    #     # if the film is taken from the library, rather than from the "now showing" section).
-    #     # by calling [2], the default reel id for a film (which is usually the original dub version of the movie) is returned.
-    #
-    #     # set the current reel before playing the movie (if the reel was never set, the movie URL will not be delivered)
-    #     payload = {'reel_id': reel_id, 'sidecar_subtitle_language_code': 'eng'}
-    #     r = self._session.post((self._mubi_urls['set_reel'] % str(film_id)), data=payload)
-    #     result = (''.join(r.text)).encode('utf-8')
-    #     xbmc.log("Set reel response: %s" % result, 2)
-    #
-    #     reel_id = self.set_watching(film_id)
-    #
-    #     # get the movie URL
-    #     args = "?download=false"
-    #     xbmc.log("Headers are: %s" % self._session.headers, 4)
-    #     r = self._session.get((self._mubi_urls['get_url'] % (str(film_id), str(reel_id))) + args)
-    #     result = (''.join(r.text)).encode('utf-8')
-    #     if r.status_code != 200:
-    #         xbmc.log("Could not get secure URL for film %s with reel_id=%s" % (film_id, reel_id), 4)
-    #         xbmc.log("Request was: %s" % r.url, 4)
-    #         xbmc.log("Request was: %s" % r.headers, 4)
-    #         xbmc.log("Request was: %s" % r.cookies, 4)
-    #
-    #     xbmc.log("Request was: %s" % r.url, 4)
-    #     xbmc.log("Response was: (%s) %s" % (r.status_code, result), 2)
-    #     url = json.loads(result)["url"]
-    #     drm_asset_id = json.loads(result)["drm"]["asset_id"]
-    #
-    #     # return the video info
-    #     item_result = {
-    #         'url': url,
-    #         'is_mpd': "mpd" in url,
-    #         'token': self._token,
-    #         'userId': self._userid,
-    #         'drm_asset_id' : drm_asset_id,
-    #         'drm_header': base64.b64encode(('{"userId":' + str(self._userid) + ',"sessionId":"' + self._token + '","merchant":"mubi"}').encode())
-    #     }
-    #
-    #     return item_result
-
-    # def set_watching(self, film_id):
-    #     # this call tells the api that the user wants to watch a certain movie and returns the default reel id
-    #
-    #     r = self._session.get((self._mubi_urls['set_watching'] % str(film_id)))
-    #     result = (''.join(r.text)).encode('utf-8')
-    #     if r.status_code == 200:
-    #         return json.loads(result)["reels"][0]["id"]
-    #     else:
-    #         xbmc.log("Request was: %s" % r.url, 4)
-    #         xbmc.log("Failed to obtain the reel id with result: %s" % result, 4)
-    #     return -1
+# def set_watching(self, film_id):
+#     # this call tells the api that the user wants to watch a certain movie and returns the default reel id
+#
+#     r = self._session.get((self._mubi_urls['set_watching'] % str(film_id)))
+#     result = (''.join(r.text)).encode('utf-8')
+#     if r.status_code == 200:
+#         return json.loads(result)["reels"][0]["id"]
+#     else:
+#         xbmc.log("Request was: %s" % r.url, 4)
+#         xbmc.log("Failed to obtain the reel id with result: %s" % result, 4)
+#     return -1
