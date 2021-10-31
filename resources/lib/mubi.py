@@ -210,7 +210,7 @@ class Mubi(object):
             country=film_overview['film']['historic_countries'],
             plot=film_overview['film']['default_editorial'],
             plotoutline = film_overview['film']['short_synopsis'],
-            genre=', '.join(film_overview['film']['genres']),
+            genre= film_overview['film']['genres'],
             originaltitle=film_overview['film']['original_title'],
             rating=film_overview['film']['average_rating_out_of_ten'],
             votes=film_overview['film']['number_of_ratings'],

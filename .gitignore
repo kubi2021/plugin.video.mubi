@@ -29,4 +29,3 @@ Temporary Items
 # Byte-compiled / optimized / DLL files
 __pycache__/
 .pyc
-.DS_Store

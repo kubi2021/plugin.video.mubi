@@ -71,7 +71,6 @@ def merge_duplicates(films):
 
     return movies_and_categories
 
-
 def get_nfo_tree(metadata, categories, kodi_trailer_url):
 
     # create the file structure
@@ -87,7 +86,7 @@ def get_nfo_tree(metadata, categories, kodi_trailer_url):
     rating = ET.SubElement(ratings, 'rating')
     rating.set('name', 'MUBI')
     rating.set('name', 'MUBI')
-    # rating.set('default', 'True')
+
     value = ET.SubElement(rating, 'value')
     value.text = str(metadata.rating)
     votes = ET.SubElement(rating, 'votes')
@@ -105,8 +104,10 @@ def get_nfo_tree(metadata, categories, kodi_trailer_url):
     country = ET.SubElement(movie, 'country')
     country.text = metadata.country[0]
 
-    # genre = ET.SubElement(movie, 'genre')
-    # genre.text = metadata.genre
+    for mubi_genre in metadata.genre:
+        genre = ET.SubElement(movie, 'genre')
+        genre.text = str(mubi_genre)
+        genre.set('clear', 'true')
 
     for regisseur in metadata.director:
         director = ET.SubElement(movie, 'director')
