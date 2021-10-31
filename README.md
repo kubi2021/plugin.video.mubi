@@ -1,7 +1,7 @@
 # MUBI Addon for Kodi
 
 ## What it is
-Plugin to load MUBI Films Of The Day within Kodi.
+Plugin to load MUBI Films within Kodi.
 
 The code was taken from user [Jamieu](https://github.com/jamieu/plugin.video.mubi). It was not working with Kodi 19, so I had to make the following changes:
 
@@ -10,16 +10,17 @@ The code was taken from user [Jamieu](https://github.com/jamieu/plugin.video.mub
 - Removed dependency on XMBCSwift
 - Rewrote the browsing interface using native Kodi libraries
 
-What works:
+Features:
 
-- Fetching the 30 MUBI Films Of The Day, including the metadata
+- Fetches the all available movies
+- Creates local NFO files so that the movies can be added to the Kodi library, additional data can be fetched using Kodi scrappers. After having run the "Sync all Mubi films locally", add the following path to your Kodi movies library "special://userdata/addon_data/plugin.video.mubi" and update the library.
+- Play Mubi trailer from within Kodi
 - (Tested on MacOS only) open the movie in your external browser to player
-- Fetching all playable Mubi movies in Kodi
+
 
 
 What doesn't work (yet):
 
-- listing the movies in the Kodi movies library
 - Playing the movie within Kodi (DRM issues to solve)
 
 

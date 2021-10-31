@@ -12,8 +12,6 @@
   <extension point="xbmc.addon.metadata">
     <summary lang="en_GB">Kodi player for MUBI</summary>
     <description lang="en_GB">Allows fetching MUBI's listing to Kodi, and open the video in your external browser.</description>
-    <disclaimer lang="en_GB"></disclaimer>
-    <language>en</language>
     <platform>all</platform>
     <license>GPL-2.0-or-later</license>
     <!-- <source>http://github.com/you/plugin.addon.id</source> -->
