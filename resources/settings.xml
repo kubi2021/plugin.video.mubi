@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
-    <category label="32001">
-        <setting id="username" label="32011" type="text" default="salut"/>
-        <setting id="password" label="32012" type="text" option="hidden" enable="!eq(-1,)" default="password"/>
+    <category label="General">
+        <setting id="omdbapiKey" label="OMDB api Key" type="text" default=""/>
+        <!-- <setting id="username" label="User name" type="text" default=""/>
+        <setting id="password" label="Password" type="text" option="hidden" enable="!eq(-1,)" default=""/> -->
     </category>
 </settings>
