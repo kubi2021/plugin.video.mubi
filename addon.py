@@ -138,22 +138,22 @@ def sync_locally():
         ## Create the folder
         try:
             os.mkdir(film_path)
+
+            # create strm file
+            film_file_name = clean_title + " (" + str(film["metadata"].year) + ").strm"
+            film_strm_file = film_path / film_file_name
+            kodi_movie_url = get_url(action="play_ext", web_url=film["web_url"])
+            library.write_strm_file(film_strm_file, film, kodi_movie_url)
+
+            # create nfo file
+            nfo_file_name = clean_title + " (" + str(film["metadata"].year) + ").nfo"
+            nfo_file = film_path / nfo_file_name
+            kodi_trailer_url = get_url(action="play_trailer", url=film["metadata"].trailer)
+            library.write_nfo_file(
+                nfo_file, film, kodi_trailer_url, plugin.getSetting("omdbapiKey")
+            )
         except OSError as error:
             xbmc.log("Error while creating the library: %s" % error, 2)
-
-        # create strm file
-        film_file_name = clean_title + " (" + str(film["metadata"].year) + ").strm"
-        film_strm_file = film_path / film_file_name
-        kodi_movie_url = get_url(action="play_ext", web_url=film["web_url"])
-        library.write_strm_file(film_strm_file, film, kodi_movie_url)
-
-        # create nfo file
-        nfo_file_name = clean_title + " (" + str(film["metadata"].year) + ").nfo"
-        nfo_file = film_path / nfo_file_name
-        kodi_trailer_url = get_url(action="play_trailer", url=film["metadata"].trailer)
-        library.write_nfo_file(
-            nfo_file, film, kodi_trailer_url, plugin.getSetting("omdbapiKey")
-        )
 
         if pDialog.iscanceled():
             pDialog.close()
