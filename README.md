@@ -30,3 +30,5 @@ What doesn't work (yet):
 
 1. Download this repo
 2. Install from Zip
+3. In the add-on config, enter your OMDb API key (you can get it [here](http://www.omdbapi.com/apikey.aspx)). It's thanks to this key that the add-on will identify the movie on IMDb, and that later on the kodi scraper can find the corresponding artowrks, etc.
+4. Config the scraper to not fetch the trailer, as the current add-on is providing the trailer directly from Mubi.
