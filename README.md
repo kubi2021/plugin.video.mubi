@@ -12,12 +12,11 @@ The code was taken from user [Jamieu](https://github.com/jamieu/plugin.video.mub
 
 Features:
 
-- Fetches the all available movies
-- Creates local NFO files so that the movies can be added to the Kodi library, additional data can be fetched using Kodi scrappers. After having run the "Sync all Mubi films locally", add the following path to your Kodi movies library "special://userdata/addon_data/plugin.video.mubi" and update the library.
+- Fetches the all movies available on Kodi, including all meta data from Mubi
+- Compatible with the Kodi movie library
+- Finds the corresponding movie in IMDB so that Kodi scraper can fetch the meta data
 - Play Mubi trailer from within Kodi
 - (Tested on MacOS only) open the movie in your external browser to player
-
-
 
 What doesn't work (yet):
 
