@@ -29,6 +29,18 @@ What doesn't work (yet):
 ## Installation
 
 1. Download this repo
-2. Install from Zip
+2. From the Kodi interface, install the add on from Zip
 3. In the add-on config, enter your OMDb API key (you can get it [here](http://www.omdbapi.com/apikey.aspx)). It's thanks to this key that the add-on will identify the movie on IMDb, and that later on the kodi scraper can find the corresponding artowrks, etc.
-4. Config the scraper to not fetch the trailer, as the current add-on is providing the trailer directly from Mubi.
+
+## First run & populating the library
+1. launch the Mubi add on
+2. Select to sync Mubi locally
+3. In settings > media > library, add a video source with the path: special://userdata/addon_data/plugin.video.mubi
+4. In the next window (Set Content), after adding the path, set that the directory contains Movies
+5. Choose your favorite information provider (I'm using the universal movie scraper)
+6. In the settings of the scraper, uncheck feching the trailer as the current add-on is providing the trailer directly from Mubi. I also check to fetch all fanarts.
+7. Back to the "Set content" window, check "movies are in separate folders", leave the other toggles as they are.
+
+## Next runs
+
+Whenever you want to update the local database, follow step 1 and 2 above. Then update the library to get the last meta data.
