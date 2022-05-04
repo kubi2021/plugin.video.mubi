@@ -16,17 +16,22 @@ def write_strm_file(film_strm_file, film, kodi_url):
         xbmc.log("Error while creating the file: %s" % error, 2)
 
 
-def get_imdb_url(title, year, omdbapiKey):
+def get_imdb_url(original_title,english_title, year, omdbapiKey):
 
     # Fetch Movie Data
     data_URL = "http://www.omdbapi.com/?apikey=" + omdbapiKey
-    params = {"t": title, "type": "movie", "y": year}
+    params = {"t": original_title, "type": "movie", "y": year}
     response = requests.get(data_URL, params=params).json()
     if "imdbID" in response:
         imdb_url = "https://www.imdb.com/title/" + response["imdbID"]
         return imdb_url
     else:
-        return ""
+        params = {"t": english_title, "type": "movie", "y": year}
+        response = requests.get(data_URL, params=params).json()
+        if "imdbID" in response:
+            imdb_url = "https://www.imdb.com/title/" + response["imdbID"]
+            return imdb_url
+    return ""
 
 
 def write_nfo_file(nfo_file, film, kodi_trailer_url, omdbapiKey):
