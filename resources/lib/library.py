@@ -42,7 +42,7 @@ def write_nfo_file(nfo_file, film, kodi_trailer_url, omdbapiKey):
         f.write(nfo_tree)
         if omdbapiKey:
             imdb_url = get_imdb_url(
-                film["metadata"].originaltitle, film["metadata"].year, omdbapiKey
+                film["metadata"].originaltitle, film["title"], film["metadata"].year, omdbapiKey
             ).encode("utf-8")
             f.write(imdb_url)
         f.close()
