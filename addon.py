@@ -6,6 +6,7 @@ import xbmcplugin
 import xbmcgui
 import xbmcaddon
 import xbmc
+import xbmcvfs
 from urllib.parse import urlencode, parse_qsl
 from pathlib import Path
 import os
@@ -16,8 +17,7 @@ import webbrowser
 
 plugin = xbmcaddon.Addon()
 
-# xbmc.translatePath is deprecated and might be removed in future kodi versions. Please use xbmcvfs.translatePath instead.
-plugin_userdata_path = Path(xbmc.translatePath(plugin.getAddonInfo("profile")))
+plugin_userdata_path = Path(xbmcvfs.translatePath(plugin.getAddonInfo("profile")))
 
 
 mubi = Mubi()
