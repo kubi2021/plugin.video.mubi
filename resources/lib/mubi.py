@@ -216,7 +216,7 @@ class Mubi:
                     image_url = ''
 
                 category = {
-                    'title': group.get('title', ''),
+                    'title': group.get('full_title', ''),
                     'id': group.get('id', ''),
                     'description': group.get('description', ''),
                     'image': image_url,
