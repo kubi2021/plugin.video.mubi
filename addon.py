@@ -19,6 +19,12 @@ if __name__ == "__main__":
     base_url = sys.argv[0]
     session = SessionManager(plugin)
     mubi = Mubi(session)
+
+    # Fetch and set client country if it's not already set
+    if not session.client_country:
+        client_country = mubi.get_cli_country()
+        session.set_client_country(client_country)
+
     navigation = NavigationHandler(handle, base_url, mubi, session)
 
     # Parse parameters from the URL
