@@ -1,3 +1,8 @@
+# This file contains helper functions for managing Mubi films and metadata in Kodi.
+# It includes functionality to write .strm and .nfo files, fetch IMDb data via the OMDb API, and merge duplicate film entries.
+# Additionally, it generates XML structures for film metadata (NFO files) and interacts with the filesystem to store data locally.
+
+
 # -*- coding: utf-8 -*-
 # In order to manipulate files and folders
 import os

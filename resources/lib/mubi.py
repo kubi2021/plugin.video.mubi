@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+
+# This code defines a Python class `Mubi` that interacts with the Mubi API 
+# to retrieve information about films available on the Mubi streaming platform.
+# It includes functionality for user login, retrieving lists of films 
+# (either daily film programming or film groups), and fetching metadata for individual films.
+# The class uses HTTP requests to communicate with the API, processes the responses, 
+# and organizes the film data into named tuples for easy access.
+
+
 import datetime
 import dateutil.parser
 import requests
@@ -7,6 +16,8 @@ import hashlib
 import base64
 from collections import namedtuple
 import xbmc
+import re
+import random
 from urllib.parse import urljoin
 
 
@@ -43,19 +54,151 @@ Metadata = namedtuple(
     ],
 )
 
+class Mubi:
+    def __init__(self, settings):
+        """
+        Initialize the Mubi class.
 
-class Mubi(object):
-    _URL_MUBI = "https://mubi.com"
+        :param settings: A dictionary containing necessary settings like deviceID, client_country, token, and logged_in status.
+        :type settings: dict
+        """
+        self.apiURL = 'https://api.mubi.com/v3/'
+        self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
+        self.settings = settings
+
+        # Ensure deviceID and client_country are set
+        if not self.settings.get('deviceID'):
+            self.settings['deviceID'] = self.generate_device_id()
+        if not self.settings.get('client_country'):
+            self.settings['client_country'] = self.get_cli_country()
+
+    def code_gen(self, length):
+        base = '0123456789abcdef'
+        return ''.join(random.choice(base) for _ in range(length))
+
+
+
+
+    def generate_device_id(self):
+        """
+        Generates a unique device ID.
+
+        :return: Generated device ID.
+        :rtype: str
+        """
+        device_id = f"{self.code_gen(8)}-{self.code_gen(4)}-{self.code_gen(4)}-{self.code_gen(4)}-{self.code_gen(12)}"
+        return device_id
+
+    def get_cli_country(self):
+        """
+        Retrieves the client's country from Mubi's website.
+
+        :return: Client country code.
+        :rtype: str
+        """
+        headers = {'User-Agent': self.UA}
+        url = 'https://mubi.com/'
+        resp = requests.get(url, headers=headers).text
+        country = re.findall(r'"Client-Country":"([^"]+?)"', resp)
+        cli_country = country[0] if country else 'PL'
+        return cli_country
+
+    def hea_atv_gen(self):
+        """
+        Generates headers required for API requests without authorization.
+
+        :return: Headers dictionary.
+        :rtype: dict
+        """
+        return {
+            'User-Agent': 'MUBI-Android-TV/31.1',  # Updated User-Agent
+            'accept-encoding': 'gzip',
+            'accept': 'application/json',
+            'client': 'android_tv',
+            'client-version': '31.1',  # Updated client-version
+            'client-device-identifier': self.settings['deviceID'],
+            'client-app': 'mubi',
+            'client-device-brand': 'unknown',
+            'client-device-model': 'sdk_google_atv_x86',
+            'client-device-os': '8.0.0',
+            'client-accept-audio-codecs': 'AAC',
+            'client-country': self.settings['client_country']
+        }
+
+    def hea_atv_auth(self):
+        """
+        Generates headers required for API requests with authorization.
+
+        :return: Headers dictionary with Authorization token.
+        :rtype: dict
+        """
+        headers = self.hea_atv_gen()
+        token = self.settings.get("token")
+        if not token:
+            xbmc.log("No token found in settings", xbmc.LOGERROR)
+        headers['authorization'] = f'Bearer {token}'
+        return headers
+
+    def get_link_code(self):
+        """
+        Calls the Mubi API to generate a link code and an authentication token for the login process.
+
+        :return: Dictionary with 'auth_token' and 'link_code'.
+        :rtype: dict
+        """
+        url = f'{self.apiURL}link_code'
+        response = requests.get(url, headers=self.hea_atv_gen())
+        return response.json()
+
+    def authenticate(self, auth_token):
+        """
+        Authenticates the user with the provided auth_token.
+
+        :param auth_token: Authentication token from get_link_code().
+        :type auth_token: str
+        :return: Response JSON from the authenticate API call.
+        :rtype: dict
+        """
+        url = f'{self.apiURL}authenticate'
+        data = {'auth_token': auth_token}
+        response = requests.post(url, headers=self.hea_atv_gen(), json=data)
+        return response.json()
+
+    def log_out(self):
+        try:
+            url = f'{self.apiURL}sessions'
+            response = requests.delete(url, headers=self.hea_atv_auth())
+            xbmc.log(f"Logout response status code: {response.status_code}", xbmc.LOGDEBUG)
+            xbmc.log(f"Logout response body: {response.text}", xbmc.LOGDEBUG)
+            if response.status_code == 200:
+                return True
+            else:
+                return False
+        except Exception as e:
+            xbmc.log(f"Exception during logout: {e}", xbmc.LOGERROR)
+            return False
+
+
+
+
+class MubiOLD(object):
+
+    _URL_MUBI = "https://api.mubi.com/v3/"
     _mubi_urls = {
-        "login": urljoin(_URL_MUBI, "api/v2/sessions"),
-        "startup": urljoin(_URL_MUBI, "api/v2/app_startup"),
-        "films": urljoin(_URL_MUBI, "/api/v2/film_programmings"),
-        "film_groups": urljoin(_URL_MUBI, "/api/v2/layout"),
-        "films_in_group": urljoin(_URL_MUBI, "/api/v2/film_groups/%s/film_group_items"),
-        "set_watching": urljoin(_URL_MUBI, "api/v2/films/%s/playback_languages"),
-        "set_reel": urljoin(_URL_MUBI, "api/v2/films/%s/viewing"),
-        "get_url": urljoin(_URL_MUBI, "api/v2/films/%s/reels/%s/secure_url"),
+        "login_code": urljoin(_URL_MUBI, "link_code"),
+        "authenticate": urljoin(_URL_MUBI, "authenticate"),
+        "logout": urljoin(_URL_MUBI, "sessions")
     }
+
+    # _URL_MUBI = "https://mubi.com"
+    # _mubi_urls = {
+    #     "login": urljoin(_URL_MUBI, "api/v2/sessions"),
+    #     "startup": urljoin(_URL_MUBI, "api/v2/app_startup"),
+    #     "films": urljoin(_URL_MUBI, "/api/v2/film_programmings"),
+    #     "film_groups": urljoin(_URL_MUBI, "/api/v2/layout"),
+    #     "films_in_group": urljoin(_URL_MUBI, "/api/v2/film_groups/%s/film_group_items"),
+    #     "get_url": urljoin(_URL_MUBI, "api/v2/films/%s/reels/%s/secure_url"),
+    # }
 
     ## once we introduce the mubi login, remove the "random"
     # def __init__(self, username, password):
@@ -284,116 +427,3 @@ class Mubi(object):
             category_name,
             metadata,
         )
-
-
-###### DRM SECTION #######
-
-# The functions below will be needed in order to loads
-# the films within Kodi, with DRMs
-
-# def login(self):
-#     payload = {
-#         'email': self._username,
-#         'password': self._password
-#     }
-#     xbmc.log("Logging in with username: %s and udid: %s" % (self._username, self._udid), 2)
-#
-#     r = self._session.post(self._mubi_urls["login"], data=payload)
-#     result = (''.join(r.text)).encode('utf-8')
-#
-#     if r.status_code == 200:
-#         self._token = json.loads(result)['token']
-#         self._userid = json.loads(result)['user']['id']
-#         self._session.headers.update({'authorization': "Bearer %s" % self._token})
-#         xbmc.log("Login Successful with token=%s and userid=%s" % (self._token, self._userid), 2)
-#         xbmc.log("Headers=%s" % self._session.headers, 2)
-#         xbmc.executebuiltin('Notification(%s, %s, %d, %s)'%("Mubi","Login Successful", 5000, '/script.hellow.world.png'))
-#
-#     else:
-#         xbmc.log("Login Failed with result: %s" % result, 4)
-#         xbmc.executebuiltin('Notification(%s, %s, %d, %s)'%("Mubi","Login Failed: %s" % result, 5000, '/script.hellow.world.png'))
-#
-#     return r.status_code
-#
-# def app_startup(self):
-#     payload = {
-#         'udid': self._udid,
-#         'token': self._token,
-#         'client': 'android',
-#         'client_version': APP_VERSION_CODE
-#     }
-#
-#     r = self._session.post(self._mubi_urls['startup'] + "?client=android", data=payload)
-#
-#     print("fetching country: " + self._mubi_urls['startup'] + "?client=android")
-#     result = (''.join(r.text)).encode('utf-8')
-#
-#     if r.status_code == 200:
-#         self._country = json.loads(result)['country']
-#         xbmc.log("Successfully got country as %s" % self._country, 2)
-#     else:
-#         xbmc.log("Failed to get country: %s" % result, 4)
-#
-#     self.now_showing()
-#     return
-
-
-# def get_play_url(self, film_id, reel_id = -1):
-#     # reels probably refer to different streams of the same movie (usually when the movie is available in two dub versions)
-#     # it is necessary to tell the API that one wants to watch a film before requesting the movie URL from the API, otherwise
-#     # the URL will not be delivered.
-#     # this can be done by either calling
-#     #     [1] api/v1/{film_id}/viewing/set_reel, or
-#     #     [2] api/v1/{film_id}/viewing/watching
-#     # the old behavior of the addon was calling [1], as the reel id could be known from loading the film list.
-#     # however, with the new feature of playing a movie by entering the MUBI web url, the reel id is not always known (i.e.
-#     # if the film is taken from the library, rather than from the "now showing" section).
-#     # by calling [2], the default reel id for a film (which is usually the original dub version of the movie) is returned.
-#
-#     # set the current reel before playing the movie (if the reel was never set, the movie URL will not be delivered)
-#     payload = {'reel_id': reel_id, 'sidecar_subtitle_language_code': 'eng'}
-#     r = self._session.post((self._mubi_urls['set_reel'] % str(film_id)), data=payload)
-#     result = (''.join(r.text)).encode('utf-8')
-#     xbmc.log("Set reel response: %s" % result, 2)
-#
-#     reel_id = self.set_watching(film_id)
-#
-#     # get the movie URL
-#     args = "?download=false"
-#     xbmc.log("Headers are: %s" % self._session.headers, 4)
-#     r = self._session.get((self._mubi_urls['get_url'] % (str(film_id), str(reel_id))) + args)
-#     result = (''.join(r.text)).encode('utf-8')
-#     if r.status_code != 200:
-#         xbmc.log("Could not get secure URL for film %s with reel_id=%s" % (film_id, reel_id), 4)
-#         xbmc.log("Request was: %s" % r.url, 4)
-#         xbmc.log("Request was: %s" % r.headers, 4)
-#         xbmc.log("Request was: %s" % r.cookies, 4)
-#
-#     xbmc.log("Request was: %s" % r.url, 4)
-#     xbmc.log("Response was: (%s) %s" % (r.status_code, result), 2)
-#     url = json.loads(result)["url"]
-#     drm_asset_id = json.loads(result)["drm"]["asset_id"]
-#
-#     # return the video info
-#     item_result = {
-#         'url': url,
-#         'is_mpd': "mpd" in url,
-#         'token': self._token,
-#         'userId': self._userid,
-#         'drm_asset_id' : drm_asset_id,
-#         'drm_header': base64.b64encode(('{"userId":' + str(self._userid) + ',"sessionId":"' + self._token + '","merchant":"mubi"}').encode())
-#     }
-#
-#     return item_result
-
-# def set_watching(self, film_id):
-#     # this call tells the api that the user wants to watch a certain movie and returns the default reel id
-#
-#     r = self._session.get((self._mubi_urls['set_watching'] % str(film_id)))
-#     result = (''.join(r.text)).encode('utf-8')
-#     if r.status_code == 200:
-#         return json.loads(result)["reels"][0]["id"]
-#     else:
-#         xbmc.log("Request was: %s" % r.url, 4)
-#         xbmc.log("Failed to obtain the reel id with result: %s" % result, 4)
-#     return -1
