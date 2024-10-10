@@ -187,6 +187,47 @@ class Mubi:
         else:
             return False
 
+
+    def get_film_groups(self):
+        """
+        Retrieves a list of film groups (collections) from the MUBI API V3.
+
+        :return: A list of film group categories.
+        :rtype: list
+        """
+        endpoint = 'browse/film_groups'
+        headers = self.hea_atv_gen()  # Use headers without authorization
+        params = {'page': 1}
+
+        response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+
+        if response:
+            data = response.json()
+            film_groups = data.get('film_groups', [])
+            categories = []
+            for group in film_groups:
+                image_data = group.get('image', '')
+                if isinstance(image_data, dict):
+                    image_url = image_data.get('medium', '')
+                elif isinstance(image_data, str):
+                    image_url = image_data
+                else:
+                    image_url = ''
+
+                category = {
+                    'title': group.get('title', ''),
+                    'id': group.get('id', ''),
+                    'description': group.get('description', ''),
+                    'image': image_url,
+                    'type': group.get('type', ''),
+                }
+                categories.append(category)
+            return categories
+        else:
+            xbmc.log("Failed to retrieve film groups", xbmc.LOGERROR)
+            return []
+
+
         
 
 class MubiOLD(object):
