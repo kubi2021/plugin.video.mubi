@@ -42,17 +42,22 @@ class Film:
         kodi_trailer_url = f"{base_url}?action=play_trailer&url={self.metadata.trailer}"
 
         try:
-            nfo_tree = self._get_nfo_tree(self.metadata, self.categories, kodi_trailer_url)
+            # Fetch IMDb URL if the API key is provided
+            imdb_url = ""
+            if omdb_api_key:
+                imdb_url = self._get_imdb_url(self.metadata.originaltitle, self.title, self.metadata.year, omdb_api_key)
+
+            # Generate the NFO XML with the IMDb URL included
+            nfo_tree = self._get_nfo_tree(self.metadata, self.categories, kodi_trailer_url, imdb_url)
+            
+            # Write the XML to file
             with open(nfo_file, "wb") as f:
                 f.write(nfo_tree)
-                if omdb_api_key:
-                    imdb_url = self._get_imdb_url(self.metadata.originaltitle, self.title, self.metadata.year, omdb_api_key)
-                    f.write(imdb_url.encode("utf-8"))
         except (OSError, ValueError) as error:
             xbmc.log(f"Error while creating NFO file for {self.title}: {error}", xbmc.LOGERROR)
 
-    def _get_nfo_tree(self, metadata, categories: list, kodi_trailer_url: str) -> bytes:
-        """Generate the NFO XML tree structure."""
+    def _get_nfo_tree(self, metadata, categories: list, kodi_trailer_url: str, imdb_url: str) -> bytes:
+        """Generate the NFO XML tree structure, including IMDb URL if available."""
         if not metadata.title:
             raise ValueError("Metadata must contain a title")
 
@@ -91,7 +96,13 @@ class Film:
 
         ET.SubElement(movie, "dateadded").text = str(metadata.dateadded)
 
+        # Add IMDb URL if available
+        if imdb_url:
+            ET.SubElement(movie, "imdbid").text = imdb_url
+
         return ET.tostring(movie)
+
+
 
     def _get_imdb_url(self, original_title: str, english_title: str, year: str, omdb_api_key: str) -> str:
         """Fetch the IMDb URL using the OMDb API."""
