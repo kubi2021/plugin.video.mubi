@@ -29,9 +29,9 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 1. Launch the Mubi add-on.
 2. Select the option to **sync Mubi locally**.
 3. Navigate to **Settings > Media > Library** and add a video source with the path:
-   ```
-special://userdata/addon_data/plugin.video.mubi
-   ```
+    ```
+    special://userdata/addon_data/plugin.video.mubi
+    ```
 4. In the next window (**Set Content**), after adding the path, specify that the directory contains **Movies**.
 5. Choose your preferred information provider (e.g., **Universal Movie Scraper**).
 6. In the scraper settings, **uncheck** fetching the trailer (since the current add-on provides trailers directly from Mubi). Optionally, check to fetch all **fanart**.
@@ -66,10 +66,6 @@ The code was originally forked from user [Jamieu](https://github.com/jamieu/plug
 ---
 
 
-
-
-
----
 
 ## Development Setup 🛠️
 
