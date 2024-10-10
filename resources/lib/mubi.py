@@ -282,7 +282,7 @@ class Mubi:
                         'id': group.get('id', ''),
                         'description': group.get('description', ''),
                         'image': image_url,
-                        'type': group.get('type', ''),
+                        'type': 'FilmGroup',  # Set type explicitly
                     }
                     categories.append(category)
 
@@ -297,6 +297,167 @@ class Mubi:
                 break  # Exit the loop on failure
 
         return categories
+
+
+
+    def get_film_list(self, type, id, category_name):
+        """
+        Retrieves a list of films based on the type and id.
+
+        :param type: Type of the category ('FilmGroup')
+        :type type: str
+        :param id: ID of the category
+        :type id: int
+        :param category_name: Name of the category
+        :type category_name: str
+        :return: List of Film namedtuples
+        :rtype: list
+        """
+        if type == "FilmGroup":
+            films_data = self.get_films_in_category_json(id)
+        else:
+            xbmc.log(f"Unknown type: {type}", xbmc.LOGERROR)
+            return []
+
+        films = [
+            self.get_film_metadata(film_item, category_name)
+            for film_item in films_data
+        ]
+
+        return [f for f in films if f]
+
+
+    def get_now_showing_films(self):
+        """
+        Retrieves the list of films currently showing (playable) from the MUBI API V3.
+
+        :return: List of films currently showing.
+        :rtype: list
+        """
+        endpoint = 'browse/films'
+        headers = self.hea_atv_gen()  # Use headers without authorization
+        films = []
+        page = 1
+
+        while True:
+            params = {'page': page, 'playable': 'true'}
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            if response:
+                data = response.json()
+                films_page = data.get('films', [])
+                meta = data.get('meta', {})
+
+                films.extend(films_page)
+
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break
+            else:
+                xbmc.log(f"Failed to retrieve films on page {page}", xbmc.LOGERROR)
+                break
+
+        return films
+
+    def get_films_in_group(self, group_id):
+        """
+        Retrieves items (films) within a specific film group (collection), handling pagination.
+
+        :param group_id: ID of the film group.
+        :type group_id: int
+        :return: List of films in the film group.
+        :rtype: list
+        """
+        endpoint = f'film_groups/{group_id}/film_group_items'
+        headers = self.hea_atv_auth()  # Use headers with authorization
+        films = []
+        page = 1
+
+        while True:
+            params = {'page': page, 'per_page': 24, 'include_upcoming': 'true'}
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            if response:
+                data = response.json()
+                film_group_items = data.get('film_group_items', [])
+                meta = data.get('meta', {})
+
+                films.extend(film_group_items)
+
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break
+            else:
+                xbmc.log(f"Failed to retrieve films in group {group_id} on page {page}", xbmc.LOGERROR)
+                break
+
+        return films
+
+    def get_film_metadata(self, film_data, category_name):
+        """
+        Extracts film metadata from film data.
+
+        :param film_data: Dictionary containing film data
+        :type film_data: dict
+        :param category_name: Name of the category
+        :type category_name: str
+        :return: Film namedtuple or None if film is not available
+        :rtype: Film or None
+        """
+        film_id = film_data.get('id')
+        available_at = film_data.get('available_at')
+        expires_at = film_data.get('expires_at')
+
+        # Check film is valid, has not expired and is not preview
+        if available_at and expires_at:
+            available_at_dt = dateutil.parser.parse(available_at)
+            expires_at_dt = dateutil.parser.parse(expires_at)
+            now = datetime.datetime.now(tz=available_at_dt.tzinfo)
+
+            if available_at_dt > now:
+                xbmc.log(f"Film {film_id} is not yet available", xbmc.LOGDEBUG)
+                return None
+            elif expires_at_dt < now:
+                xbmc.log(f"Film {film_id} has expired", xbmc.LOGDEBUG)
+                return None
+            available_at_str = available_at_dt.strftime('%Y-%m-%d')
+        else:
+            available_at_str = datetime.date.today().strftime('%Y-%m-%d')
+
+        web_url = film_data.get('web_url', '')
+
+        # Build film metadata object
+        metadata = Metadata(
+            title=film_data.get('title', ''),
+            director=film_data.get('directors', ''),
+            year=film_data.get('year', ''),
+            duration=film_data.get('duration', ''),
+            country=film_data.get('countries', []),
+            plot=film_data.get('synopsis', ''),
+            plotoutline=film_data.get('short_synopsis', ''),
+            genre=film_data.get('genres', []),
+            originaltitle=film_data.get('original_title', ''),
+            rating=film_data.get('average_rating', 0),
+            votes=film_data.get('number_of_ratings', 0),
+            castandrole='',
+            dateadded=available_at_str,
+            trailer=film_data.get('trailer_url', ''),
+            image=film_data.get('still_url', '')
+        )
+
+        artwork = film_data.get('stills', {}).get('standard', '')
+
+        return Film(
+            title=film_data.get('title', ''),
+            mubi_id=film_id,
+            artwork=artwork,
+            web_url=web_url,
+            category=category_name,
+            metadata=metadata
+        )
+
 
 
 
@@ -401,56 +562,6 @@ class MubiOLD(object):
             xbmc.log(self._mubi_urls["films"] + args, 4)
         return r.json()
 
-    # def get_film_groups(self):
-    #     """
-    #     Query film groups. Each call to film groups returns one or many film category, such as Top 1000, or Mubi releases, for example.
-
-    #     It will return a list of category.
-
-    #     """
-
-    #     args = "?filter_tvod=true"
-    #     r = self._session.get(self._mubi_urls["film_groups"] + args)
-    #     if r.status_code != 200:
-    #         xbmc.log(
-    #             "Invalid status code "
-    #             + str(r.status_code)
-    #             + " getting list of categories",
-    #             4,
-    #         )
-    #         xbmc.log(self._mubi_urls["categories"] + args, 4)
-
-    #     film_groups = ("".join(r.text)).encode("utf-8")
-
-    #     categories = []
-    #     for group in json.loads(film_groups):
-    #         if group["type"] == "FilmGroup":
-    #             r = self._session.get(urljoin(self._URL_MUBI, group["resource"]))
-
-    #             film_group = json.loads(("".join(r.text)).encode("utf-8"))
-    #             if film_group:
-    #                 for item in film_group:
-    #                     category = {
-    #                         "title": item["full_title"],
-    #                         "id": item["id"],
-    #                         "description": item["description"],
-    #                         "image": item["image"],
-    #                         "type": group["type"],
-    #                     }
-    #                     xbmc.log("Ressource %s " % group["resource"], 1)
-    #                     xbmc.log("Group title %s " % item["full_title"], 1)
-    #                     categories.append(category)
-    #         elif group["type"] == "FilmProgramming":
-    #             category = {
-    #                 "title": "Film of the day",
-    #                 "id": "-1",
-    #                 "description": "Movie of the day, for the past 30 days",
-    #                 "image": "",
-    #                 "type": group["type"],
-    #             }
-    #             categories.append(category)
-
-    #     return categories
 
     def get_films_in_category_json(self, category):
         """
