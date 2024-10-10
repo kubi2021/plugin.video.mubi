@@ -9,7 +9,6 @@
 from resources.lib.session_manager import SessionManager
 from resources.lib.navigation_handler import NavigationHandler
 from resources.lib.mubi import Mubi
-import resources.lib.library as library
 import xbmcaddon
 from urllib.parse import parse_qsl
 import sys
@@ -38,6 +37,8 @@ if __name__ == "__main__":
         navigation.play_video_ext(params['web_url'])
     elif action == "play_trailer":
         navigation.play_trailer(params['url'])
+    elif action == "sync_locally":
+        navigation.sync_locally()
     else:
         navigation.main_navigation()
 
