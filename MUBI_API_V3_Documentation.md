@@ -365,39 +365,98 @@ Varies based on type, generally includes an array of results and metadata.
 
 ### Collections
 
+
 #### Browse Collections
 
 ##### Endpoint
-
-```bash
-GET /v3/browse/film_groups
-```
+**GET /v3/browse/film_groups**
 
 ##### Description
-
-Retrieves a list of film collections.
+Retrieves a list of film collections (also known as film groups) from MUBI. Each film group represents a curated collection of films, such as "Top 1000", "Film of the Day", or other thematic collections.
 
 ##### Headers
-
-```
-Standard headers for web client identification.
-```
+Include standard headers for client identification. If using the Android TV client, headers might look like:
+\`\`\`
+User-Agent: MUBI-Android-TV/31.1
+accept-encoding: gzip
+accept: application/json
+client: android_tv
+client-version: 31.1
+client-device-identifier: {device_id}
+client-app: mubi
+client-device-brand: unknown
+client-device-model: sdk_google_atv_x86
+client-device-os: 8.0.0
+client-accept-audio-codecs: AAC
+client-country: {client_country}
+\`\`\`
 
 ##### Query Parameters
-
-```
-sort: Sorting option
-page: Page number for pagination
-```
+- **sort** (optional): Sorting option for the film groups.
+- **page** (optional): Page number for pagination (default is 1).
 
 ##### Response
-
-```json
+\`\`\`json
 {
-  "film_groups": [ /* Array of collection objects */ ],
-  "meta": { /* Metadata including next page */ }
+  "film_groups": [
+    {
+      "id": integer,
+      "title": "string",
+      "description": "string",
+      "image": "string or object",
+      "type": "string",
+      "resource": "string"
+    },
+    // ... more film group objects
+  ],
+  "meta": {
+    "next_page": integer or null,
+    "total_pages": integer,
+    "total_count": integer
+  }
 }
-```
+\`\`\`
+
+##### Response Fields
+- **film_groups**: An array of film group objects.
+    - **id** (integer): Unique identifier for the film group.
+    - **title** (string): Title of the film group.
+    - **description** (string): Description of the film group.
+    - **image** (string or object): Image associated with the film group.
+        - Note: The image field can be either:
+            - A string URL pointing directly to the image.
+            - An object containing multiple image URLs of different sizes, e.g.:
+\`\`\`json
+"image": {
+  "small": "string",
+  "medium": "string",
+  "large": "string"
+}
+\`\`\`
+    - **type** (string): Type of the film group, e.g., "FilmGroup", "FilmProgramming".
+    - **resource** (string): API resource URL for additional details about the film group.
+- **meta**: Metadata about the response.
+    - **next_page** (integer or null): Next page number if more pages are available; null if there are no more pages.
+    - **total_pages** (integer): Total number of pages available.
+    - **total_count** (integer): Total number of film groups available.
+
+
+
+##### Error Handling
+\`\`\`json
+{
+  "error": {
+    "message": "string",
+    "code": integer
+  }
+}
+\`\`\`
+
+##### Notes
+- **Authentication**: This endpoint does not require authentication; however, including client identification headers is recommended.
+- **Pagination**: Use the page query parameter to navigate through pages. The meta.next_page field indicates if more pages are available.
+- **Image Field Handling**: Since the image field can be either a string or an object, ensure your application checks the data type before accessing properties.
+
 
 
 #### Get Collection Items
