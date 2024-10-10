@@ -426,13 +426,13 @@ client-country: {client_country}
         - Note: The image field can be either:
             - A string URL pointing directly to the image.
             - An object containing multiple image URLs of different sizes, e.g.:
-```json
-"image": {
-  "small": "string",
-  "medium": "string",
-  "large": "string"
-}
-```
+            ```json
+            "image": {
+            "small": "string",
+            "medium": "string",
+            "large": "string"
+            }
+            ```
     - **type** (string): Type of the film group, e.g., "FilmGroup", "FilmProgramming".
     - **resource** (string): API resource URL for additional details about the film group.
 - **meta**: Metadata about the response.
