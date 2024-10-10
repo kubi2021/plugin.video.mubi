@@ -401,12 +401,44 @@ client-country: {client_country}
   "film_groups": [
     {
       "id": integer,
+      "slug": "string",
+      "color": "string",
+      "hide_title_on_splash": boolean,
+      "double_bill": boolean,
+      "full_title": "string",
+      "full_title_upcase": "string",
       "title": "string",
+      "title_upcase": "string",
+      "title_color": "string",
+      "subtitle": "string or null",
+      "subtitle_upcase": "string or null",
+      "subtitle_color": "string",
+      "average_colour_hex": "string",
+      "focal_point": {
+        "x": float,
+        "y": float
+      },
+      "image": "string",  // URL to the image
+      "short_description": "string",
+      "short_description_html": "string",
+      "title_treatment_url": "string or null",
+      "trailers": [
+        {
+          "url": "string",
+          "profile": "string"
+        }
+        // ... more trailer objects
+      ] or null,
+      "design_variant": "string",
+      "published": boolean,
+      "total_items": integer,
+      "web_url": "string",  // URL to the film group's web page
+      "portrait_image": "string or null",
+      "crm_image": "string or null",
+      "is_season": boolean,
       "description": "string",
-      "image": "string or object",
-      "type": "string",
-      "resource": "string"
-    },
+      "description_html": "string"
+    }
     // ... more film group objects
   ],
   "meta": {
@@ -415,30 +447,107 @@ client-country: {client_country}
     "total_count": integer
   }
 }
+
 ```
 
 ##### Response Fields
-- **film_groups**: An array of film group objects.
-    - **id** (integer): Unique identifier for the film group.
-    - **title** (string): Title of the film group.
-    - **description** (string): Description of the film group.
-    - **image** (string or object): Image associated with the film group.
-        - Note: The image field can be either:
-            - A string URL pointing directly to the image.
-            - An object containing multiple image URLs of different sizes, e.g.:
-            ```json
-            "image": {
-            "small": "string",
-            "medium": "string",
-            "large": "string"
-            }
-            ```
-    - **type** (string): Type of the film group, e.g., "FilmGroup", "FilmProgramming".
-    - **resource** (string): API resource URL for additional details about the film group.
-- **meta**: Metadata about the response.
-    - **next_page** (integer or null): Next page number if more pages are available; null if there are no more pages.
-    - **total_pages** (integer): Total number of pages available.
-    - **total_count** (integer): Total number of film groups available.
+
+- **id** (integer): Unique identifier for the film group.
+
+- **slug** (string): URL-friendly identifier for the film group.
+
+- **color** (string): Hexadecimal color code associated with the group (e.g., "fdd23b").
+
+- **hide_title_on_splash** (boolean): Indicates whether the title should be hidden on the splash screen.
+
+- **double_bill** (boolean): Indicates if the film group features a double bill (two films shown together).
+
+- **full_title** (string): The full title of the film group.
+
+- **full_title_upcase** (string): The full title in uppercase letters.
+
+- **title** (string): The main title of the film group.
+
+- **title_upcase** (string): The main title in uppercase letters.
+
+- **title_color** (string): Hexadecimal color code for the title text.
+
+- **subtitle** (string or null): The subtitle of the film group, if any.
+
+- **subtitle_upcase** (string or null): The subtitle in uppercase letters.
+
+- **subtitle_color** (string): Hexadecimal color code for the subtitle text.
+
+- **average_colour_hex** (string): Average color of the film group's image in hexadecimal format.
+
+- **focal_point** (object): Focal point for image display.
+
+  - **x** (float): Horizontal focal point (0.0 to 1.0).
+
+  - **y** (float): Vertical focal point (0.0 to 1.0).
+
+- **image** (string): URL to the film group's image.
+
+- **short_description** (string): A brief description of the film group.
+
+- **short_description_html** (string): HTML-formatted short description.
+
+- **title_treatment_url** (string or null): URL to a specialized title image, if available.
+
+- **trailers** (array or null): An array of trailer objects, or null if none.
+
+  - **Trailer Object**:
+
+    - **url** (string): URL to the trailer video.
+
+    - **profile** (string): Video quality profile (e.g., "240p", "720p", "1080p").
+
+- **design_variant** (string): Design variant of the film group (e.g., "default").
+
+- **published** (boolean): Indicates whether the film group is published and visible to users.
+
+- **total_items** (integer): Total number of items (films) in the group.
+
+- **web_url** (string): URL to the film group's page on MUBI's website.
+
+- **portrait_image** (string or null): URL to a portrait version of the image, if available.
+
+- **crm_image** (string or null): URL to the CRM (Customer Relationship Management) image, if available.
+
+- **is_season** (boolean): Indicates if the film group represents a season (e.g., a series of films).
+
+- **description** (string): Detailed description of the film group.
+
+- **description_html** (string): HTML-formatted detailed description.
+
+
+
+###### Meta Object
+
+
+
+- **next_page** (integer or null): The number of the next page if there are more pages; null if there are no additional pages.
+
+- **total_pages** (integer): Total number of pages available.
+
+- **total_count** (integer): Total count of film groups available.
+
+
+
+###### Notes
+
+
+
+- **Nullable Fields**: Some fields can be null if the data is not available. These include subtitle, subtitle_upcase, title_treatment_url, trailers, portrait_image, and crm_image.
+
+- **Image Fields**: The image, portrait_image, and crm_image fields are URLs pointing to images. They can be used to display visuals associated with the film group.
+
+- **Trailers**: If trailers is not null, it contains an array of trailer objects, each with a url and profile.
+
+- **Focal Point**: The focal_point object helps in displaying the image correctly by indicating the point of interest.
+
+- **Descriptions**: Both short_description and description are provided in plain text and HTML formats, allowing for flexible display options.
+
 
 
 
