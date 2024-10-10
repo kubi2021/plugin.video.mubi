@@ -21,6 +21,7 @@ import random
 from urllib.parse import urljoin
 
 
+
 APP_VERSION_CODE = "6.06"
 ACCEPT_LANGUAGE = "en-US"
 CLIENT = "android"
@@ -55,39 +56,41 @@ Metadata = namedtuple(
 )
 
 class Mubi:
-    def __init__(self, settings):
+    def __init__(self, session_manager):
         """
-        Initialize the Mubi class.
+        Initialize the Mubi class with the session manager.
 
-        :param settings: A dictionary containing necessary settings like deviceID, client_country, token, and logged_in status.
-        :type settings: dict
+        :param session_manager: Instance of SessionManager to handle session data
+        :type session_manager: SessionManager
         """
         self.apiURL = 'https://api.mubi.com/v3/'
         self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
-        self.settings = settings
+        self.session_manager = session_manager  # Use session manager for session-related data
 
-        # Ensure deviceID and client_country are set
-        if not self.settings.get('deviceID'):
-            self.settings['deviceID'] = self.generate_device_id()
-        if not self.settings.get('client_country'):
-            self.settings['client_country'] = self.get_cli_country()
-
-    def code_gen(self, length):
-        base = '0123456789abcdef'
-        return ''.join(random.choice(base) for _ in range(length))
-
-
-
-
-    def generate_device_id(self):
+    def _make_api_call(self, method, endpoint=None, full_url=None, headers=None, params=None, data=None, json=None):
         """
-        Generates a unique device ID.
+        Generic method to make API calls.
 
-        :return: Generated device ID.
-        :rtype: str
+        :param method: HTTP method ('GET', 'POST', 'DELETE', etc.)
+        :param endpoint: API endpoint to call (appended to self.apiURL unless full_url is provided)
+        :param full_url: (Optional) Full URL to use instead of appending endpoint to self.apiURL
+        :param headers: (Optional) Dictionary of HTTP Headers to send with the request
+        :param params: (Optional) Dictionary of URL parameters to append to the URL
+        :param data: (Optional) Dictionary, bytes, or file-like object to send in the body of the request
+        :param json: (Optional) A JSON serializable Python object to send in the body of the request
+        :return: Response object
         """
-        device_id = f"{self.code_gen(8)}-{self.code_gen(4)}-{self.code_gen(4)}-{self.code_gen(4)}-{self.code_gen(12)}"
-        return device_id
+        url = full_url if full_url else f"{self.apiURL}{endpoint}"
+        try:
+            response = requests.request(method, url, headers=headers, params=params, data=data, json=json)
+            response.raise_for_status()
+            return response
+        except requests.HTTPError as http_err:
+            xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
+            return None
+        except Exception as err:
+            xbmc.log(f"An error occurred: {err}", xbmc.LOGERROR)
+            return None
 
     def get_cli_country(self):
         """
@@ -97,11 +100,14 @@ class Mubi:
         :rtype: str
         """
         headers = {'User-Agent': self.UA}
-        url = 'https://mubi.com/'
-        resp = requests.get(url, headers=headers).text
-        country = re.findall(r'"Client-Country":"([^"]+?)"', resp)
-        cli_country = country[0] if country else 'PL'
-        return cli_country
+        response = self._make_api_call('GET', full_url='https://mubi.com/', headers=headers)
+        if response:
+            resp_text = response.text
+            country = re.findall(r'"Client-Country":"([^"]+?)"', resp_text)
+            cli_country = country[0] if country else 'PL'
+            return cli_country
+        else:
+            return 'PL'
 
     def hea_atv_gen(self):
         """
@@ -116,13 +122,13 @@ class Mubi:
             'accept': 'application/json',
             'client': 'android_tv',
             'client-version': '31.1',  # Updated client-version
-            'client-device-identifier': self.settings['deviceID'],
+            'client-device-identifier': self.session_manager.device_id,  # Use session manager
             'client-app': 'mubi',
             'client-device-brand': 'unknown',
             'client-device-model': 'sdk_google_atv_x86',
             'client-device-os': '8.0.0',
             'client-accept-audio-codecs': 'AAC',
-            'client-country': self.settings['client_country']
+            'client-country': self.session_manager.client_country  # Use session manager
         }
 
     def hea_atv_auth(self):
@@ -133,10 +139,10 @@ class Mubi:
         :rtype: dict
         """
         headers = self.hea_atv_gen()
-        token = self.settings.get("token")
+        token = self.session_manager.token  # Use session manager
         if not token:
-            xbmc.log("No token found in settings", xbmc.LOGERROR)
-        headers['authorization'] = f'Bearer {token}'
+            xbmc.log("No token found", xbmc.LOGERROR)
+        headers['Authorization'] = f'Bearer {token}'
         return headers
 
     def get_link_code(self):
@@ -146,9 +152,11 @@ class Mubi:
         :return: Dictionary with 'auth_token' and 'link_code'.
         :rtype: dict
         """
-        url = f'{self.apiURL}link_code'
-        response = requests.get(url, headers=self.hea_atv_gen())
-        return response.json()
+        response = self._make_api_call('GET', 'link_code', headers=self.hea_atv_gen())
+        if response:
+            return response.json()
+        else:
+            return None
 
     def authenticate(self, auth_token):
         """
@@ -159,27 +167,27 @@ class Mubi:
         :return: Response JSON from the authenticate API call.
         :rtype: dict
         """
-        url = f'{self.apiURL}authenticate'
         data = {'auth_token': auth_token}
-        response = requests.post(url, headers=self.hea_atv_gen(), json=data)
-        return response.json()
+        response = self._make_api_call('POST', 'authenticate', headers=self.hea_atv_gen(), json=data)
+        if response:
+            return response.json()
+        else:
+            return None
 
     def log_out(self):
-        try:
-            url = f'{self.apiURL}sessions'
-            response = requests.delete(url, headers=self.hea_atv_auth())
-            xbmc.log(f"Logout response status code: {response.status_code}", xbmc.LOGDEBUG)
-            xbmc.log(f"Logout response body: {response.text}", xbmc.LOGDEBUG)
-            if response.status_code == 200:
-                return True
-            else:
-                return False
-        except Exception as e:
-            xbmc.log(f"Exception during logout: {e}", xbmc.LOGERROR)
+        """
+        Logs the user out by invalidating the session.
+
+        :return: True if logout was successful, False otherwise.
+        :rtype: bool
+        """
+        response = self._make_api_call('DELETE', 'sessions', headers=self.hea_atv_auth())
+        if response and response.status_code == 200:
+            return True
+        else:
             return False
 
-
-
+        
 
 class MubiOLD(object):
 

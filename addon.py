@@ -35,11 +35,10 @@ plugin_userdata_path = Path(xbmcvfs.translatePath(plugin.getAddonInfo("profile")
 
 # Instantiate the session manager
 session = SessionManager(plugin)
-mubi = Mubi({
-    'deviceID': session.device_id,
-    'client_country': session.client_country,
-    'token': session.token
-})
+mubi = Mubi(session)
+
+# if not session.client_country:
+#     session.set_client_country(mubi.settings['client_country'])
 
 # Get the plugin url in plugin:// notation.
 _URL = sys.argv[0]
