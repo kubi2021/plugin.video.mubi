@@ -396,7 +396,7 @@ client-country: {client_country}
 - **page** (optional): Page number for pagination (default is 1).
 
 ##### Response
-```json
+```
 {
   "film_groups": [
     {

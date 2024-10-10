@@ -206,6 +206,7 @@ class Mubi:
             film_groups = data.get('film_groups', [])
             categories = []
             for group in film_groups:
+                xbmc.log(f"group content: {json.dumps(group, indent=2)}", xbmc.LOGDEBUG)
                 image_data = group.get('image', '')
                 if isinstance(image_data, dict):
                     image_url = image_data.get('medium', '')
