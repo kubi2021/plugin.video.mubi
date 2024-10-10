@@ -7,6 +7,7 @@ I really enjoy MUBI and their curated selection of films. However, I find their 
 This project is a personal endeavour I work on in my free time. As I am not a professional developer, updates or changes might take a little longer to implement.
 
 ## Features
+The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚
 
 - 🎬 Fetches all movies available on Mubi, including **full metadata**
 - 👍 Compatible with the **Kodi movie library**
