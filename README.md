@@ -52,6 +52,7 @@ MUBI recently updated their API a few months ago, which caused the current addon
 In addition to the API update, I made the following changes:
 - 🔄 **Major refactoring** of the backend, making the addon more robust and easier to maintain.
 - 🔑 Added the ability to **manage sessions** (login and logout), laying the groundwork for future functionality to play films directly within Kodi (not implemented yet).
+- The user can change the country in the settings, allowing them to see movie titles in their favorite language.
 
 
 ### Sometimes in 2021
