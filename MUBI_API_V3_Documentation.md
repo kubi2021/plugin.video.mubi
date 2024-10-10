@@ -6,9 +6,9 @@
 This document provides technical documentation of the MUBI API V3. The API allows interaction with MUBI's services, including authentication, browsing films, collections, cast members, lists, events, and more.
 
 The base URL for all API endpoints is:
-\`\`\`
+```
 https://api.mubi.com/v3/
-\`\`\`
+```
 
 ### Table of Contents
 1. [Authentication](#authentication)
@@ -376,7 +376,7 @@ Retrieves a list of film collections (also known as film groups) from MUBI. Each
 
 ##### Headers
 Include standard headers for client identification. If using the Android TV client, headers might look like:
-\`\`\`
+```
 User-Agent: MUBI-Android-TV/31.1
 accept-encoding: gzip
 accept: application/json
@@ -389,14 +389,14 @@ client-device-model: sdk_google_atv_x86
 client-device-os: 8.0.0
 client-accept-audio-codecs: AAC
 client-country: {client_country}
-\`\`\`
+```
 
 ##### Query Parameters
 - **sort** (optional): Sorting option for the film groups.
 - **page** (optional): Page number for pagination (default is 1).
 
 ##### Response
-\`\`\`json
+```json
 {
   "film_groups": [
     {
@@ -415,7 +415,7 @@ client-country: {client_country}
     "total_count": integer
   }
 }
-\`\`\`
+```
 
 ##### Response Fields
 - **film_groups**: An array of film group objects.
@@ -426,13 +426,13 @@ client-country: {client_country}
         - Note: The image field can be either:
             - A string URL pointing directly to the image.
             - An object containing multiple image URLs of different sizes, e.g.:
-\`\`\`json
+```json
 "image": {
   "small": "string",
   "medium": "string",
   "large": "string"
 }
-\`\`\`
+```
     - **type** (string): Type of the film group, e.g., "FilmGroup", "FilmProgramming".
     - **resource** (string): API resource URL for additional details about the film group.
 - **meta**: Metadata about the response.
@@ -443,14 +443,14 @@ client-country: {client_country}
 
 
 ##### Error Handling
-\`\`\`json
+```json
 {
   "error": {
     "message": "string",
     "code": integer
   }
 }
-\`\`\`
+```
 
 ##### Notes
 - **Authentication**: This endpoint does not require authentication; however, including client identification headers is recommended.
@@ -703,21 +703,21 @@ per_page: Number of results per page
 
 ### Industry Events
 #### Browse Industry Events
-\`\`\`bash
+```bash
 GET /v3/browse/industry_events
-\`\`\`
+```
 Retrieves a list of industry events like festivals and awards.
 
 #### Get Event Years
-\`\`\`bash
+```bash
 GET /v3/industry_events/{slug}/years
-\`\`\`
+```
 Retrieves available years for an industry event.
 
 #### Get Event Films
-\`\`\`bash
+```bash
 GET /v3/industry_events/{id}/films
-\`\`\`
+```
 Retrieves films associated with a specific industry event.
 
 
