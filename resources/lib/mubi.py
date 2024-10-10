@@ -19,6 +19,11 @@ import xbmc
 import re
 import random
 from urllib.parse import urljoin
+import time
+import threading
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 
 
@@ -56,6 +61,13 @@ Metadata = namedtuple(
 )
 
 class Mubi:
+
+    # Class-level variables for rate limiting
+    _lock = threading.Lock()
+    _last_call_time = 0
+    _calls_made = 0
+    _call_history = []
+
     def __init__(self, session_manager):
         """
         Initialize the Mubi class with the session manager.
@@ -69,7 +81,7 @@ class Mubi:
 
     def _make_api_call(self, method, endpoint=None, full_url=None, headers=None, params=None, data=None, json=None):
         """
-        Generic method to make API calls.
+        Generic method to make API calls, adhering to rate limits and best practices.
 
         :param method: HTTP method ('GET', 'POST', 'DELETE', etc.)
         :param endpoint: API endpoint to call (appended to self.apiURL unless full_url is provided)
@@ -78,19 +90,63 @@ class Mubi:
         :param params: (Optional) Dictionary of URL parameters to append to the URL
         :param data: (Optional) Dictionary, bytes, or file-like object to send in the body of the request
         :param json: (Optional) A JSON serializable Python object to send in the body of the request
-        :return: Response object
+        :return: Response object or None if an error occurred
         """
         url = full_url if full_url else f"{self.apiURL}{endpoint}"
+
+        # Ensure headers are not None and set Accept-Encoding to gzip
+        if headers is None:
+            headers = {}
+        headers.setdefault('Accept-Encoding', 'gzip')
+
+        # Rate limiting: Max 60 calls per minute
+        with self._lock:
+            current_time = time.time()
+            # Remove calls older than 60 seconds
+            self._call_history = [t for t in self._call_history if current_time - t < 60]
+            if len(self._call_history) >= 60:
+                wait_time = 60 - (current_time - self._call_history[0])
+                xbmc.log(f"Rate limit reached. Sleeping for {wait_time:.2f} seconds.", xbmc.LOGINFO)
+                time.sleep(wait_time)
+                self._call_history = [t for t in self._call_history if current_time - t < 60]
+
+            self._call_history.append(time.time())
+
+        # Set up retries with exponential backoff for transient errors
+        session = requests.Session()
+        retries = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET", "POST", "DELETE", "PUT", "PATCH"]
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
+
         try:
-            response = requests.request(method, url, headers=headers, params=params, data=data, json=json)
+            response = session.request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                data=data,
+                json=json,
+                timeout=10  # Set a reasonable timeout
+            )
             response.raise_for_status()
             return response
-        except requests.HTTPError as http_err:
+        except requests.exceptions.HTTPError as http_err:
             xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
             return None
-        except Exception as err:
-            xbmc.log(f"An error occurred: {err}", xbmc.LOGERROR)
+        except requests.exceptions.RequestException as req_err:
+            xbmc.log(f"Request exception occurred: {req_err}", xbmc.LOGERROR)
             return None
+        except Exception as err:
+            xbmc.log(f"An unexpected error occurred: {err}", xbmc.LOGERROR)
+            return None
+        finally:
+            session.close()
 
     def get_cli_country(self):
         """
@@ -190,43 +246,58 @@ class Mubi:
 
     def get_film_groups(self):
         """
-        Retrieves a list of film groups (collections) from the MUBI API V3.
+        Retrieves a list of all film groups (collections) from the MUBI API V3, handling pagination.
 
-        :return: A list of film group categories.
+        :return: A list of all film group categories across all pages.
         :rtype: list
         """
         endpoint = 'browse/film_groups'
         headers = self.hea_atv_gen()  # Use headers without authorization
-        params = {'page': 1}
+        categories = []
+        page = 1  # Start from the first page
 
-        response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+        while True:
+            params = {'page': page}
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
 
-        if response:
-            data = response.json()
-            film_groups = data.get('film_groups', [])
-            categories = []
-            for group in film_groups:
-                xbmc.log(f"group content: {json.dumps(group, indent=2)}", xbmc.LOGDEBUG)
-                image_data = group.get('image', '')
-                if isinstance(image_data, dict):
-                    image_url = image_data.get('medium', '')
-                elif isinstance(image_data, str):
-                    image_url = image_data
+            if response:
+                data = response.json()
+                film_groups = data.get('film_groups', [])
+                meta = data.get('meta', {})
+
+                for group in film_groups:
+                    # Log the content of 'group' for inspection
+                    xbmc.log(f"group content: {json.dumps(group, indent=2)}", xbmc.LOGDEBUG)
+
+                    image_data = group.get('image', '')
+                    if isinstance(image_data, dict):
+                        image_url = image_data.get('medium', '')
+                    elif isinstance(image_data, str):
+                        image_url = image_data
+                    else:
+                        image_url = ''
+
+                    category = {
+                        'title': group.get('full_title', ''),
+                        'id': group.get('id', ''),
+                        'description': group.get('description', ''),
+                        'image': image_url,
+                        'type': group.get('type', ''),
+                    }
+                    categories.append(category)
+
+                # Check if there's a next page
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
                 else:
-                    image_url = ''
+                    break  # No more pages to fetch
+            else:
+                xbmc.log(f"Failed to retrieve film groups on page {page}", xbmc.LOGERROR)
+                break  # Exit the loop on failure
 
-                category = {
-                    'title': group.get('full_title', ''),
-                    'id': group.get('id', ''),
-                    'description': group.get('description', ''),
-                    'image': image_url,
-                    'type': group.get('type', ''),
-                }
-                categories.append(category)
-            return categories
-        else:
-            xbmc.log("Failed to retrieve film groups", xbmc.LOGERROR)
-            return []
+        return categories
+
 
 
         
@@ -330,56 +401,56 @@ class MubiOLD(object):
             xbmc.log(self._mubi_urls["films"] + args, 4)
         return r.json()
 
-    def get_film_groups(self):
-        """
-        Query film groups. Each call to film groups returns one or many film category, such as Top 1000, or Mubi releases, for example.
+    # def get_film_groups(self):
+    #     """
+    #     Query film groups. Each call to film groups returns one or many film category, such as Top 1000, or Mubi releases, for example.
 
-        It will return a list of category.
+    #     It will return a list of category.
 
-        """
+    #     """
 
-        args = "?filter_tvod=true"
-        r = self._session.get(self._mubi_urls["film_groups"] + args)
-        if r.status_code != 200:
-            xbmc.log(
-                "Invalid status code "
-                + str(r.status_code)
-                + " getting list of categories",
-                4,
-            )
-            xbmc.log(self._mubi_urls["categories"] + args, 4)
+    #     args = "?filter_tvod=true"
+    #     r = self._session.get(self._mubi_urls["film_groups"] + args)
+    #     if r.status_code != 200:
+    #         xbmc.log(
+    #             "Invalid status code "
+    #             + str(r.status_code)
+    #             + " getting list of categories",
+    #             4,
+    #         )
+    #         xbmc.log(self._mubi_urls["categories"] + args, 4)
 
-        film_groups = ("".join(r.text)).encode("utf-8")
+    #     film_groups = ("".join(r.text)).encode("utf-8")
 
-        categories = []
-        for group in json.loads(film_groups):
-            if group["type"] == "FilmGroup":
-                r = self._session.get(urljoin(self._URL_MUBI, group["resource"]))
+    #     categories = []
+    #     for group in json.loads(film_groups):
+    #         if group["type"] == "FilmGroup":
+    #             r = self._session.get(urljoin(self._URL_MUBI, group["resource"]))
 
-                film_group = json.loads(("".join(r.text)).encode("utf-8"))
-                if film_group:
-                    for item in film_group:
-                        category = {
-                            "title": item["full_title"],
-                            "id": item["id"],
-                            "description": item["description"],
-                            "image": item["image"],
-                            "type": group["type"],
-                        }
-                        xbmc.log("Ressource %s " % group["resource"], 1)
-                        xbmc.log("Group title %s " % item["full_title"], 1)
-                        categories.append(category)
-            elif group["type"] == "FilmProgramming":
-                category = {
-                    "title": "Film of the day",
-                    "id": "-1",
-                    "description": "Movie of the day, for the past 30 days",
-                    "image": "",
-                    "type": group["type"],
-                }
-                categories.append(category)
+    #             film_group = json.loads(("".join(r.text)).encode("utf-8"))
+    #             if film_group:
+    #                 for item in film_group:
+    #                     category = {
+    #                         "title": item["full_title"],
+    #                         "id": item["id"],
+    #                         "description": item["description"],
+    #                         "image": item["image"],
+    #                         "type": group["type"],
+    #                     }
+    #                     xbmc.log("Ressource %s " % group["resource"], 1)
+    #                     xbmc.log("Group title %s " % item["full_title"], 1)
+    #                     categories.append(category)
+    #         elif group["type"] == "FilmProgramming":
+    #             category = {
+    #                 "title": "Film of the day",
+    #                 "id": "-1",
+    #                 "description": "Movie of the day, for the past 30 days",
+    #                 "image": "",
+    #                 "type": group["type"],
+    #             }
+    #             categories.append(category)
 
-        return categories
+    #     return categories
 
     def get_films_in_category_json(self, category):
         """
