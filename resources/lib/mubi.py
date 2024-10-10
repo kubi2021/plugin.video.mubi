@@ -137,7 +137,7 @@ class Mubi:
             response_content = response.text
 
             # Optionally, log the entire response content (useful for deeper debugging)
-            # xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
+            xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
 
             return response
         except requests.exceptions.HTTPError as http_err:
