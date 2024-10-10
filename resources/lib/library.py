@@ -1,147 +1,109 @@
-# -*- coding: utf-8 -*-
-# In order to manipulate files and folders
-import os
 from pathlib import Path
 import xbmc
-import xml.etree.ElementTree as ET
-import requests
+import xbmcgui
+from resources.lib.film import Film
+from typing import List, Optional
 
 
-def write_strm_file(film_strm_file, film, kodi_url):
-    try:
-        f = open(film_strm_file, "w")
-        f.write(kodi_url)
-        f.close()
-    except OSError as error:
-        xbmc.log("Error while creating the file: %s" % error, 2)
+class Library:
+    """
+    A class to manage a collection of Film objects and handle operations like merging duplicates
+    and syncing films locally.
+    """
 
+    def __init__(self):
+        self.films: List[Film] = []
 
-def get_imdb_url(original_title,english_title, year, omdbapiKey):
+    def add_film(self, film: Film):
+        """
+        Add a film to the library.
 
-    # Fetch Movie Data
-    data_URL = "http://www.omdbapi.com/?apikey=" + omdbapiKey
-    params = {"t": original_title, "type": "movie", "y": year}
-    response = requests.get(data_URL, params=params).json()
-    if "imdbID" in response:
-        imdb_url = "https://www.imdb.com/title/" + response["imdbID"]
-        return imdb_url
-    else:
-        params = {"t": english_title, "type": "movie", "y": year}
-        response = requests.get(data_URL, params=params).json()
-        if "imdbID" in response:
-            imdb_url = "https://www.imdb.com/title/" + response["imdbID"]
-            return imdb_url
-    return ""
+        :param film: The Film object to be added.
+        :raises ValueError: If the film is invalid (missing title, ID, or metadata).
+        """
+        if not film or not film.mubi_id or not film.title or not film.metadata:
+            raise ValueError("Invalid film: missing required fields (mubi_id, title, or metadata).")
+        self.films.append(film)
 
+    def merge_duplicates(self) -> List[Film]:
+        """
+        Merge duplicate films based on their Mubi ID, combining categories.
 
-def write_nfo_file(nfo_file, film, kodi_trailer_url, omdbapiKey):
+        :return: A list of unique films with merged categories.
+        """
+        unique_films = {}
 
-    nfo_tree = get_nfo_tree(film["metadata"], film["categories"], kodi_trailer_url)
-    try:
-        f = open(nfo_file, "wb")
-        f.write(nfo_tree)
-        if omdbapiKey:
-            imdb_url = get_imdb_url(
-                film["metadata"].originaltitle, film["title"], film["metadata"].year, omdbapiKey
-            ).encode("utf-8")
-            f.write(imdb_url)
-        f.close()
-    except OSError as error:
-        xbmc.log("Error while creating the file: %s" % error, 2)
+        for film in self.films:
+            try:
+                if film.mubi_id in unique_films:
+                    # Add new categories to the existing film's categories
+                    for category in film.categories:
+                        unique_films[film.mubi_id].add_category(category)
+                else:
+                    # Add the film if it's not already in the collection
+                    unique_films[film.mubi_id] = film
+            except AttributeError as e:
+                xbmc.log(f"Error processing film '{film.title}': {e}", xbmc.LOGERROR)
 
+        # Replace the current list of films with the merged list
+        self.films = list(unique_films.values())
+        return self.films
 
-def merge_duplicates(films):
+    def __len__(self) -> int:
+        """
+        Returns the number of films in the library.
 
-    # the output will be a list of movies where each movie appears only once and categories are merged
-    movies_and_categories = []
+        :return: Number of films in the library.
+        """
+        return len(self.films)
 
-    for film in films:
+    def sync_locally(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]):
+        """
+        Sync the films locally by creating STRM and NFO files for each film.
 
-        # For each film, search a list if the Mubi id exist
-        idx = next(
-            (
-                i
-                for i, item in enumerate(movies_and_categories)
-                if item["mubi_id"] == film.mubi_id
-            ),
-            None,
-        )
+        :param base_url: Base URL to use for the STRM file links.
+        :param plugin_userdata_path: The path where the library files are saved.
+        :param omdb_api_key: The OMDb API key for fetching IMDb information.
+        :raises ValueError: If no films are available to sync.
+        """
+        if not self.films:
+            raise ValueError("No films available to sync.")
 
-        if idx:
-            # if it exists add the new category to the movie
-            movies_and_categories[idx]["categories"].append(film.category)
-        else:
-            # If it doesn't exist, add an item to the list with mubi id and category as list
-            movie_and_categorie = {
-                "mubi_id": film.mubi_id,
-                "title": film.title,
-                "artwork": film.artwork,
-                "web_url": film.web_url,
-                "metadata": film.metadata,
-                "categories": [film.category],
-            }
-            movies_and_categories.append(movie_and_categorie)
+        pDialog = xbmcgui.DialogProgress()
+        pDialog.create("Syncing with Mubi", "Starting the sync...")
 
-    return movies_and_categories
+        # Merge duplicates before syncing
+        self.merge_duplicates()
 
+        total_films = len(self.films)
 
-def get_nfo_tree(metadata, categories, kodi_trailer_url):
+        for idx, film in enumerate(self.films):
+            percent = int((idx / total_films) * 100)
+            pDialog.update(percent, f"Creating local data for movie {idx + 1} of {total_films}:\n{film.title}")
 
-    # create the file structure
-    movie = ET.Element("movie")
+            try:
+                # Prepare file name and path
+                clean_title = film.title.replace("/", " ")
+                year = film.metadata.year if film.metadata.year else "Unknown"
+                film_folder_name = Path(f"{clean_title} ({year})")
+                film_path = plugin_userdata_path / film_folder_name
 
-    title = ET.SubElement(movie, "title")
-    title.text = metadata.title
+                # Create the folder
+                film_path.mkdir(parents=True, exist_ok=True)
 
-    originaltitle = ET.SubElement(movie, "originaltitle")
-    originaltitle.text = metadata.originaltitle
+                # Use Film class methods to create STRM and NFO files
+                film.create_strm_file(film_path, base_url)
+                film.create_nfo_file(film_path, base_url, omdb_api_key)
 
-    ratings = ET.SubElement(movie, "ratings")
-    rating = ET.SubElement(ratings, "rating")
-    rating.set("name", "MUBI")
-    rating.set("name", "MUBI")
+            except OSError as error:
+                xbmc.log(f"Error while creating library files for film '{film.title}': {error}", xbmc.LOGERROR)
+            except ValueError as error:
+                xbmc.log(f"Invalid data for film '{film.title}': {error}", xbmc.LOGERROR)
 
-    value = ET.SubElement(rating, "value")
-    value.text = str(metadata.rating)
-    votes = ET.SubElement(rating, "votes")
-    votes.text = str(metadata.votes)
+            if pDialog.iscanceled():
+                pDialog.close()
+                xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
+                return None
 
-    plot = ET.SubElement(movie, "plot")
-    plot.text = metadata.plot
-
-    outline = ET.SubElement(movie, "outline")
-    outline.text = metadata.plotoutline
-
-    runtime = ET.SubElement(movie, "runtime")
-    runtime.text = str(metadata.duration)
-
-    country = ET.SubElement(movie, "country")
-    country.text = metadata.country[0]
-
-    for mubi_genre in metadata.genre:
-        genre = ET.SubElement(movie, "genre")
-        genre.text = str(mubi_genre)
-        genre.set("clear", "true")
-
-    for regisseur in metadata.director:
-        director = ET.SubElement(movie, "director")
-        director.text = str(regisseur["name"])
-
-    year = ET.SubElement(movie, "year")
-    year.text = str(metadata.year)
-
-    trailer = ET.SubElement(movie, "trailer")
-    trailer.text = str(kodi_trailer_url)
-
-    thumb = ET.SubElement(movie, "thumb")
-    thumb.set("aspect", "landscape")
-    thumb.text = metadata.image
-
-    for category in categories:
-        tag = ET.SubElement(movie, "tag")
-        tag.text = category
-
-    dateadded = ET.SubElement(movie, "dateadded")
-    dateadded.text = str(metadata.dateadded)
-
-    return ET.tostring(movie)
+        pDialog.close()
+        xbmcgui.Dialog().notification("MUBI", "Sync completed successfully!", xbmcgui.NOTIFICATION_INFO)
