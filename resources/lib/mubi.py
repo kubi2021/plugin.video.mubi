@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+
+# This code defines a Python class `Mubi` that interacts with the Mubi API 
+# to retrieve information about films available on the Mubi streaming platform.
+# It includes functionality for user login, retrieving lists of films 
+# (either daily film programming or film groups), and fetching metadata for individual films.
+# The class uses HTTP requests to communicate with the API, processes the responses, 
+# and organizes the film data into named tuples for easy access.
+
+
 import datetime
 import dateutil.parser
 import requests
@@ -7,7 +16,18 @@ import hashlib
 import base64
 from collections import namedtuple
 import xbmc
+import re
+import random
 from urllib.parse import urljoin
+import time
+import threading
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+from resources.lib.metadata import Metadata
+from resources.lib.film import Film
+from resources.lib.library import Library
+
 
 
 APP_VERSION_CODE = "6.06"
@@ -18,382 +38,454 @@ CLIENT_DEVICE_OS = "8.0"
 USER_AGENT = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G960F Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.84 Mobile Safari/537.36"
 
 
-Film = namedtuple(
-    "Film", ["title", "mubi_id", "artwork", "web_url", "category", "metadata"]
-)
 
-Metadata = namedtuple(
-    "Metadata",
-    [
-        "title",
-        "director",
-        "year",
-        "duration",
-        "country",
-        "plot",
-        "plotoutline",
-        "genre",
-        "originaltitle",
-        "rating",
-        "votes",
-        "castandrole",
-        "dateadded",
-        "trailer",
-        "image",
-    ],
-)
+class Mubi:
 
+    # Class-level variables for rate limiting
+    _lock = threading.Lock()
+    _last_call_time = 0
+    _calls_made = 0
+    _call_history = []
 
-class Mubi(object):
-    _URL_MUBI = "https://mubi.com"
-    _mubi_urls = {
-        "login": urljoin(_URL_MUBI, "api/v2/sessions"),
-        "startup": urljoin(_URL_MUBI, "api/v2/app_startup"),
-        "films": urljoin(_URL_MUBI, "/api/v2/film_programmings"),
-        "film_groups": urljoin(_URL_MUBI, "/api/v2/layout"),
-        "films_in_group": urljoin(_URL_MUBI, "/api/v2/film_groups/%s/film_group_items"),
-        "set_watching": urljoin(_URL_MUBI, "api/v2/films/%s/playback_languages"),
-        "set_reel": urljoin(_URL_MUBI, "api/v2/films/%s/viewing"),
-        "get_url": urljoin(_URL_MUBI, "api/v2/films/%s/reels/%s/secure_url"),
-    }
+    def __init__(self, session_manager):
+        """
+        Initialize the Mubi class with the session manager.
 
-    ## once we introduce the mubi login, remove the "random"
-    # def __init__(self, username, password):
-    def __init__(self, username="random", password="random"):
+        :param session_manager: Instance of SessionManager to handle session data
+        :type session_manager: SessionManager
+        """
+        self.apiURL = 'https://api.mubi.com/v3/'
+        self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
+        self.session_manager = session_manager  # Use session manager for session-related data
+        self.library = Library()  # Initialize the Library
 
-        self._username = username
-        self._password = password
-        self._cache_id = "plugin.video.mubi.filminfo.%s"
-        # Need a 20 digit id, hash username to make it predictable
-        self._udid = int(hashlib.sha1(username.encode("utf-8")).hexdigest(), 32) % (
-            10 ** 20
+    def _make_api_call(self, method, endpoint=None, full_url=None, headers=None, params=None, data=None, json=None):
+        """
+        Generic method to make API calls, adhering to rate limits and best practices.
+
+        :param method: HTTP method ('GET', 'POST', 'DELETE', etc.)
+        :param endpoint: API endpoint to call (appended to self.apiURL unless full_url is provided)
+        :param full_url: (Optional) Full URL to use instead of appending endpoint to self.apiURL
+        :param headers: (Optional) Dictionary of HTTP Headers to send with the request
+        :param params: (Optional) Dictionary of URL parameters to append to the URL
+        :param data: (Optional) Dictionary, bytes, or file-like object to send in the body of the request
+        :param json: (Optional) A JSON serializable Python object to send in the body of the request
+        :return: Response object or None if an error occurred
+        """
+        url = full_url if full_url else f"{self.apiURL}{endpoint}"
+        
+        # Ensure headers are not None and set Accept-Encoding to gzip
+        if headers is None:
+            headers = {}
+        headers.setdefault('Accept-Encoding', 'gzip')
+
+        # Log API call details
+        xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
+        xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
+        if params:
+            xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
+        if data:
+            xbmc.log(f"Data: {data}", xbmc.LOGDEBUG)
+        if json:
+            xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
+
+        # Rate limiting: Max 60 calls per minute
+        with self._lock:
+            current_time = time.time()
+            self._call_history = [t for t in self._call_history if current_time - t < 60]
+            if len(self._call_history) >= 60:
+                wait_time = 60 - (current_time - self._call_history[0])
+                xbmc.log(f"Rate limit reached. Sleeping for {wait_time:.2f} seconds.", xbmc.LOGINFO)
+                time.sleep(wait_time)
+                self._call_history = [t for t in self._call_history if current_time - t < 60]
+
+            self._call_history.append(time.time())
+
+        # Set up retries with exponential backoff for transient errors
+        session = requests.Session()
+        retries = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET", "POST", "DELETE", "PUT", "PATCH"]
         )
-        self._token = None
-        self._userid = None
-        self._country = None
-        self._session = requests.Session()
-        self._session.headers.update(
-            {
-                "accept-language": ACCEPT_LANGUAGE,
-                "client": CLIENT,
-                "client-version": APP_VERSION_CODE,
-                "client-app": CLIENT_APP,
-                "client-device-os": CLIENT_DEVICE_OS,
-                "user-agent": USER_AGENT,
-                "if-none-match": 'W/"505d0033184d7877a3b351d8c94b6211"',
-                "accept": "application/json, text/plain, */*",
-                "client-device-identifier": str(self._udid),
-            }
-        )
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
 
-    def get_film_list(self, type, id, category_name):
-        """
-        Mubi has 2 categories of films:
-        - Filmprogramming: the movie of the day, available for 30 days
-        - Film Group: each film group call returns multiple categories, such as Top 1000, or Mubi releases, for example.
+        try:
+            # Log the final request details
+            xbmc.log(f"Sending request: {method} {url}", xbmc.LOGDEBUG)
 
-        This function query the list of films and then query the metadata for each film.
-        Ultimately, it returns a nametupl of films.
-        """
-
-        if type == "FilmProgramming":
-            films = [
-                self.get_film_metadata(film, category_name)
-                for film in (self.get_now_showing_json())
-            ]
-        elif type == "FilmGroup":
-            films = [
-                self.get_film_metadata(film, category_name)
-                for film in (self.get_films_in_category_json(id))
-            ]
-
-        return [f for f in films if f]
-
-    def get_now_showing_json(self):
-        """
-        Calls the API and get the list of the 30 films of the day.
-
-        """
-        # Get list of available films
-        args = (
-            "?accept-language=%s&client=%s&client-version=%s&client-device-identifier=%s&client-app=%s&client-device-os=%s"
-            % (
-                ACCEPT_LANGUAGE,
-                CLIENT,
-                APP_VERSION_CODE,
-                self._udid,
-                CLIENT_APP,
-                CLIENT_DEVICE_OS,
+            response = session.request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                data=data,
+                json=json,
+                timeout=10  # Set a reasonable timeout
             )
-        )
-        r = self._session.get(self._mubi_urls["films"] + args)
-        if r.status_code != 200:
-            xbmc.log(
-                "Invalid status code for films of the day: "
-                + str(r.status_code)
-                + " getting list of films",
-                4,
-            )
-            xbmc.log(self._mubi_urls["films"] + args, 4)
-        return r.json()
+
+            # Log the response status
+            xbmc.log(f"Response status code: {response.status_code}", xbmc.LOGDEBUG)
+
+            # Raise an HTTPError for bad responses (4xx and 5xx)
+            response.raise_for_status()
+
+            # Log full response content safely
+            response_content = response.text
+
+            # Optionally, log the entire response content (useful for deeper debugging)
+            # xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
+
+            return response
+        except requests.exceptions.HTTPError as http_err:
+            xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
+            return None
+        except requests.exceptions.RequestException as req_err:
+            xbmc.log(f"Request exception occurred: {req_err}", xbmc.LOGERROR)
+            return None
+        except Exception as err:
+            xbmc.log(f"An unexpected error occurred: {err}", xbmc.LOGERROR)
+            return None
+        finally:
+            session.close()
+            xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
+
+
+
+    def get_cli_country(self):
+        """
+        Retrieves the client's country from Mubi's website.
+
+        :return: Client country code.
+        :rtype: str
+        """
+        headers = {'User-Agent': self.UA}
+        response = self._make_api_call('GET', full_url='https://mubi.com/', headers=headers)
+        if response:
+            resp_text = response.text
+            country = re.findall(r'"Client-Country":"([^"]+?)"', resp_text)
+            cli_country = country[0] if country else 'PL'
+            return cli_country
+        else:
+            return 'PL'
+
+    def hea_atv_gen(self):
+        """
+        Generates headers required for API requests without authorization.
+
+        :return: Headers dictionary.
+        :rtype: dict
+        """
+        return {
+            'User-Agent': 'MUBI-Android-TV/31.1',  # Updated User-Agent
+            'accept-encoding': 'gzip',
+            'accept': 'application/json',
+            'client': 'android_tv',
+            'client-version': '31.1',  # Updated client-version
+            'client-device-identifier': self.session_manager.device_id,  # Use session manager
+            'client-app': 'mubi',
+            'client-device-brand': 'unknown',
+            'client-device-model': 'sdk_google_atv_x86',
+            'client-device-os': '8.0.0',
+            'client-accept-audio-codecs': 'AAC',
+            'client-country': self.session_manager.client_country  # Use session manager
+        }
+
+    def hea_atv_auth(self):
+        """
+        Generates headers required for API requests with authorization.
+
+        :return: Headers dictionary with Authorization token.
+        :rtype: dict
+        """
+        headers = self.hea_atv_gen()
+        token = self.session_manager.token  # Use session manager
+        if not token:
+            xbmc.log("No token found", xbmc.LOGERROR)
+        headers['Authorization'] = f'Bearer {token}'
+        return headers
+
+    def get_link_code(self):
+        """
+        Calls the Mubi API to generate a link code and an authentication token for the login process.
+
+        :return: Dictionary with 'auth_token' and 'link_code'.
+        :rtype: dict
+        """
+        response = self._make_api_call('GET', 'link_code', headers=self.hea_atv_gen())
+        if response:
+            return response.json()
+        else:
+            return None
+
+    def authenticate(self, auth_token):
+        """
+        Authenticates the user with the provided auth_token.
+
+        :param auth_token: Authentication token from get_link_code().
+        :type auth_token: str
+        :return: Response JSON from the authenticate API call.
+        :rtype: dict
+        """
+        data = {'auth_token': auth_token}
+        response = self._make_api_call('POST', 'authenticate', headers=self.hea_atv_gen(), json=data)
+        if response:
+            return response.json()
+        else:
+            return None
+
+    def log_out(self):
+        """
+        Logs the user out by invalidating the session.
+
+        :return: True if logout was successful, False otherwise.
+        :rtype: bool
+        """
+        response = self._make_api_call('DELETE', 'sessions', headers=self.hea_atv_auth())
+        if response and response.status_code == 200:
+            return True
+        else:
+            return False
+
 
     def get_film_groups(self):
         """
-        Query film groups. Each call to film groups returns one or many film category, such as Top 1000, or Mubi releases, for example.
+        Retrieves a list of all film groups (collections) from the MUBI API V3, handling pagination.
 
-        It will return a list of category.
-
+        :return: A list of all film group categories across all pages.
+        :rtype: list
         """
-
-        args = "?filter_tvod=true"
-        r = self._session.get(self._mubi_urls["film_groups"] + args)
-        if r.status_code != 200:
-            xbmc.log(
-                "Invalid status code "
-                + str(r.status_code)
-                + " getting list of categories",
-                4,
-            )
-            xbmc.log(self._mubi_urls["categories"] + args, 4)
-
-        film_groups = ("".join(r.text)).encode("utf-8")
-
+        endpoint = 'browse/film_groups'
+        headers = self.hea_atv_gen()  # Use headers without authorization
         categories = []
-        for group in json.loads(film_groups):
-            if group["type"] == "FilmGroup":
-                r = self._session.get(urljoin(self._URL_MUBI, group["resource"]))
+        page = 1  # Start from the first page
 
-                film_group = json.loads(("".join(r.text)).encode("utf-8"))
-                if film_group:
-                    for item in film_group:
-                        category = {
-                            "title": item["full_title"],
-                            "id": item["id"],
-                            "description": item["description"],
-                            "image": item["image"],
-                            "type": group["type"],
-                        }
-                        xbmc.log("Ressource %s " % group["resource"], 1)
-                        xbmc.log("Group title %s " % item["full_title"], 1)
-                        categories.append(category)
-            elif group["type"] == "FilmProgramming":
-                category = {
-                    "title": "Film of the day",
-                    "id": "-1",
-                    "description": "Movie of the day, for the past 30 days",
-                    "image": "",
-                    "type": group["type"],
-                }
-                categories.append(category)
+        while True:
+            params = {'page': page}
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+
+            if response:
+                data = response.json()
+                film_groups = data.get('film_groups', [])
+                meta = data.get('meta', {})
+
+                for group in film_groups:
+                    image_data = group.get('image', '')
+                    if isinstance(image_data, dict):
+                        image_url = image_data.get('medium', '')
+                    elif isinstance(image_data, str):
+                        image_url = image_data
+                    else:
+                        image_url = ''
+
+                    category = {
+                        'title': group.get('full_title', ''),
+                        'id': group.get('id', ''),
+                        'description': group.get('description', ''),
+                        'image': image_url,
+                        'type': 'FilmGroup',  # Set type explicitly
+                    }
+                    categories.append(category)
+
+                # Check if there's a next page
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break  # No more pages to fetch
+            else:
+                xbmc.log(f"Failed to retrieve film groups on page {page}", xbmc.LOGERROR)
+                break  # Exit the loop on failure
 
         return categories
 
-    def get_films_in_category_json(self, category):
+
+
+    def get_film_list(self, type: str, id: int, category_name: str):
         """
-        Each category (such as Mubi top 1000) contains a list of films.
-        This function queries the API and gets all the films in the category.
+        Retrieves and adds films to the library based on the category type and id.
 
+        :param type: Type of the category ('FilmGroup')
+        :param id: ID of the category
+        :param category_name: Name of the category
+        :return: Library instance with films
         """
+        try:
+            if type == "FilmGroup":
+                films_data = self.get_films_in_category_json(id)
+                for film_item in films_data:
+                    film = self.get_film_metadata(film_item, category_name)
+                    if film:
+                        self.library.add_film(film)
+            xbmc.log(f"Fetched {len(self.library)} films for category {category_name}", xbmc.LOGDEBUG)
+        except Exception as e:
+            xbmc.log(f"Error fetching films for category {category_name}: {e}", xbmc.LOGERROR)
+        return self.library
 
-        total_results = []
 
-        # Grab the search results
-        page_num = 1
+
+
+    def get_now_showing_films(self):
+        """
+        Retrieves the list of films currently showing (playable) from the MUBI API V3.
+
+        :return: List of films currently showing.
+        :rtype: list
+        """
+        endpoint = 'browse/films'
+        headers = self.hea_atv_gen()  # Use headers without authorization
+        films = []
+        page = 1
+
+        while True:
+            params = {'page': page, 'playable': 'true'}
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            if response:
+                data = response.json()
+                films_page = data.get('films', [])
+                meta = data.get('meta', {})
+
+                films.extend(films_page)
+
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break
+            else:
+                xbmc.log(f"Failed to retrieve films on page {page}", xbmc.LOGERROR)
+                break
+
+        return films
+
+    def get_films_in_group(self, group_id):
+        """
+        Retrieves items (films) within a specific film group (collection), handling pagination.
+
+        :param group_id: ID of the film group.
+        :type group_id: int
+        :return: List of films in the film group.
+        :rtype: list
+        """
+        endpoint = f'film_groups/{group_id}/film_group_items'
+        headers = self.hea_atv_auth()  # Use headers with authorization
+        films = []
+        page = 1
+
+        while True:
+            params = {'page': page, 'per_page': 24, 'include_upcoming': 'true'}
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            if response:
+                data = response.json()
+                film_group_items = data.get('film_group_items', [])
+                meta = data.get('meta', {})
+
+                films.extend(film_group_items)
+
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break
+            else:
+                xbmc.log(f"Failed to retrieve films in group {group_id} on page {page}", xbmc.LOGERROR)
+                break
+
+        return films
+
+    def get_film_metadata(self, film_data: dict, category_name: str) -> Film:
+        """
+        Extracts and returns film metadata from the API data.
+
+        :param film_data: Dictionary containing film data
+        :param category_name: Name of the category
+        :return: Film instance or None if not valid
+        """
+        try:
+            film_info = film_data.get('film', {})
+            if not film_info:
+                return None
+
+            available_at = film_info.get('consumable', {}).get('available_at')
+            expires_at = film_info.get('consumable', {}).get('expires_at')
+            if available_at and expires_at:
+                available_at_dt = dateutil.parser.parse(available_at)
+                expires_at_dt = dateutil.parser.parse(expires_at)
+                now = datetime.datetime.now(tz=available_at_dt.tzinfo)
+                if available_at_dt > now or expires_at_dt < now:
+                    return None
+
+            metadata = Metadata(
+                title=film_info.get('title', ''),
+                director=[d['name'] for d in film_info.get('directors', [])],
+                year=film_info.get('year', ''),
+                duration=film_info.get('duration', 0),
+                country=film_info.get('historic_countries', []),
+                plot=film_info.get('short_synopsis', ''),
+                plotoutline=film_info.get('short_synopsis', ''),
+                genre=film_info.get('genres', []),
+                originaltitle=film_info.get('original_title', ''),
+                rating=film_info.get('average_rating', 0),
+                votes=film_info.get('number_of_ratings', 0),
+                dateadded=datetime.date.today().strftime('%Y-%m-%d'),
+                trailer=film_info.get('trailer_url', ''),
+                image=film_info.get('still_url', '')
+            )
+
+            return Film(
+                mubi_id=film_info.get('id'),
+                title=film_info.get('title', ''),
+                artwork=film_info.get('still_url', ''),
+                web_url=film_info.get('web_url', ''),
+                category=category_name,
+                metadata=metadata
+            )
+        except Exception as e:
+            xbmc.log(f"Error parsing film metadata: {e}", xbmc.LOGERROR)
+            return None
+
+
+
+
+    def get_films_in_category_json(self, category_id):
+        """
+        Retrieves films within a specific film group (collection) using the MUBI API V3.
+
+        :param category_id: ID of the film group (category).
+        :type category_id: int
+        :return: List of film group items (films).
+        :rtype: list
+        """
+        all_film_items = []
+        page = 1
         per_page = 20
-        args = (
-            "?page="
-            + str(page_num)
-            + "&per_page="
-            + str(per_page)
-            + "&filter_tvod=true"
-        )
-        response = self._session.get(
-            self._mubi_urls["films_in_group"] % str(category) + args
-        )
-        data = response.json()
 
-        # Store the first page of results
-        total_results = total_results + data["film_group_items"]
+        while True:
+            endpoint = f'film_groups/{category_id}/film_group_items'
+            headers = self.hea_atv_auth()
+            params = {
+                'page': page,
+                'per_page': per_page,
+                'include_upcoming': 'true'  # Include upcoming films if needed
+            }
 
-        # While data['next'] isn't empty, let's download the next page, too
-        for page_num in range(1, data["meta"]["total_pages"]):
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            if response:
+                data = response.json()
+                film_group_items = data.get('film_group_items', [])
+                all_film_items.extend(film_group_items)
 
-            args = (
-                "?page="
-                + str(page_num)
-                + "&per_page="
-                + str(per_page)
-                + "&filter_tvod=true"
-            )
-            response = self._session.get(
-                self._mubi_urls["films_in_group"] % str(category) + args
-            )
-            data = response.json()
-            # Store the current page of results
-            total_results = total_results + data["film_group_items"]
+                meta = data.get('meta', {})
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break
+            else:
+                xbmc.log(f"Failed to retrieve film group items for category {category_id}", xbmc.LOGERROR)
+                break
 
-        return total_results
-
-    def get_film_metadata(self, film_overview, category_name):
-        """
-        For each film, this function will query the API to get the metadata.
-
-        """
-        film_id = film_overview["film"]["id"]
-
-        available_at = str(datetime.date.today())
-        if "available_at" in film_overview:
-            available_at = dateutil.parser.parse(film_overview["available_at"])
-            expires_at = dateutil.parser.parse(film_overview["expires_at"])
-
-            # Check film is valid, has not expired and is not preview
-            now = datetime.datetime.now(available_at.tzinfo)
-            if available_at > now:
-                xbmc.log("Film %s is not yet available" % film_id, 2)
-                return None
-            elif expires_at < now:
-                xbmc.log("Film %s has expired" % film_id, 2)
-                return None
-            available_at = str(available_at)
-
-        web_url = film_overview["film"]["web_url"]
-
-        # Build film metadata object
-        metadata = Metadata(
-            title=film_overview["film"]["title"],
-            director=film_overview["film"]["directors"],
-            year=film_overview["film"]["year"],
-            duration=film_overview["film"]["duration"],
-            country=film_overview["film"]["historic_countries"],
-            plot=film_overview["film"]["default_editorial"],
-            plotoutline=film_overview["film"]["short_synopsis"],
-            genre=film_overview["film"]["genres"],
-            originaltitle=film_overview["film"]["original_title"],
-            rating=film_overview["film"]["average_rating_out_of_ten"],
-            votes=film_overview["film"]["number_of_ratings"],
-            castandrole="",
-            dateadded=available_at,
-            trailer=film_overview["film"]["trailer_url"],
-            image=film_overview["film"]["still_url"],
-        )
-        return Film(
-            film_overview["film"]["title"],
-            film_id,
-            film_overview["film"]["stills"]["standard"],
-            web_url,
-            category_name,
-            metadata,
-        )
-
-
-###### DRM SECTION #######
-
-# The functions below will be needed in order to loads
-# the films within Kodi, with DRMs
-
-# def login(self):
-#     payload = {
-#         'email': self._username,
-#         'password': self._password
-#     }
-#     xbmc.log("Logging in with username: %s and udid: %s" % (self._username, self._udid), 2)
-#
-#     r = self._session.post(self._mubi_urls["login"], data=payload)
-#     result = (''.join(r.text)).encode('utf-8')
-#
-#     if r.status_code == 200:
-#         self._token = json.loads(result)['token']
-#         self._userid = json.loads(result)['user']['id']
-#         self._session.headers.update({'authorization': "Bearer %s" % self._token})
-#         xbmc.log("Login Successful with token=%s and userid=%s" % (self._token, self._userid), 2)
-#         xbmc.log("Headers=%s" % self._session.headers, 2)
-#         xbmc.executebuiltin('Notification(%s, %s, %d, %s)'%("Mubi","Login Successful", 5000, '/script.hellow.world.png'))
-#
-#     else:
-#         xbmc.log("Login Failed with result: %s" % result, 4)
-#         xbmc.executebuiltin('Notification(%s, %s, %d, %s)'%("Mubi","Login Failed: %s" % result, 5000, '/script.hellow.world.png'))
-#
-#     return r.status_code
-#
-# def app_startup(self):
-#     payload = {
-#         'udid': self._udid,
-#         'token': self._token,
-#         'client': 'android',
-#         'client_version': APP_VERSION_CODE
-#     }
-#
-#     r = self._session.post(self._mubi_urls['startup'] + "?client=android", data=payload)
-#
-#     print("fetching country: " + self._mubi_urls['startup'] + "?client=android")
-#     result = (''.join(r.text)).encode('utf-8')
-#
-#     if r.status_code == 200:
-#         self._country = json.loads(result)['country']
-#         xbmc.log("Successfully got country as %s" % self._country, 2)
-#     else:
-#         xbmc.log("Failed to get country: %s" % result, 4)
-#
-#     self.now_showing()
-#     return
-
-
-# def get_play_url(self, film_id, reel_id = -1):
-#     # reels probably refer to different streams of the same movie (usually when the movie is available in two dub versions)
-#     # it is necessary to tell the API that one wants to watch a film before requesting the movie URL from the API, otherwise
-#     # the URL will not be delivered.
-#     # this can be done by either calling
-#     #     [1] api/v1/{film_id}/viewing/set_reel, or
-#     #     [2] api/v1/{film_id}/viewing/watching
-#     # the old behavior of the addon was calling [1], as the reel id could be known from loading the film list.
-#     # however, with the new feature of playing a movie by entering the MUBI web url, the reel id is not always known (i.e.
-#     # if the film is taken from the library, rather than from the "now showing" section).
-#     # by calling [2], the default reel id for a film (which is usually the original dub version of the movie) is returned.
-#
-#     # set the current reel before playing the movie (if the reel was never set, the movie URL will not be delivered)
-#     payload = {'reel_id': reel_id, 'sidecar_subtitle_language_code': 'eng'}
-#     r = self._session.post((self._mubi_urls['set_reel'] % str(film_id)), data=payload)
-#     result = (''.join(r.text)).encode('utf-8')
-#     xbmc.log("Set reel response: %s" % result, 2)
-#
-#     reel_id = self.set_watching(film_id)
-#
-#     # get the movie URL
-#     args = "?download=false"
-#     xbmc.log("Headers are: %s" % self._session.headers, 4)
-#     r = self._session.get((self._mubi_urls['get_url'] % (str(film_id), str(reel_id))) + args)
-#     result = (''.join(r.text)).encode('utf-8')
-#     if r.status_code != 200:
-#         xbmc.log("Could not get secure URL for film %s with reel_id=%s" % (film_id, reel_id), 4)
-#         xbmc.log("Request was: %s" % r.url, 4)
-#         xbmc.log("Request was: %s" % r.headers, 4)
-#         xbmc.log("Request was: %s" % r.cookies, 4)
-#
-#     xbmc.log("Request was: %s" % r.url, 4)
-#     xbmc.log("Response was: (%s) %s" % (r.status_code, result), 2)
-#     url = json.loads(result)["url"]
-#     drm_asset_id = json.loads(result)["drm"]["asset_id"]
-#
-#     # return the video info
-#     item_result = {
-#         'url': url,
-#         'is_mpd': "mpd" in url,
-#         'token': self._token,
-#         'userId': self._userid,
-#         'drm_asset_id' : drm_asset_id,
-#         'drm_header': base64.b64encode(('{"userId":' + str(self._userid) + ',"sessionId":"' + self._token + '","merchant":"mubi"}').encode())
-#     }
-#
-#     return item_result
-
-# def set_watching(self, film_id):
-#     # this call tells the api that the user wants to watch a certain movie and returns the default reel id
-#
-#     r = self._session.get((self._mubi_urls['set_watching'] % str(film_id)))
-#     result = (''.join(r.text)).encode('utf-8')
-#     if r.status_code == 200:
-#         return json.loads(result)["reels"][0]["id"]
-#     else:
-#         xbmc.log("Request was: %s" % r.url, 4)
-#         xbmc.log("Failed to obtain the reel id with result: %s" % result, 4)
-#     return -1
+        return all_film_items
