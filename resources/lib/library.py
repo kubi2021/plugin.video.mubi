@@ -45,6 +45,12 @@ class Library:
         # Return the unique films as a list.
         return list(unique_films.values())
 
+    def __len__(self):
+        """
+        Returns the number of films in the library.
+        """
+        return len(self.films)
+
 
     def sync_locally(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: str):
         """

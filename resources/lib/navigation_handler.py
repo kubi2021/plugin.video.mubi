@@ -305,7 +305,7 @@ class NavigationHandler:
                 xbmc.log(f"Fetched {len(films_in_category)} films for category '{category['title']}'", xbmc.LOGDEBUG)
                 
                 # Add films to the main Library instance
-                for film in films_in_category:
+                for film in films_in_category.films:
                     all_films_library.add_film(film)
 
             except Exception as e:
