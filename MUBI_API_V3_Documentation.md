@@ -609,7 +609,37 @@ per_page: Number of results per page (default: 24)
   "meta": { /* Metadata including next page */ }
 }
 ```
+- **film_group_items**: Array of film items.
 
+    - **film**: Information about each film in the collection.
+        - **id**: Film ID
+        - **slug**: Unique identifier for the film's URL
+        - **title**: Title of the film
+        - **original_title**: The original language title
+        - **year**: Release year
+        - **duration**: Length of the film in minutes
+        - **stills**: Various image sizes for the film's poster or stills.
+            - **small, medium, retina, etc.**: Image URLs in different resolutions.
+        - **average_colour_hex**: Hex color of the film's primary visual.
+        - **trailer_url**: Optional URL of the film’s trailer.
+        - **popularity**: Popularity score of the film.
+        - **web_url**: Link to the film's page on Mubi.
+        - **genres**: Array of film genres.
+        - **average_rating**: Average rating of the film.
+        - **content_rating**: Age rating information.
+        - **directors**: Array of director(s) of the film.
+        - **consumable**: Availability details of the film.
+            - **available_at**: Date and time when the film became available.
+            - **availability**: Film status (e.g., "live").
+            - **permit_download**: Whether the film allows downloads.
+
+- **meta**: Pagination metadata.
+
+    - **current_page**: The current page of results.
+    - **next_page**: The next page, if available.
+    - **total_pages**: Total number of pages.
+    - **total_count**: Total number of films.
+    - **per_page**: Number of films returned per page.
 
 ### Cast Members
 
