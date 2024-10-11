@@ -28,6 +28,8 @@ from requests.packages.urllib3.util.retry import Retry
 from resources.lib.metadata import Metadata
 from resources.lib.film import Film
 from resources.lib.library import Library
+from resources.lib.playback import generate_drm_license_key
+
 
 
 
@@ -68,17 +70,17 @@ class Mubi:
             headers = {}
         headers.setdefault('Accept-Encoding', 'gzip')
 
-        # Log API call details
-        xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
-        xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
+        # # Log API call details
+        # xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
+        # xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
         
-        # Log parameters if they exist
-        if params:
-            xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
+        # # Log parameters if they exist
+        # if params:
+        #     xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
         
-        # Log JSON body if it exists
-        if json:
-            xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
+        # # Log JSON body if it exists
+        # if json:
+        #     xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
 
         # Rate limiting: Max 60 calls per minute
         with self._lock:
@@ -106,7 +108,7 @@ class Mubi:
 
         try:
             # Log the final request details (including params)
-            xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
+            # xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
 
             response = session.request(
                 method,
@@ -126,7 +128,7 @@ class Mubi:
 
             # Log full response content safely
             response_content = response.text
-            xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
+            # xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
 
             return response
 
@@ -531,34 +533,56 @@ class Mubi:
             secure_url = f"https://api.mubi.com/v3/films/{vid}/viewing/secure_url"
             secure_response = self._make_api_call("GET", full_url=secure_url, headers=self.hea_atv_auth())
 
+            # Ensure we keep the entire secure response data intact
             secure_data = secure_response.json() if secure_response and secure_response.status_code == 200 else None
             if not secure_data or "url" not in secure_data:
                 message = secure_data.get('user_message', 'Unable to retrieve secure URL') if secure_data else 'Unknown error'
                 xbmc.log(f"Error retrieving secure stream info: {message}", xbmc.LOGERROR)
                 return {'error': message}
 
-            stream_url = secure_data['url']
-            xbmc.log(f"Secure stream URL: {stream_url}", xbmc.LOGDEBUG)
-
-            # Step 4: Handle DRM if required
-            token = self.session_manager.token
-            user_id = self.session_manager.user_id
-            dcd = json.dumps({"userId": user_id, "sessionId": token, "merchant": "mubi"})
-            dcd_enc = base64.b64encode(dcd.encode()).decode()
-
-            drm_license_url = "https://lic.drmtoday.com/license-proxy-widevine/cenc/"
-            drm_headers = {
-                'User-Agent': self.UA,
-                'dt-custom-data': dcd_enc,
-                'Referer': 'https://mubi.com/',
-                'Origin': 'https://mubi.com',
-                'Content-Type': ''
+            # Step 4: Extract stream URL and DRM info (keep all URLs)
+            stream_info = {
+                'stream_url': secure_data['url'],  # The primary stream URL
+                'urls': secure_data.get('urls', []),  # Additional URLs to select from
+                'license_key': generate_drm_license_key(self.session_manager.token, self.session_manager.user_id)
             }
 
-            license_key = f"{drm_license_url}|{urlencode(drm_headers)}|R{{SSM}}|JBlicense"
-
-            return {'stream_url': stream_url, 'license_key': license_key}
+            return stream_info
 
         except Exception as e:
             xbmc.log(f"Error retrieving secure stream info: {e}", xbmc.LOGERROR)
             return {'error': 'An unexpected error occurred while retrieving stream info'}
+
+
+    def select_best_stream(self, stream_info):
+        """
+        Selects the best stream URL from the available options.
+
+        :param stream_info: Dictionary containing stream URLs and types
+        :return: Best stream URL or None
+        """
+        try:
+            # Log available streams
+            xbmc.log(f"Selecting best stream from secure_data: {stream_info}", xbmc.LOGDEBUG)
+            for stream in stream_info['urls']:
+                xbmc.log(f"Available stream: {stream['src']} - Content Type: {stream['content_type']}", xbmc.LOGDEBUG)
+
+            # Prefer MPEG-DASH over HLS
+            for stream in stream_info['urls']:
+                if stream['content_type'] == 'application/dash+xml':
+                    xbmc.log(f"Selected DASH stream: {stream['src']}", xbmc.LOGDEBUG)
+                    return stream['src']
+
+            # If DASH not found, fall back to HLS
+            for stream in stream_info['urls']:
+                if stream['content_type'] == 'application/x-mpegURL':
+                    xbmc.log(f"Selected HLS stream: {stream['src']}", xbmc.LOGDEBUG)
+                    return stream['src']
+
+            # No suitable stream found
+            xbmc.log("No suitable stream found.", xbmc.LOGERROR)
+            return None
+
+        except Exception as e:
+            xbmc.log(f"Error selecting best stream: {e}", xbmc.LOGERROR)
+            return None

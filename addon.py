@@ -12,6 +12,7 @@ from resources.lib.mubi import Mubi
 import xbmcaddon
 from urllib.parse import parse_qsl
 import sys
+import xbmc
 
 if __name__ == "__main__":
     plugin = xbmcaddon.Addon()
@@ -19,6 +20,10 @@ if __name__ == "__main__":
     base_url = sys.argv[0]
     session = SessionManager(plugin)
     mubi = Mubi(session)
+
+    # Log the handle and base URL for debugging purposes
+    xbmc.log(f"Addon initialized with handle: {handle} and base_url: {base_url}", xbmc.LOGDEBUG)
+
 
     # Fetch and set client country if it's not already set
     if not session.client_country:
@@ -32,20 +37,28 @@ if __name__ == "__main__":
     action = params.get("action")
 
     if action == "list_categories":
+        xbmc.log(f"Calling list_categories with handle: {handle}", xbmc.LOGDEBUG)
         navigation.list_categories()
     elif action == "log_in":
+        xbmc.log(f"Calling log_in with handle: {handle}", xbmc.LOGDEBUG)
         navigation.log_in()
     elif action == "log_out":
+        xbmc.log(f"Calling log_out with handle: {handle}", xbmc.LOGDEBUG)
         navigation.log_out()
     elif action == "listing":
+        xbmc.log(f"Calling listing with handle: {handle}", xbmc.LOGDEBUG)
         navigation.list_videos(params['type'], params['id'], params['category_name'])
     elif action == "play_ext":
+        xbmc.log(f"Calling play_ext with handle: {handle}", xbmc.LOGDEBUG)
         navigation.play_video_ext(params['web_url'])
     elif action == "play_trailer":
+        xbmc.log(f"Calling play_trailer with handle: {handle}", xbmc.LOGDEBUG)
         navigation.play_trailer(params['url'])
     elif action == "sync_locally":
+        xbmc.log(f"Calling sync_locally with handle: {handle}", xbmc.LOGDEBUG)
         navigation.sync_locally()
     elif action == "play_mubi_video":
+        xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)
         navigation.play_mubi_video(params['film_id'])
     else:
         navigation.main_navigation()

@@ -29,6 +29,10 @@ class NavigationHandler:
         self.session = session
         self.plugin = xbmcaddon.Addon()
 
+        # Log the handle when NavigationHandler is initialized
+        xbmc.log(f"NavigationHandler initialized with handle: {self.handle}", xbmc.LOGDEBUG)
+
+
     def get_url(self, **kwargs) -> str:
         """
         Create a plugin URL with the given keyword arguments.
@@ -137,14 +141,32 @@ class NavigationHandler:
         """ Helper method to add a film item to the Kodi directory """
         try:
             list_item = xbmcgui.ListItem(label=film.title)
-            list_item.setInfo("video", {"title": film.title, "originaltitle": film.metadata.originaltitle, "genre": ', '.join(film.metadata.genre), "plot": film.metadata.plot, "mediatype": "video"})
-            list_item.setArt({"thumb": film.metadata.image, "poster": film.metadata.image, "fanart": film.metadata.image, "landscape": film.metadata.image})
-            # url = self.get_url(action="play_ext", web_url=film.web_url)
+            list_item.setInfo("video", {
+                "title": film.title,
+                "originaltitle": film.metadata.originaltitle,
+                "genre": ', '.join(film.metadata.genre),
+                "plot": film.metadata.plot,
+                "mediatype": "video"
+            })
+            list_item.setArt({
+                "thumb": film.metadata.image,
+                "poster": film.metadata.image,
+                "fanart": film.metadata.image,
+                "landscape": film.metadata.image
+            })
             
+            # Set 'IsPlayable' property to inform Kodi this is a playable item
+            list_item.setProperty('IsPlayable', 'true')
+            
+            # Set the URL and path to the plugin URL
             url = self.get_url(action="play_mubi_video", film_id=film.mubi_id)
-            xbmcplugin.addDirectoryItem(self.handle, url, list_item, False)
+            list_item.setPath(url)
+            
+            # Add the item to the directory with isFolder=False
+            xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=False)
         except Exception as e:
             xbmc.log(f"Error adding film item {film.title}: {e}", xbmc.LOGERROR)
+
 
     def play_video_ext(self, web_url: str):
         """
@@ -164,6 +186,9 @@ class NavigationHandler:
         :param film_id: Video ID
         """
         try:
+            # Log the current handle value
+            xbmc.log(f"play_mubi_video called with handle: {self.handle}", xbmc.LOGDEBUG)
+
             if film_id is None:
                 xbmc.log(f"Error: film_id is missing", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", "Error: film_id is missing.", xbmcgui.NOTIFICATION_ERROR)
@@ -172,12 +197,31 @@ class NavigationHandler:
             # Step 1: Get secure stream info from Mubi API
             stream_info = self.mubi.get_secure_stream_info(film_id)
 
+            # Log the stream info for debugging
+            xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
+
             if 'error' in stream_info:
+                xbmc.log(f"Error in stream info: {stream_info['error']}", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", f"Error: {stream_info['error']}", xbmcgui.NOTIFICATION_ERROR)
                 return
 
-            # Step 2: Play video using InputStream Adaptive
-            play_with_inputstream_adaptive(self.handle, stream_info['stream_url'], stream_info['license_key'])
+            # Step 2: Select the best stream URL
+            best_stream_url = self.mubi.select_best_stream(stream_info)
+
+            # Log the selected stream URL
+            xbmc.log(f"Selected best stream URL: {best_stream_url}", xbmc.LOGDEBUG)
+
+            if not best_stream_url:
+                xbmc.log("Error: No suitable stream found.", xbmc.LOGERROR)
+                xbmcgui.Dialog().notification("MUBI", "Error: No suitable stream found.", xbmcgui.NOTIFICATION_ERROR)
+                return
+
+            # Step 3: Log the license key before playing
+            xbmc.log(f"License key: {stream_info['license_key']}", xbmc.LOGDEBUG)
+
+            # Step 4: Play video using InputStream Adaptive
+            xbmc.log(f"Calling play_with_inputstream_adaptive with handle: {self.handle}, stream URL: {best_stream_url}", xbmc.LOGDEBUG)
+            play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'])
 
         except Exception as e:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
