@@ -2,10 +2,12 @@
 <settings>
     <category label="General">
         <setting id="omdbapiKey" label="OMDB api Key" type="text" default=""/>
-        <setting id="client_country" label="Country (2 letters)" type="text" default="" visible="false"/>
+        <setting id="client_country" label="Country" type="text" default="" visible="false"/>
         <setting id="deviceID" type="text" default="" visible="false"/>
         <setting id="logged" type="bool" default="false" visible="false"/>
         <setting id="token" type="text" default="" visible="false"/>
         <setting id="userID" type="text" default="" visible="false"/>
+        <setting label="Language for titles and descriptions" type="labelenum" id="accept-language" values="tr|en|fr|es|de|it|nl|pt" default=""/>
+
     </category>
 </settings>

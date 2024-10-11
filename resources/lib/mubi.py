@@ -171,6 +171,23 @@ class Mubi:
         else:
             return 'PL'
 
+    def get_cli_language(self):
+        """
+        Retrieves the client's preferred language from Mubi's website.
+
+        :return: Client preferred language code (e.g., 'en' for English).
+        :rtype: str
+        """
+        headers = {'User-Agent': self.UA}
+        response = self._make_api_call('GET', full_url='https://mubi.com/', headers=headers)
+        if response:
+            resp_text = response.text
+            language = re.findall(r'"Accept-Language":"([^"]+?)"', resp_text)
+            accept_language = language[0] if language else 'en'
+            return accept_language
+        else:
+            return 'en'
+
     def hea_atv_gen(self):
         """
         Generates headers required for API requests without authorization in a web-based context.
@@ -188,6 +205,7 @@ class Mubi:
             'Client-Accept-Audio-Codecs': 'aac',
             'Client-Accept-Video-Codecs': 'h265,vp9,h264',  # Include support for video codecs
             'Client-Country': self.session_manager.client_country,  # Client country from session
+            'accept-language' : self.session_manager.client_language,
             'Referer': base_url,  # Add Referer for web-based requests
             'Origin': base_url,  # Add Origin for web-based requests
             'Accept-Encoding': 'gzip',
