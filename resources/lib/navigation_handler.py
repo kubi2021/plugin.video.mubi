@@ -170,23 +170,46 @@ class NavigationHandler:
 
     def play_video_ext(self, web_url: str):
         """
-        Play a video externally by opening it in a web browser.
-
+        Open a web URL using the appropriate system command.
+        
         :param web_url: Web URL of the video
         """
         try:
-            webbrowser.open_new_tab(web_url)
+            xbmc.log(f"Opening external video URL: {web_url}", xbmc.LOGDEBUG)
+            
+            import subprocess
+            import os
+            
+            if xbmc.getCondVisibility('System.Platform.Windows'):
+                # Windows platform
+                os.startfile(web_url)
+            elif xbmc.getCondVisibility('System.Platform.OSX'):
+                # macOS platform
+                subprocess.Popen(['open', web_url])
+            elif xbmc.getCondVisibility('System.Platform.Linux'):
+                # Linux platform
+                subprocess.Popen(['xdg-open', web_url])
+            elif xbmc.getCondVisibility('System.Platform.Android'):
+                # Android platform
+                xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{web_url}")')
+            else:
+                # Unsupported platform
+                xbmcgui.Dialog().ok("MUBI", "Cannot open web browser on this platform.")
         except Exception as e:
             xbmc.log(f"Error opening external video: {e}", xbmc.LOGERROR)
+            xbmcgui.Dialog().ok("MUBI", f"Error opening external video: {e}")
 
-    def play_mubi_video(self, film_id: str = None):
+
+
+    def play_mubi_video(self, film_id: str = None, web_url: str = None):
         """
         Play a Mubi video using the secure URL and DRM handling.
+        If playback fails, prompt the user to open the video in an external web browser.
 
         :param film_id: Video ID
+        :param web_url: Web URL of the film
         """
         try:
-            # Log the current handle value
             xbmc.log(f"play_mubi_video called with handle: {self.handle}", xbmc.LOGDEBUG)
 
             if film_id is None:
@@ -194,38 +217,44 @@ class NavigationHandler:
                 xbmcgui.Dialog().notification("MUBI", "Error: film_id is missing.", xbmcgui.NOTIFICATION_ERROR)
                 return
 
-            # Step 1: Get secure stream info from Mubi API
+            # Get secure stream info from Mubi API
             stream_info = self.mubi.get_secure_stream_info(film_id)
-
-            # Log the stream info for debugging
             xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
 
             if 'error' in stream_info:
                 xbmc.log(f"Error in stream info: {stream_info['error']}", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", f"Error: {stream_info['error']}", xbmcgui.NOTIFICATION_ERROR)
-                return
+                raise Exception("Error in stream info")
 
-            # Step 2: Select the best stream URL
+            # Select the best stream URL
             best_stream_url = self.mubi.select_best_stream(stream_info)
-
-            # Log the selected stream URL
             xbmc.log(f"Selected best stream URL: {best_stream_url}", xbmc.LOGDEBUG)
 
             if not best_stream_url:
                 xbmc.log("Error: No suitable stream found.", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", "Error: No suitable stream found.", xbmcgui.NOTIFICATION_ERROR)
-                return
+                raise Exception("No suitable stream found")
 
-            # Step 3: Log the license key before playing
-            xbmc.log(f"License key: {stream_info['license_key']}", xbmc.LOGDEBUG)
+            # Extract subtitle tracks
+            subtitles = stream_info.get('text_track_urls', [])
+            xbmc.log(f"Available subtitles: {subtitles}", xbmc.LOGDEBUG)
 
-            # Step 4: Play video using InputStream Adaptive
+            # Play video using InputStream Adaptive
             xbmc.log(f"Calling play_with_inputstream_adaptive with handle: {self.handle}, stream URL: {best_stream_url}", xbmc.LOGDEBUG)
-            play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'])
+            play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'], subtitles)
 
         except Exception as e:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
+
+            # Prompt the user
+            if web_url:
+                if xbmcgui.Dialog().yesno("MUBI", "Failed to play the video. Do you want to open it in a web browser?"):
+                    self.play_video_ext(web_url)
+                else:
+                    pass  # User chose not to open in web browser
+            else:
+                xbmcgui.Dialog().notification("MUBI", "Unable to open in web browser. Web URL is missing.", xbmcgui.NOTIFICATION_ERROR)
 
 
 

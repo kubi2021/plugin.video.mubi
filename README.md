@@ -15,6 +15,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 - 🛡️ Finds the corresponding movie on **IMDb** so Kodi scraper can fetch additional metadata
 - 🍿 Play Mubi trailers directly within Kodi
 - 📺 **Movies are playable directly within Kodi**, supporting **subtitles** and **multiple audio streams** out of the box using Kodi's features
+- 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on MacOS only)
 
 ### What Doesn't Work (Yet)
 - 🧐 Playing the movie within Kodi (due to **DRM issues** that need to be resolved)

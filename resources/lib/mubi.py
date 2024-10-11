@@ -70,17 +70,17 @@ class Mubi:
             headers = {}
         headers.setdefault('Accept-Encoding', 'gzip')
 
-        # # Log API call details
-        # xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
-        # xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
+        # Log API call details
+        xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
+        xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
         
-        # # Log parameters if they exist
-        # if params:
-        #     xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
+        # Log parameters if they exist
+        if params:
+            xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
         
-        # # Log JSON body if it exists
-        # if json:
-        #     xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
+        # Log JSON body if it exists
+        if json:
+            xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
 
         # Rate limiting: Max 60 calls per minute
         with self._lock:
@@ -108,7 +108,7 @@ class Mubi:
 
         try:
             # Log the final request details (including params)
-            # xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
+            xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
 
             response = session.request(
                 method,
@@ -128,7 +128,7 @@ class Mubi:
 
             # Log full response content safely
             response_content = response.text
-            # xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
+            xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
 
             return response
 
