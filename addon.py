@@ -14,6 +14,7 @@ from urllib.parse import parse_qsl
 import sys
 import xbmc
 from urllib.parse import parse_qsl, unquote_plus
+import xbmcgui
 
 if __name__ == "__main__":
     plugin = xbmcaddon.Addon()
@@ -30,6 +31,12 @@ if __name__ == "__main__":
     if not session.client_country:
         client_country = mubi.get_cli_country()
         session.set_client_country(client_country)
+
+    # Fetch and set client language if it's not already set
+    if not session.client_language:
+        client_language = mubi.get_cli_language()  # Assuming you have a similar method for language
+        session.set_client_language(client_language)
+
 
     navigation = NavigationHandler(handle, base_url, mubi, session)
 
