@@ -55,7 +55,7 @@ Whenever you want to **update** the local database:
 
 ### October 10th 2024
 
-MUBI recently updated their API a few months ago, which caused the current addon to stop working. Thanks to this @mtr81, I found great inspiration for adapting the addon to MUBI's new V3 API. 🎉
+MUBI recently updated their API a few months ago, which caused the current addon to stop working. Thanks to [@mtr81](https://github.com/mtr81), I found great inspiration for adapting the addon to MUBI's new V3 API. 🎉
 
 In addition to the API update, I made the following changes:
 - 🔄 **Major refactoring** of the backend, making the addon more robust and easier to maintain.
