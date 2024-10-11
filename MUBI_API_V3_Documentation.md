@@ -214,38 +214,213 @@ Details about the viewing session or error message.
 
 
 
+
 #### Get Secure Streaming URL
 
 ##### Endpoint
 
-```bash
-GET /v3/films/{id}/viewing/secure_url
+```http
+GET /v3/films/{film_id}/viewing/secure_url
 ```
 
 ##### Description
 
-Retrieves a secure streaming URL for the film.
+Retrieves a secure streaming URL and associated metadata for the specified film. This endpoint provides all the necessary information to stream the film, including available stream URLs (DASH, HLS, Smooth Streaming), DRM license details, subtitles, and other relevant data required for playback.
 
-##### Headers
+##### Authentication
 
+This endpoint requires authentication. The Authorization header must include a valid bearer token obtained after successful authentication.
+
+##### Request Headers
+
+```http
+Authorization: Bear {access_token}
+User-Agent: {user_agent}
+Client: {client_identifier}
+Anonymous_user_id: {anonymous_user_id}
+Accept-Encoding: gzip
+Accept: application/json
+Referer: https://mubi.com
+Origin: https://mubi.com
+Client-Accept-Audio-Codecs: aac
+Client-Accept-Video-Codecs: h265,vp9,h264
 ```
-Authorization: Bearer {token}
-Additional headers.
-```
+
+- Authorization: Bearer token for authentication.
+- User-Agent: Identifies the client software (e.g., web browser or app).
+- Client: Identifies the type of client (e.g., "web").
+- Anonymous_user_id: A unique identifier for anonymous users.
+- Client-Accept-Audio-Codecs: Specifies accepted audio codecs.
+- Client-Accept-Video-Codecs: Specifies accepted video codecs.
 
 ##### Path Parameters
 
-```
-id: Film ID
+- **film_id** (string): The unique identifier of the film for which to retrieve the secure streaming URL.
+
+##### Request Example
+
+```http
+GET /v3/films/337/viewing/secure_url HTTP/1.1
+Host: api.mubi.com
+Authorization: Bearer ad1f756ffc44017bebf1b745ee18eeee81f100
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0
+Client: web
+Anonymous_user_id: d0203e61-6809-6755-0ff6-f1a513bfa217
+Accept-Encoding: gzip
+Accept: application/json
+Referer: https://mubi.com
+Origin: https://mubi.com
+Client-Accept-Audio-Codecs: aac
+Client-Accept-Video-Codecs: h265,vp9,h264
 ```
 
 ##### Response
+The response is a JSON object containing the secure streaming URL and associated metadata necessary for playback, including:
+
+- Streaming URLs for different protocols (DASH, HLS, Smooth Streaming).
+- DRM information for content protection.
+- Available subtitle tracks in various languages.
+- Video codec and stream properties.
+- Metadata for analytics or tracking.
+
+##### Response Example
 
 ```json
 {
-  "url": "string" // Secure streaming URL
+  "url": "https://germany-edge3.mubicdn.net/stream/dd4097b6af87fb49c595cf9410795a34/6709afa4/cf6c4d9b/mubi-films/337/happy-together_zho_zxx_3840x2160_69007_mezz35072/7565fbdf53/drm_playlist.aca5788fa1.ism/default/ver1.AVC1.2160p.mpd",
+  "url_ttl": "2024-10-11T22:52:16Z",
+  "signature": "dd4097b6af87fb49c595cf9410795a34/6709afa4/cf6c4d9b",
+  "fallback_urls": [],
+  "urls": [
+    {
+      "src": "https://germany-edge3.mubicdn.net/stream/.../drm_playlist.aca5788fa1.ism/default/ver1.AVC1.2160p.idx-3.m3u8",
+      "content_type": "application/x-mpegURL"
+    },
+    {
+      "src": "https://germany-edge3.mubicdn.net/stream/.../drm_playlist.aca5788fa1.ism/default/ver1.AVC1.2160p.mpd",
+      "content_type": "application/dash+xml"
+    },
+    {
+      "src": "https://germany-edge3.mubicdn.net/stream/.../drm_playlist.aca5788fa1.ism/Manifest?max_height=2160",
+      "content_type": "application/vnd.ms-sstr+xml"
+    }
+  ],
+  "text_track_urls": [
+    {
+      "id": "text_subtitle_en",
+      "url": "https://germany-edge3.mubicdn.net/stream/.../eng.aca5788fa1.vtt",
+      "url_ttml": "https://germany-edge3.mubicdn.net/stream/.../eng.aca5788fa1.ttml",
+      "role": "subtitle",
+      "language_code": "en"
+    },
+    {
+      "id": "text_subtitle_it",
+      "url": "https://germany-edge3.mubicdn.net/stream/.../ita.aca5788fa1.vtt",
+      "url_ttml": "https://germany-edge3.mubicdn.net/stream/.../ita.aca5788fa1.ttml",
+      "role": "subtitle",
+      "language_code": "it"
+    }
+  ],
+  "drm": {
+    "asset_id": "337__happy-together_zho_zxx_3840x2160_69007_mezz35072__7565fbdf53__aca5788fa1",
+    "variant_id": ""
+  },
+  "video_codec": "h264",
+  "stream_start_index": 3,
+  "mux": {
+    "video_title": "Happy Together",
+    "video_id": 337,
+    "video_variant_id": "33973",
+    "video_encoding_variant": "h264",
+    "view_session_id": "dd4097b6af87fb49c595cf9410795a34/6709afa4/cf6c4d9b",
+    "video_content_type": "movie",
+    "video_stream_type": "on-demand",
+    "custom_1": "movie",
+    "custom_2": "2160",
+    "custom_3": "UHD",
+    "viewer_user_id": 8515840,
+    "video_cdn": "germany-edge3.mubicdn.net"
+  },
+  "download_size": 0
 }
 ```
+
+##### Response Fields
+
+- **url** (string): The primary secure streaming URL for the film, typically pointing to a DASH manifest (.mpd file).
+- **url_ttl** (string): The expiration time (Time-To-Live) of the streaming URLs in ISO 8601 format. After this time, the URLs will no longer be valid.
+- **signature** (string): A signature associated with the streaming session, possibly used for authentication or tracking purposes.
+- **urls** (array): A list of available streaming URLs with different protocols and formats.
+  - **src** (string): The streaming URL.
+  - **content_type** (string): The MIME type indicating the streaming protocol and format.
+    - application/x-mpegURL: HLS (HTTP Live Streaming).
+    - application/dash+xml: DASH (Dynamic Adaptive Streaming over HTTP).
+    - application/vnd.ms-sstr+xml: Microsoft Smooth Streaming.
+- **text_track_urls** (array): A list of available subtitle tracks in various languages.
+  - **id** (string): A unique identifier for the subtitle track.
+  - **url** (string): The URL to the WebVTT (.vtt) subtitle file.
+  - **url_ttml** (string): The URL to the TTML (.ttml) subtitle file.
+  - **role** (string): The role of the text track, usually "subtitle".
+  - **language_code** (string): The ISO 639-1 language code of the subtitle track (e.g., "en" for English).
+- **drm** (object): Information related to Digital Rights Management (DRM).
+  - **asset_id** (string): The unique identifier of the DRM-protected asset.
+  - **variant_id** (string): An identifier for a specific variant of the asset, if applicable.
+- **video_codec** (string): The video codec used for encoding, such as "h264".
+- **stream_start_index** (integer): The index indicating the starting point of the stream in the manifest or playlist.
+- **mux** (object): Metadata for analytics, tracking, or internal use.
+  - video_title (string): The title of the video.
+  - video_id (integer): The unique identifier of the video.
+  - video_variant_id (string): Identifier for a specific variant of the video encoding.
+  - video_encoding_variant (string): The encoding variant used, e.g., "h264".
+  - view_session_id (string): Identifier for the current viewing session.
+  - video_content_type (string): The type of content, e.g., "movie" or "trailer".
+  - video_stream_type (string): The stream type, e.g., "on-demand".
+  - custom_1, custom_2, custom_3 (string): Custom fields for additional metadata, such as resolution indicators ("2160" for 2160p UHD).
+  - viewer_user_id (integer): The user ID of the viewer.
+  - video_cdn (string): The Content Delivery Network (CDN) domain used for streaming.
+
+Download Size
+- download_size (integer): The size of the downloadable content in bytes, if applicable (usually 0 if downloading is not supported).
+
+##### Important Notes
+
+* URL Expiration: The url_ttl field indicates when the streaming URLs expire. Clients should ensure they use the URLs before this time and be prepared to request new ones if necessary.
+* DRM Handling: Since the content is DRM-protected, clients must handle license acquisition and decryption according to the DRM system's requirements (e.g., Widevine). This usually involves sending a license request to a license server and handling the response appropriately.
+* Streaming Protocols: Clients should select the streaming protocol best suited to the target device and playback capabilities. For example, DASH with Widevine DRM is commonly supported across a wide range of devices.
+* Subtitles: Clients can offer users the ability to select subtitle languages based on the available tracks in the text_track_urls array.
+* Analytics and Tracking: The mux object contains data that may need to be sent to analytics services to track playback performance and user engagement.
+
+##### Error Handling
+
+If the request fails, the API will return an appropriate HTTP status code along with an error message in the response body.
+Example Error Response
+
+```
+{
+  "error": "Unauthorized",
+  "message": "Invalid or expired token."
+}
+```
+
+* HTTP Status Code: Corresponds to the type of error (e.g., 401 Unauthorized for authentication errors).
+* error: A brief error code or description.
+* message: A detailed message explaining the error.
+
+##### Usage Example
+
+To play the film, a client application should:
+
+1. Request the Secure URL: Use this endpoint to obtain the secure streaming URLs and metadata.
+2. Select a Stream: Choose the appropriate streaming URL from the urls array based on supported protocols and DRM capabilities.
+3. Handle DRM License Acquisition: Use the DRM information to acquire the necessary license for decryption.
+4. Configure Subtitles: Retrieve the desired subtitle track(s) from text_track_urls and integrate them into the player.
+5. Start Playback: Use the selected stream URL and DRM license to start playback in the media player.
+
+##### Additional Considerations
+
+* Adaptive Streaming: The provided URLs point to manifests or playlists that enable adaptive streaming. The media player should support adaptive bitrate streaming to switch between different quality levels based on network conditions.
+* Device Compatibility: Ensure that the selected streaming protocol and DRM scheme are compatible with the target device and player software.
+* Caching and Security: Do not cache the secure URLs or DRM licenses beyond their validity periods. Implement proper security measures to protect the content and user data.
 
 
 
