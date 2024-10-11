@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
 from resources.lib.library import Library
-
+from resources.lib.playback import play_with_inputstream_adaptive
 
 class NavigationHandler:
     """
@@ -139,7 +139,9 @@ class NavigationHandler:
             list_item = xbmcgui.ListItem(label=film.title)
             list_item.setInfo("video", {"title": film.title, "originaltitle": film.metadata.originaltitle, "genre": ', '.join(film.metadata.genre), "plot": film.metadata.plot, "mediatype": "video"})
             list_item.setArt({"thumb": film.metadata.image, "poster": film.metadata.image, "fanart": film.metadata.image, "landscape": film.metadata.image})
-            url = self.get_url(action="play_ext", web_url=film.web_url)
+            # url = self.get_url(action="play_ext", web_url=film.web_url)
+            
+            url = self.get_url(action="play_mubi_video", film_id=film.mubi_id)
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, False)
         except Exception as e:
             xbmc.log(f"Error adding film item {film.title}: {e}", xbmc.LOGERROR)
@@ -154,6 +156,36 @@ class NavigationHandler:
             webbrowser.open_new_tab(web_url)
         except Exception as e:
             xbmc.log(f"Error opening external video: {e}", xbmc.LOGERROR)
+
+    def play_mubi_video(self, film_id: str = None):
+        """
+        Play a Mubi video using the secure URL and DRM handling.
+
+        :param film_id: Video ID
+        """
+        try:
+            if film_id is None:
+                xbmc.log(f"Error: film_id is missing", xbmc.LOGERROR)
+                xbmcgui.Dialog().notification("MUBI", "Error: film_id is missing.", xbmcgui.NOTIFICATION_ERROR)
+                return
+
+            # Step 1: Get secure stream info from Mubi API
+            stream_info = self.mubi.get_secure_stream_info(film_id)
+
+            if 'error' in stream_info:
+                xbmcgui.Dialog().notification("MUBI", f"Error: {stream_info['error']}", xbmcgui.NOTIFICATION_ERROR)
+                return
+
+            # Step 2: Play video using InputStream Adaptive
+            play_with_inputstream_adaptive(self.handle, stream_info['stream_url'], stream_info['license_key'])
+
+        except Exception as e:
+            xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
+            xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
+
+
+
+
 
     def play_trailer(self, url: str):
         """
@@ -176,8 +208,9 @@ class NavigationHandler:
             if 'auth_token' in code_info and 'link_code' in code_info:
                 self._display_login_code(code_info)
                 auth_response = self.mubi.authenticate(code_info['auth_token'])
-                if 'token' in auth_response:
-                    self.session.set_logged_in(auth_response['token'])
+
+                if auth_response and 'token' in auth_response:
+                    # Token and user ID are already set in session inside authenticate method
                     xbmcgui.Dialog().notification("MUBI", "Successfully logged in!", xbmcgui.NOTIFICATION_INFO)
                     xbmc.executebuiltin('Container.Refresh')
                 else:
@@ -188,6 +221,8 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Exception during login: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().notification('MUBI', 'An unexpected error occurred during login.', xbmcgui.NOTIFICATION_ERROR)
+
+
 
     def _display_login_code(self, code_info: dict):
         """ Helper method to display login code to the user """
