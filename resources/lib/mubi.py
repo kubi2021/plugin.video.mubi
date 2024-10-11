@@ -19,6 +19,7 @@ import xbmc
 import re
 import random
 from urllib.parse import urljoin
+from urllib.parse import urlencode
 import time
 import threading
 import requests
@@ -27,6 +28,8 @@ from requests.packages.urllib3.util.retry import Retry
 from resources.lib.metadata import Metadata
 from resources.lib.film import Film
 from resources.lib.library import Library
+from resources.lib.playback import generate_drm_license_key
+
 
 
 
@@ -60,20 +63,8 @@ class Mubi:
         self.library = Library()  # Initialize the Library
 
     def _make_api_call(self, method, endpoint=None, full_url=None, headers=None, params=None, data=None, json=None):
-        """
-        Generic method to make API calls, adhering to rate limits and best practices.
-
-        :param method: HTTP method ('GET', 'POST', 'DELETE', etc.)
-        :param endpoint: API endpoint to call (appended to self.apiURL unless full_url is provided)
-        :param full_url: (Optional) Full URL to use instead of appending endpoint to self.apiURL
-        :param headers: (Optional) Dictionary of HTTP Headers to send with the request
-        :param params: (Optional) Dictionary of URL parameters to append to the URL
-        :param data: (Optional) Dictionary, bytes, or file-like object to send in the body of the request
-        :param json: (Optional) A JSON serializable Python object to send in the body of the request
-        :return: Response object or None if an error occurred
-        """
         url = full_url if full_url else f"{self.apiURL}{endpoint}"
-        
+
         # Ensure headers are not None and set Accept-Encoding to gzip
         if headers is None:
             headers = {}
@@ -82,10 +73,12 @@ class Mubi:
         # Log API call details
         xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
         xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
+        
+        # Log parameters if they exist
         if params:
             xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
-        if data:
-            xbmc.log(f"Data: {data}", xbmc.LOGDEBUG)
+        
+        # Log JSON body if it exists
         if json:
             xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
 
@@ -114,14 +107,14 @@ class Mubi:
         session.mount('http://', adapter)
 
         try:
-            # Log the final request details
-            xbmc.log(f"Sending request: {method} {url}", xbmc.LOGDEBUG)
+            # Log the final request details (including params)
+            xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
 
             response = session.request(
                 method,
                 url,
                 headers=headers,
-                params=params,
+                params=params,  # Pass query parameters explicitly here
                 data=data,
                 json=json,
                 timeout=10  # Set a reasonable timeout
@@ -135,23 +128,29 @@ class Mubi:
 
             # Log full response content safely
             response_content = response.text
-
-            # Optionally, log the entire response content (useful for deeper debugging)
             xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
 
             return response
+
         except requests.exceptions.HTTPError as http_err:
             xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
+            if response is not None:
+                xbmc.log(f"Response Headers: {response.headers}", xbmc.LOGERROR)
+                xbmc.log(f"Response Content: {response.text}", xbmc.LOGERROR)
             return None
+
         except requests.exceptions.RequestException as req_err:
             xbmc.log(f"Request exception occurred: {req_err}", xbmc.LOGERROR)
             return None
+
         except Exception as err:
             xbmc.log(f"An unexpected error occurred: {err}", xbmc.LOGERROR)
             return None
+
         finally:
             session.close()
             xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
+
 
 
 
@@ -174,25 +173,27 @@ class Mubi:
 
     def hea_atv_gen(self):
         """
-        Generates headers required for API requests without authorization.
+        Generates headers required for API requests without authorization in a web-based context.
 
         :return: Headers dictionary.
         :rtype: dict
         """
+        base_url = 'https://mubi.com'  # This is used for the Referer and Origin headers
+
         return {
-            'User-Agent': 'MUBI-Android-TV/31.1',  # Updated User-Agent
-            'accept-encoding': 'gzip',
-            'accept': 'application/json',
-            'client': 'android_tv',
-            'client-version': '31.1',  # Updated client-version
-            'client-device-identifier': self.session_manager.device_id,  # Use session manager
-            'client-app': 'mubi',
-            'client-device-brand': 'unknown',
-            'client-device-model': 'sdk_google_atv_x86',
-            'client-device-os': '8.0.0',
-            'client-accept-audio-codecs': 'AAC',
-            'client-country': self.session_manager.client_country  # Use session manager
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+            'Authorization': f'Bearer {self.session_manager.token}',  # Authorization token from session
+            'Anonymous_user_id': self.session_manager.device_id,  # Use session manager for device ID
+            'Client': 'web',
+            'Client-Accept-Audio-Codecs': 'aac',
+            'Client-Accept-Video-Codecs': 'h265,vp9,h264',  # Include support for video codecs
+            'Client-Country': self.session_manager.client_country,  # Client country from session
+            'Referer': base_url,  # Add Referer for web-based requests
+            'Origin': base_url,  # Add Origin for web-based requests
+            'Accept-Encoding': 'gzip',
+            'accept': 'application/json'
         }
+
 
     def hea_atv_auth(self):
         """
@@ -227,15 +228,33 @@ class Mubi:
 
         :param auth_token: Authentication token from get_link_code().
         :type auth_token: str
-        :return: Response JSON from the authenticate API call.
-        :rtype: dict
+        :return: Authentication response data if successful, None otherwise.
+        :rtype: dict or None
         """
         data = {'auth_token': auth_token}
         response = self._make_api_call('POST', 'authenticate', headers=self.hea_atv_gen(), json=data)
+
         if response:
-            return response.json()
+            response_data = response.json()
+
+            # Check if token and user data are present in the response
+            if 'token' in response_data and 'user' in response_data:
+                token = response_data['token']
+                user_id = response_data['user']['id']  # Extract user_id from the response
+
+                # Set the token and user_id in the session
+                self.session_manager.set_logged_in(token, str(user_id))  # Store both token and user_id
+
+                xbmc.log("User authenticated successfully", xbmc.LOGDEBUG)
+                return response_data  # Return the full response data
+            else:
+                xbmc.log(f"Authentication failed: {response_data.get('message', 'No error message provided')}", xbmc.LOGERROR)
         else:
-            return None
+            xbmc.log("Authentication failed: No response from server", xbmc.LOGERROR)
+
+        return None  # Return None if authentication failed
+
+
 
     def log_out(self):
         """
@@ -489,3 +508,81 @@ class Mubi:
                 break
 
         return all_film_items
+
+    def get_secure_stream_info(self, vid: str) -> dict:
+        try:
+            # Step 1: Attempt to check film viewing availability with parental lock
+            viewing_url = f"{self.apiURL}films/{vid}/viewing"
+            params = {'parental_lock_enabled': 'true'}  # Add as query parameter
+            viewing_response = self._make_api_call("POST", full_url=viewing_url, headers=self.hea_atv_auth(), params=params)
+
+            # If the parental lock check fails, log a warning but continue
+            if not viewing_response or viewing_response.status_code != 200:
+                xbmc.log(f"Parental lock check failed, ignoring. Error: {viewing_response.text if viewing_response else 'No response'}", xbmc.LOGWARNING)
+
+            # Step 2: Handle Pre-roll (if any)
+            preroll_url = f"{self.apiURL}prerolls/viewings"
+            preroll_data = {'viewing_film_id': int(vid)}
+            preroll_response = self._make_api_call("POST", full_url=preroll_url, headers=self.hea_atv_auth(), json=preroll_data)
+
+            # Pre-roll is optional, so even if it fails, we can continue
+            if preroll_response and preroll_response.status_code != 200:
+                xbmc.log(f"Pre-roll processing failed: {preroll_response.text}", xbmc.LOGDEBUG)
+
+            # Step 3: Fetch the secure video URL
+            secure_url = f"https://api.mubi.com/v3/films/{vid}/viewing/secure_url"
+            secure_response = self._make_api_call("GET", full_url=secure_url, headers=self.hea_atv_auth())
+
+            # Ensure we keep the entire secure response data intact
+            secure_data = secure_response.json() if secure_response and secure_response.status_code == 200 else None
+            if not secure_data or "url" not in secure_data:
+                message = secure_data.get('user_message', 'Unable to retrieve secure URL') if secure_data else 'Unknown error'
+                xbmc.log(f"Error retrieving secure stream info: {message}", xbmc.LOGERROR)
+                return {'error': message}
+
+            # Step 4: Extract stream URL and DRM info (keep all URLs)
+            stream_info = {
+                'stream_url': secure_data['url'],  # The primary stream URL
+                'urls': secure_data.get('urls', []),  # Additional URLs to select from
+                'license_key': generate_drm_license_key(self.session_manager.token, self.session_manager.user_id)
+            }
+
+            return stream_info
+
+        except Exception as e:
+            xbmc.log(f"Error retrieving secure stream info: {e}", xbmc.LOGERROR)
+            return {'error': 'An unexpected error occurred while retrieving stream info'}
+
+
+    def select_best_stream(self, stream_info):
+        """
+        Selects the best stream URL from the available options.
+
+        :param stream_info: Dictionary containing stream URLs and types
+        :return: Best stream URL or None
+        """
+        try:
+            # Log available streams
+            xbmc.log(f"Selecting best stream from secure_data: {stream_info}", xbmc.LOGDEBUG)
+            for stream in stream_info['urls']:
+                xbmc.log(f"Available stream: {stream['src']} - Content Type: {stream['content_type']}", xbmc.LOGDEBUG)
+
+            # Prefer MPEG-DASH over HLS
+            for stream in stream_info['urls']:
+                if stream['content_type'] == 'application/dash+xml':
+                    xbmc.log(f"Selected DASH stream: {stream['src']}", xbmc.LOGDEBUG)
+                    return stream['src']
+
+            # If DASH not found, fall back to HLS
+            for stream in stream_info['urls']:
+                if stream['content_type'] == 'application/x-mpegURL':
+                    xbmc.log(f"Selected HLS stream: {stream['src']}", xbmc.LOGDEBUG)
+                    return stream['src']
+
+            # No suitable stream found
+            xbmc.log("No suitable stream found.", xbmc.LOGERROR)
+            return None
+
+        except Exception as e:
+            xbmc.log(f"Error selecting best stream: {e}", xbmc.LOGERROR)
+            return None

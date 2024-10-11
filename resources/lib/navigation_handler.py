@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
 from resources.lib.library import Library
-
+from resources.lib.playback import play_with_inputstream_adaptive
 
 class NavigationHandler:
     """
@@ -28,6 +28,10 @@ class NavigationHandler:
         self.mubi = mubi
         self.session = session
         self.plugin = xbmcaddon.Addon()
+
+        # Log the handle when NavigationHandler is initialized
+        xbmc.log(f"NavigationHandler initialized with handle: {self.handle}", xbmc.LOGDEBUG)
+
 
     def get_url(self, **kwargs) -> str:
         """
@@ -137,23 +141,124 @@ class NavigationHandler:
         """ Helper method to add a film item to the Kodi directory """
         try:
             list_item = xbmcgui.ListItem(label=film.title)
-            list_item.setInfo("video", {"title": film.title, "originaltitle": film.metadata.originaltitle, "genre": ', '.join(film.metadata.genre), "plot": film.metadata.plot, "mediatype": "video"})
-            list_item.setArt({"thumb": film.metadata.image, "poster": film.metadata.image, "fanart": film.metadata.image, "landscape": film.metadata.image})
-            url = self.get_url(action="play_ext", web_url=film.web_url)
-            xbmcplugin.addDirectoryItem(self.handle, url, list_item, False)
+            list_item.setInfo("video", {
+                "title": film.title,
+                "originaltitle": film.metadata.originaltitle,
+                "genre": ', '.join(film.metadata.genre),
+                "plot": film.metadata.plot,
+                "mediatype": "video"
+            })
+            list_item.setArt({
+                "thumb": film.metadata.image,
+                "poster": film.metadata.image,
+                "fanart": film.metadata.image,
+                "landscape": film.metadata.image
+            })
+            
+            # Set 'IsPlayable' property to inform Kodi this is a playable item
+            list_item.setProperty('IsPlayable', 'true')
+            
+            # Set the URL and path to the plugin URL
+            url = self.get_url(action="play_mubi_video", film_id=film.mubi_id)
+            list_item.setPath(url)
+            
+            # Add the item to the directory with isFolder=False
+            xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=False)
         except Exception as e:
             xbmc.log(f"Error adding film item {film.title}: {e}", xbmc.LOGERROR)
 
+
     def play_video_ext(self, web_url: str):
         """
-        Play a video externally by opening it in a web browser.
-
+        Open a web URL using the appropriate system command.
+        
         :param web_url: Web URL of the video
         """
         try:
-            webbrowser.open_new_tab(web_url)
+            xbmc.log(f"Opening external video URL: {web_url}", xbmc.LOGDEBUG)
+            
+            import subprocess
+            import os
+            
+            if xbmc.getCondVisibility('System.Platform.Windows'):
+                # Windows platform
+                os.startfile(web_url)
+            elif xbmc.getCondVisibility('System.Platform.OSX'):
+                # macOS platform
+                subprocess.Popen(['open', web_url])
+            elif xbmc.getCondVisibility('System.Platform.Linux'):
+                # Linux platform
+                subprocess.Popen(['xdg-open', web_url])
+            elif xbmc.getCondVisibility('System.Platform.Android'):
+                # Android platform
+                xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{web_url}")')
+            else:
+                # Unsupported platform
+                xbmcgui.Dialog().ok("MUBI", "Cannot open web browser on this platform.")
         except Exception as e:
             xbmc.log(f"Error opening external video: {e}", xbmc.LOGERROR)
+            xbmcgui.Dialog().ok("MUBI", f"Error opening external video: {e}")
+
+
+
+    def play_mubi_video(self, film_id: str = None, web_url: str = None):
+        """
+        Play a Mubi video using the secure URL and DRM handling.
+        If playback fails, prompt the user to open the video in an external web browser.
+
+        :param film_id: Video ID
+        :param web_url: Web URL of the film
+        """
+        try:
+            xbmc.log(f"play_mubi_video called with handle: {self.handle}", xbmc.LOGDEBUG)
+
+            if film_id is None:
+                xbmc.log(f"Error: film_id is missing", xbmc.LOGERROR)
+                xbmcgui.Dialog().notification("MUBI", "Error: film_id is missing.", xbmcgui.NOTIFICATION_ERROR)
+                return
+
+            # Get secure stream info from Mubi API
+            stream_info = self.mubi.get_secure_stream_info(film_id)
+            xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
+
+            if 'error' in stream_info:
+                xbmc.log(f"Error in stream info: {stream_info['error']}", xbmc.LOGERROR)
+                xbmcgui.Dialog().notification("MUBI", f"Error: {stream_info['error']}", xbmcgui.NOTIFICATION_ERROR)
+                raise Exception("Error in stream info")
+
+            # Select the best stream URL
+            best_stream_url = self.mubi.select_best_stream(stream_info)
+            xbmc.log(f"Selected best stream URL: {best_stream_url}", xbmc.LOGDEBUG)
+
+            if not best_stream_url:
+                xbmc.log("Error: No suitable stream found.", xbmc.LOGERROR)
+                xbmcgui.Dialog().notification("MUBI", "Error: No suitable stream found.", xbmcgui.NOTIFICATION_ERROR)
+                raise Exception("No suitable stream found")
+
+            # Extract subtitle tracks
+            subtitles = stream_info.get('text_track_urls', [])
+            xbmc.log(f"Available subtitles: {subtitles}", xbmc.LOGDEBUG)
+
+            # Play video using InputStream Adaptive
+            xbmc.log(f"Calling play_with_inputstream_adaptive with handle: {self.handle}, stream URL: {best_stream_url}", xbmc.LOGDEBUG)
+            play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'], subtitles)
+
+        except Exception as e:
+            xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
+            xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
+
+            # Prompt the user
+            if web_url:
+                if xbmcgui.Dialog().yesno("MUBI", "Failed to play the video. Do you want to open it in a web browser?"):
+                    self.play_video_ext(web_url)
+                else:
+                    pass  # User chose not to open in web browser
+            else:
+                xbmcgui.Dialog().notification("MUBI", "Unable to open in web browser. Web URL is missing.", xbmcgui.NOTIFICATION_ERROR)
+
+
+
+
 
     def play_trailer(self, url: str):
         """
@@ -176,8 +281,9 @@ class NavigationHandler:
             if 'auth_token' in code_info and 'link_code' in code_info:
                 self._display_login_code(code_info)
                 auth_response = self.mubi.authenticate(code_info['auth_token'])
-                if 'token' in auth_response:
-                    self.session.set_logged_in(auth_response['token'])
+
+                if auth_response and 'token' in auth_response:
+                    # Token and user ID are already set in session inside authenticate method
                     xbmcgui.Dialog().notification("MUBI", "Successfully logged in!", xbmcgui.NOTIFICATION_INFO)
                     xbmc.executebuiltin('Container.Refresh')
                 else:
@@ -188,6 +294,8 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Exception during login: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().notification('MUBI', 'An unexpected error occurred during login.', xbmcgui.NOTIFICATION_ERROR)
+
+
 
     def _display_login_code(self, code_info: dict):
         """ Helper method to display login code to the user """
