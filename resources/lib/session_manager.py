@@ -15,6 +15,7 @@ class SessionManager:
         self.plugin = plugin
         self.device_id = self.get_or_generate_device_id()
         self.client_country = self._get_plugin_setting('client_country')
+        self.client_language = self._get_plugin_setting('accept-language')  # Initialize client language
         self.token = self._get_plugin_setting('token')
         self.is_logged_in = bool(self.token)
         self.user_id = self._get_plugin_setting('userID')
@@ -108,6 +109,19 @@ class SessionManager:
             xbmc.log(f"Client country set to {client_country}.", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error setting client country: {e}", xbmc.LOGERROR)
+
+    def set_client_language(self, client_language: str):
+        """
+        Set the client's language and save it to settings.
+
+        :param client_language: The language code of the client.
+        """
+        try:
+            self.client_language = client_language
+            self.plugin.setSetting('accept-language', client_language)
+            xbmc.log(f"Client language set to {client_language}.", xbmc.LOGDEBUG)
+        except Exception as e:
+            xbmc.log(f"Error setting client language: {e}", xbmc.LOGERROR)
 
     def _get_plugin_setting(self, setting_key: str) -> str:
         """

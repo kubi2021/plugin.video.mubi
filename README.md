@@ -10,12 +10,13 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚
 
-- 🎬 Fetches all movies available on Mubi, including **full metadata**
-- 👍 Compatible with the **Kodi movie library**
-- 🛡️ Finds the corresponding movie on **IMDb** so Kodi scraper can fetch additional metadata
+- 🎬 Fetches all movies available on Mubi, including full metadata
+- 👍 Compatible with the Kodi movie library
+- 🛡️ Finds the corresponding movie on IMDb so Kodi scraper can fetch additional metadata
 - 🍿 Play Mubi trailers directly within Kodi
-- 📺 **Movies are playable directly within Kodi**, supporting **subtitles** and **multiple audio streams** out of the box using Kodi's features
-- 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on MacOS only)
+- 📺 Movies are playable directly within Kodi, supporting subtitles and multiple audio streams out of the box using Kodi's features
+- 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on macOS only)
+- 🈯 Supports display of titles and descriptions in the languages supported by Mubi
 
 ### What Doesn't Work (Yet)
 - 🧐 Playing the movie within Kodi (due to **DRM issues** that need to be resolved)
@@ -52,6 +53,7 @@ Whenever you want to **update** the local database:
 
 - Added support for playing MUBI movies directly within Kodi 🎥
 - Implemented subtitles and multiple audio streams support using Kodi's native features 📺
+- Added support for displaying titles and descriptions in the languages supported by MUBI 🈯
 
 ### October 10th 2024
 
