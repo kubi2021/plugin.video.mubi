@@ -7,13 +7,14 @@ I really enjoy MUBI and their curated selection of films. However, I find their 
 This project is a personal endeavour I work on in my free time. As I am not a professional developer, updates or changes might take a little longer to implement.
 
 ## Features
+
 The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚
 
 - 🎬 Fetches all movies available on Mubi, including **full metadata**
 - 👍 Compatible with the **Kodi movie library**
 - 🛡️ Finds the corresponding movie on **IMDb** so Kodi scraper can fetch additional metadata
 - 🍿 Play Mubi trailers directly within Kodi
-- 🎥 (Tested on macOS only) Opens the movie in your **external browser** to play
+- 📺 **Movies are playable directly within Kodi**, supporting **subtitles** and **multiple audio streams** out of the box using Kodi's features
 
 ### What Doesn't Work (Yet)
 - 🧐 Playing the movie within Kodi (due to **DRM issues** that need to be resolved)
@@ -45,7 +46,13 @@ Whenever you want to **update** the local database:
 
 ## Changelog
 
-### October 2024
+
+### October 11th 2024
+
+- Added support for playing MUBI movies directly within Kodi 🎥
+- Implemented subtitles and multiple audio streams support using Kodi's native features 📺
+
+### October 10th 2024
 
 MUBI recently updated their API a few months ago, which caused the current addon to stop working. Thanks to this [repository](https://github.com/mtr81/kodi_addons), I found great inspiration for adapting the addon to MUBI's new V3 API. 🎉
 
