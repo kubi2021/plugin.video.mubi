@@ -13,6 +13,7 @@ import xbmcaddon
 from urllib.parse import parse_qsl
 import sys
 import xbmc
+from urllib.parse import parse_qsl, unquote_plus
 
 if __name__ == "__main__":
     plugin = xbmcaddon.Addon()
@@ -58,8 +59,12 @@ if __name__ == "__main__":
         xbmc.log(f"Calling sync_locally with handle: {handle}", xbmc.LOGDEBUG)
         navigation.sync_locally()
     elif action == "play_mubi_video":
+        film_id = params.get('film_id')
+        web_url = params.get('web_url')
+        if web_url:
+            web_url = unquote_plus(web_url)
+        navigation.play_mubi_video(film_id, web_url)
         xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.play_mubi_video(params['film_id'])
     else:
         navigation.main_navigation()
 

@@ -31,13 +31,14 @@ def generate_drm_license_key(token, user_id):
     return license_key
 
 
-def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str):
+def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, subtitles: list):
     """
-    Plays a video using InputStream Adaptive (ISA) with DRM protection.
+    Plays a video using InputStream Adaptive (ISA) with DRM protection and subtitles.
 
     :param handle: Kodi plugin handle
     :param stream_url: The secure stream URL
     :param license_key: DRM license key for Widevine content
+    :param subtitles: List of subtitle tracks
     """
     try:
         # Determine the streaming protocol from the URL
@@ -77,11 +78,20 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str):
             play_item.setProperty('inputstream.adaptive.stream_headers', headers_str)
             play_item.setProperty('inputstream.adaptive.manifest_headers', headers_str)
 
-            # Log the license key and playback initialization
-            xbmc.log(f"Setting DRM license key: {license_key}", xbmc.LOGDEBUG)
+            # Add subtitles to the ListItem
+            subtitle_urls = [subtitle['url'] for subtitle in subtitles]
+            play_item.setSubtitles(subtitle_urls)
+            xbmc.log(f"Subtitles added: {subtitle_urls}", xbmc.LOGDEBUG)
 
-            # Resolve and start playback
-            xbmcplugin.setResolvedUrl(handle, True, listitem=play_item)
+            # Start playback
+            if handle != -1:
+                # When handle is valid, use setResolvedUrl
+                xbmcplugin.setResolvedUrl(handle, True, listitem=play_item)
+            else:
+                # When handle is -1, use xbmc.Player().play()
+                xbmc.log("Handle is -1, using xbmc.Player().play()", xbmc.LOGDEBUG)
+                xbmc.Player().play(item=play_item)
+
         else:
             raise Exception("InputStream Adaptive is not supported or enabled")
 
@@ -91,3 +101,4 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str):
     except Exception as e:
         xbmc.log(f"Error initializing InputStream Adaptive: {e}", xbmc.LOGERROR)
         xbmcgui.Dialog().notification("MUBI", "Error: Unable to play DRM-protected content.", xbmcgui.NOTIFICATION_ERROR)
+
