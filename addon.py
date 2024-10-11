@@ -45,6 +45,8 @@ if __name__ == "__main__":
         navigation.play_trailer(params['url'])
     elif action == "sync_locally":
         navigation.sync_locally()
+    elif action == "play_mubi_video":
+        navigation.play_mubi_video(params['film_id'])
     else:
         navigation.main_navigation()
 
