@@ -17,6 +17,7 @@ class SessionManager:
         self.client_country = self._get_plugin_setting('client_country')
         self.token = self._get_plugin_setting('token')
         self.is_logged_in = bool(self.token)
+        self.user_id = self._get_plugin_setting('userID')
 
     def get_or_generate_device_id(self) -> str:
         """
@@ -61,34 +62,40 @@ class SessionManager:
             xbmc.log(f"Error generating random code: {e}", xbmc.LOGERROR)
             return ''
 
-    def set_logged_in(self, token: str):
+    def set_logged_in(self, token: str, user_id: str):
         """
-        Set the logged-in state and save the token to settings.
+        Set the logged-in state and save the token and user ID to settings.
 
         :param token: Authentication token.
+        :param user_id: User ID.
         """
         try:
             self.token = token
+            self.user_id = user_id  # Store the user ID
             self.is_logged_in = True
             self.plugin.setSetting('token', token)
+            self.plugin.setSetting('userID', user_id)  # Save user ID to settings
             self.plugin.setSettingBool('logged', True)
             xbmc.log("User logged in successfully.", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error setting logged-in status: {e}", xbmc.LOGERROR)
 
+
     def set_logged_out(self):
         """
-        Set the logged-out state and clear the token from settings.
+        Set the logged-out state and clear the token and user ID from settings.
         """
         try:
             self.token = None
+            self.user_id = None  # Clear user ID
             self.is_logged_in = False
             self.plugin.setSetting('token', '')
+            self.plugin.setSetting('userID', '')  # Clear user ID from settings
             self.plugin.setSettingBool('logged', False)
             xbmc.log("User logged out successfully.", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error setting logged-out status: {e}", xbmc.LOGERROR)
-
+            
     def set_client_country(self, client_country: str):
         """
         Set the client's country and save it to settings.

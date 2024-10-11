@@ -25,15 +25,27 @@ class Film:
 
     def create_strm_file(self, film_path: Path, base_url: str):
         """Create the .strm file for the film."""
+        from urllib.parse import urlencode
+
         film_file_name = f"{self.title} ({self.metadata.year}).strm"
         film_strm_file = film_path / film_file_name
-        kodi_movie_url = f"{base_url}?action=play_ext&web_url={self.web_url}"
+
+        # Build the query parameters
+        query_params = {
+            'action': 'play_mubi_video',
+            'film_id': self.mubi_id,
+            'web_url': self.web_url
+        }
+        encoded_params = urlencode(query_params)
+        kodi_movie_url = f"{base_url}?{encoded_params}"
 
         try:
             with open(film_strm_file, "w") as f:
                 f.write(kodi_movie_url)
         except OSError as error:
             xbmc.log(f"Error while creating STRM file for {self.title}: {error}", xbmc.LOGERROR)
+
+
 
     def create_nfo_file(self, film_path: Path, base_url: str, omdb_api_key: str):
         """Create the .nfo file for the film."""
