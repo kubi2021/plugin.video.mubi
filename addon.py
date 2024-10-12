@@ -15,6 +15,7 @@ import sys
 import xbmc
 from urllib.parse import parse_qsl, unquote_plus
 import xbmcgui
+from resources.lib.migrations import add_mubi_source, is_first_run, mark_first_run
 
 if __name__ == "__main__":
     plugin = xbmcaddon.Addon()
@@ -25,6 +26,16 @@ if __name__ == "__main__":
 
     # Log the handle and base URL for debugging purposes
     xbmc.log(f"Addon initialized with handle: {handle} and base_url: {base_url}", xbmc.LOGDEBUG)
+
+    # First run logic: Check and add the MUBI source if this is the first run
+    if is_first_run(plugin):
+        xbmc.log("First run detected: Adding MUBI source", xbmc.LOGINFO)  # Log for first run detection
+        add_mubi_source()  # Add the MUBI source
+        mark_first_run(plugin)  # Mark that first run has completed
+        xbmc.log("First run completed: MUBI source added and first run marked", xbmc.LOGINFO)  # Log after adding source
+    else:
+        xbmc.log("Not the first run: Skipping MUBI source addition", xbmc.LOGINFO)  # Log when not first run
+
 
 
     # Fetch and set client country if it's not already set
