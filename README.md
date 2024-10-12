@@ -51,6 +51,9 @@ Whenever you want to **update** the local database:
 
 - improved installation by automatically adding the Mubi Video source to Kodi
 - better user experience with OMDb API, plugins detects if the API Key is missig and notifies the user before the sync
+- improved library management:
+    - obsolete movies are removed from the local folder
+    - after syncing with Mubi, Kodi library upgrade is automatically triggered
 
 ### October 11th 2024
 
@@ -77,55 +80,36 @@ The code was originally forked from user [Jamieu](https://github.com/jamieu/plug
 - ❌ Removed dependency on XMBCSwift
 - 🛠️ Rewrote the browsing interface using native Kodi libraries
 
----
+## Troubleshooting
 
+### 1. Sync Process is Slow ⏳
 
+If you notice that the sync process is taking longer than expected, this is due to a rate limiting feature we introduced to the Mubi API calls. This rate limiting prevents overloading Mubi's servers and ensures that we comply with their usage policies.
 
-## Development Setup 🛠️
+It's normal for the sync process to have occasional pauses, especially noticeable when syncing categories. Please be patient as the process completes.
 
-Follow these steps to set up your Kodi development environment, so that changes to the plugin code are automatically reflected without needing to reinstall or copy files:
+### 2. Manually Creating the Mubi Source in Kodi 🛠️
 
-### 1. Install the Plugin from Zip
+If for some reason the Mubi Movies folder isn't automatically added as a video source during the installation process, you can manually create the source in Kodi by following these steps:
 
-1. First, **package your plugin** into a `.zip` file.
-2. Open Kodi and navigate to **Add-ons** > **Install from zip file**.
-3. Select your `.zip` file and install the plugin. This registers the plugin in Kodi.
+1. Navigate to **Settings > Media > Library**.
+2. Select **Add Video Source**.
+3. Enter the following path for the source:
+   ```
+   special://userdata/addon_data/plugin.video.mubi
+   ```
+4. Complete the process, and the Mubi Movies folder will be available in your Kodi library.
 
-### 2. Shutdown Kodi ⏹️
+After adding the source manually, follow the normal steps to configure it for movies and set up the scraper.
 
-Once the plugin is installed, completely **close Kodi**.
+### 3. Cleaning up the Addon 🧹
 
-### 3. Remove the Installed Plugin Folder
+Before upgrading the addon, it's best to do a full cleanup to avoid potential issues. To clean up the addon:
 
-After closing Kodi, navigate to Kodi's **addons** directory, and **remove** the installed plugin folder. This is typically located at:
-
-```bash
-~/Library/Application Support/Kodi/addons/plugin.video.mubi
-```
-
-Use the following command to remove the folder:
-
-```bash
-rm -rf ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
-```
-
-### 4. Create a Symlink to Your Development Folder 🔗
-
-Now, create a **symbolic link (symlink)** from your development folder to the Kodi addons directory. Replace `<path_to_your_dev_folder>` with the actual path to your local development folder:
-
-```bash
-ln -s <path_to_your_dev_folder> ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
-```
-
-For example:
-
-```bash
-ln -s /Users/youruser/Documents/GitHub/plugin.video.mubi ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
-```
-
-### 5. Restart Kodi 🔄
-
-Once the symlink is created, **restart Kodi**. The plugin will now load directly from your development folder, and any changes made will be automatically reflected in Kodi without needing to reinstall the plugin.
+1. Navigate to **userdata/addon_data/plugin.video.mubi** and remove all the files and folders.
+2. It's also suggested to **clean your media library**.
+3. Install the new version of the addon.
+4. You'll need to **log in again** and perform the **first sync**.
 
 ---
 
