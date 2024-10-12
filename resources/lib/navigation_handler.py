@@ -380,6 +380,20 @@ class NavigationHandler:
             pDialog.close()
             xbmcgui.Dialog().notification("MUBI", "Sync completed successfully!", xbmcgui.NOTIFICATION_INFO)
 
+            # Trigger Kodi library update after sync is done
+            self.update_kodi_library()
+
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
 
+
+    def update_kodi_library(self):
+        """
+        Triggers a Kodi library update to scan for new movies after the sync process.
+        """
+        try:
+            xbmc.log("Triggering Kodi library update...", xbmc.LOGDEBUG)
+            xbmc.executebuiltin('UpdateLibrary(video)')
+            xbmcgui.Dialog().notification("MUBI", "Kodi library update triggered.", xbmcgui.NOTIFICATION_INFO)
+        except Exception as e:
+            xbmc.log(f"Error triggering Kodi library update: {e}", xbmc.LOGERROR)
