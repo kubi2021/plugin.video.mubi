@@ -328,6 +328,27 @@ class NavigationHandler:
         This allows the films to be imported into Kodi's standard media library.
         """
         try:
+            # Retrieve the OMDb API key from the settings
+            omdb_api_key = self.plugin.getSetting("omdbapiKey")
+
+            # Check if the OMDb API key is missing
+            if not omdb_api_key:
+                dialog = xbmcgui.Dialog()
+
+                # Show a message with options to either go to settings or cancel
+                ret = dialog.yesno(
+                    "OMDb API Key Missing",
+                    "OMDB Key is needed to provide rich metadata in your Kodi library. Get it for free here [B]omdbapi.com/apikey.aspx[/B]\n"
+                    "Would you like to go to the plugin settings now?",
+                    yeslabel="Go to Settings",
+                    nolabel="Cancel"
+                )
+
+                if ret:  # If the user clicks 'Go to Settings'
+                    self.plugin.openSettings()  # Opens the settings for the user to add the OMDb API key
+                return  # Exit the function if the OMDb API key is missing or the user cancels
+
+            # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
             pDialog.create("Syncing with Mubi", "Fetching all categories...")
 
@@ -354,7 +375,6 @@ class NavigationHandler:
                     return None
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
-            omdb_api_key = self.plugin.getSetting("omdbapiKey")
             all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
 
             pDialog.close()
@@ -362,3 +382,4 @@ class NavigationHandler:
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
+
