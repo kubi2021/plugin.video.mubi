@@ -9,6 +9,7 @@ from pathlib import Path
 from resources.lib.library import Library
 from resources.lib.playback import play_with_inputstream_adaptive
 
+
 class NavigationHandler:
     """
     Handles all navigation and UI interactions within Kodi for the Mubi plugin.
