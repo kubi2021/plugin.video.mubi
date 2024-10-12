@@ -20,6 +20,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 
 ## Installation
 
+0. Make sure you have the latest Kodi version (I tried with v20 and playback didn't work)
 1. **Download** this repository.
 2. From the **Kodi interface**, install the addon from the Zip file.
 
