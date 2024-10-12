@@ -10,7 +10,7 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚
 
-- 🎬 Fetches all movies available on Mubi, including full metadata
+- 🎬 Fetches all movies available on Mubi, including full Mubi ratings and descriptions
 - 👍 Compatible with the Kodi movie library
 - 🛡️ Finds the corresponding movie on IMDb so Kodi scraper can fetch additional metadata
 - 🍿 Play Mubi trailers directly within Kodi
@@ -18,36 +18,38 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 - 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on macOS only)
 - 🈯 Supports display of titles and descriptions in the languages supported by Mubi
 
-### What Doesn't Work (Yet)
-- 🧐 Playing the movie within Kodi (due to **DRM issues** that need to be resolved)
-
-## Installation 📜
+## Installation
 
 1. **Download** this repository.
 2. From the **Kodi interface**, install the addon from the Zip file.
-3. In the add-on settings, enter your **OMDb API key** (you can get it [here](http://www.omdbapi.com/apikey.aspx)). This key helps the addon identify the movie on **IMDb**, allowing the Kodi scraper to find additional metadata like artwork, etc.
 
-## First run & Populating the Library 📏
+## First run & Populating the Library
 
-1. Launch the Mubi add-on.
-2. Select the option to **sync Mubi locally**.
-3. Navigate to **Settings > Media > Library** and add a video source with the path:
-    ```
-    special://userdata/addon_data/plugin.video.mubi
-    ```
-4. In the next window (**Set Content**), after adding the path, specify that the directory contains **Movies**.
-5. Choose your preferred information provider (e.g., **Universal Movie Scraper**).
-6. In the scraper settings, **uncheck** fetching the trailer (since the current add-on provides trailers directly from Mubi). Optionally, check to fetch all **fanart**.
-7. In the **Set Content** window, check "**Movies are in separate folders**," and leave the other toggles as they are.
+1. 🔑 Get an **OMDb API key** from [here](http://www.omdbapi.com/apikey.aspx). It's free and will be needed to populate the library with rich metadata.
+2. ⚙️ In the **add-on settings**, enter your **OMDb API key**. It's important to do this before the first sync of Mubi to Kodi.
+3. 🎬 Launch the **Mubi** add-on.
+4. 📁 The **Mubi Movies** folder is automatically added to the Kodi video sources by the addon.
+5. ⚙️ For the Mubi movies to be properly scraped and displayed in your library, configure the source in **Kodi settings > Media > Video**:
+    - 1️⃣ Set the content type to **'Video'**.
+    - 2️⃣ In the **Set Content** window, check "**Movies are in separate folders**," and leave the other toggles as they are.
+    - 3️⃣ Choose your preferred information provider (e.g., **Universal Movie Scraper**).
+    - 4️⃣ In the scraper settings, **uncheck** fetching the trailer (since the current add-on provides trailers directly from Mubi). Optionally, check to fetch all **fanart**.
+6. 🔙 Go back to the **Mubi** addon and log in.
+7. 🔄 Select the option to **sync Mubi locally**.
+8. 🎥 Go to the **Movies** tab in Kodi and **update the library** to see the newly added Mubi movies.
 
 ### Next Runs 🚀
 
 Whenever you want to **update** the local database:
 1. Run the **sync** process again (as described above).
 2. Then update the **Kodi library** to fetch the latest metadata.
+3. 🎥 Go to the **Movies** tab in Kodi and **update the library** to see the newly added Mubi movies.
 
 ## Changelog
 
+### October 12th 2024
+
+- improved installation by automatically adding the Mubi Video source to Kodi
 
 ### October 11th 2024
 
