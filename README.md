@@ -51,6 +51,9 @@ Whenever you want to **update** the local database:
 
 - improved installation by automatically adding the Mubi Video source to Kodi
 - better user experience with OMDb API, plugins detects if the API Key is missig and notifies the user before the sync
+- improved library management:
+    - obsolete movies are removed from the local folder
+    - after syncing with Mubi, Kodi library upgrade is automatically triggered
 
 ### October 11th 2024
 
