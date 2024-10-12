@@ -8,6 +8,6 @@
         <setting id="token" type="text" default="" visible="false"/>
         <setting id="userID" type="text" default="" visible="false"/>
         <setting label="Language for titles and descriptions" type="labelenum" id="accept-language" values="tr|en|fr|es|de|it|nl|pt" default=""/>
-
+        <setting id="first_run_completed" type="bool" default="false" visible="false"/>
     </category>
 </settings>
