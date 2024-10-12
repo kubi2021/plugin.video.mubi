@@ -77,6 +77,37 @@ The code was originally forked from user [Jamieu](https://github.com/jamieu/plug
 - ❌ Removed dependency on XMBCSwift
 - 🛠️ Rewrote the browsing interface using native Kodi libraries
 
+## Troubleshooting
+
+### 1. Sync Process is Slow ⏳
+
+If you notice that the sync process is taking longer than expected, this is due to a rate limiting feature we introduced to the Mubi API calls. This rate limiting prevents overloading Mubi's servers and ensures that we comply with their usage policies.
+
+It's normal for the sync process to have occasional pauses, especially noticeable when syncing categories. Please be patient as the process completes.
+
+### 2. Manually Creating the Mubi Source in Kodi 🛠️
+
+If for some reason the Mubi Movies folder isn't automatically added as a video source during the installation process, you can manually create the source in Kodi by following these steps:
+
+1. Navigate to **Settings > Media > Library**.
+2. Select **Add Video Source**.
+3. Enter the following path for the source:
+   ```
+   special://userdata/addon_data/plugin.video.mubi
+   ```
+4. Complete the process, and the Mubi Movies folder will be available in your Kodi library.
+
+After adding the source manually, follow the normal steps to configure it for movies and set up the scraper.
+
+### 3. Cleaning up the Addon 🧹
+
+Before upgrading the addon, it's best to do a full cleanup to avoid potential issues. To clean up the addon:
+
+1. Navigate to **userdata/addon_data/plugin.video.mubi** and remove all the files and folders.
+2. It's also suggested to **clean your media library**.
+3. Install the new version of the addon.
+4. You'll need to **log in again** and perform the **first sync**.
+
 ---
 
 Enjoy Mubi on Kodi! 🎥🍿
