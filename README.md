@@ -50,6 +50,7 @@ Whenever you want to **update** the local database:
 ### October 12th 2024
 
 - improved installation by automatically adding the Mubi Video source to Kodi
+- better user experience with OMDb API, plugins detects if the API Key is missig and notifies the user before the sync
 
 ### October 11th 2024
 
