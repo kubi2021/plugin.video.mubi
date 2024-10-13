@@ -2,7 +2,7 @@ from pathlib import Path
 import xbmc
 import xbmcgui
 from resources.lib.film import Film
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import os
 import shutil
 from typing import Set
@@ -83,7 +83,12 @@ class Library:
                 existing_film_dirs.add(item.name)
 
         # Create or update films
-        new_films_count = self.create_or_update_films(base_url, plugin_userdata_path, omdb_api_key)
+        new_films_count, skipped_films_count, canceled = self.create_or_update_films(base_url, plugin_userdata_path, omdb_api_key)
+
+        # If the operation was canceled, display a cancellation message and exit
+        if canceled:
+            return  # Exit the method early
+
 
         # Collect current film directories after syncing
         current_film_dirs = set()
@@ -100,21 +105,25 @@ class Library:
         message = (
             f"Sync completed successfully!\n"
             f"New movies added: {new_films_count}\n"
+            f"Skipped, OMDb API limit hit (retry later or tomorrow): {skipped_films_count}\n"
             f"Obsolete movies removed: {obsolete_films_count}"
         )
         xbmcgui.Dialog().ok("MUBI", message)
 
-    def create_or_update_films(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]) -> int:
+    def create_or_update_films(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]) -> Tuple[List[Film], List[Film]]:
         """
         Create or update STRM and NFO files for each film.
 
         :param base_url: Base URL to use for the STRM file links.
         :param plugin_userdata_path: The path where the library files are saved.
         :param omdb_api_key: The OMDb API key for fetching IMDb information.
-        :return: The number of new films added.
+        :return: A tuple containing two lists: (newly added films, films skipped due to OMDb request limits).
         """
         total_films = len(self.films)
-        new_films_count = 0
+        new_films = []  # List to store newly added films
+        skipped_films = []  # List to store films skipped due to repeated 401 errors
+        canceled = False    # Flag to indicate if the operation was canceled
+
 
         pDialog = xbmcgui.DialogProgress()
         pDialog.create("Syncing with MUBI", "Starting the sync...")
@@ -126,7 +135,14 @@ class Library:
             if pDialog.iscanceled():
                 pDialog.close()
                 xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
-                return new_films_count  # Return the count of new films added
+                canceled = True
+                break  # Exit the loop early
+
+
+            if pDialog.iscanceled():
+                pDialog.close()
+                xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
+                return new_films, skipped_films  # Return the lists of new and skipped films
 
             try:
                 # Prepare file name and path
@@ -147,12 +163,20 @@ class Library:
                 # Create the folder if it doesn't exist
                 film_path.mkdir(parents=True, exist_ok=True)
 
-                # Use Film class methods to create STRM and NFO files
-                film.create_strm_file(film_path, base_url)
+                # First, attempt to create the NFO file
                 film.create_nfo_file(film_path, base_url, omdb_api_key)
 
-                # Increment new films count
-                new_films_count += 1
+                # Check if NFO creation was skipped (due to repeated 401 errors or other issues)
+                if not nfo_file.exists():
+                    xbmc.log(f"Skipping creation of STRM file for '{film.title}' as NFO file was not created.", xbmc.LOGWARNING)
+                    skipped_films.append(film)  # Add to skipped films list
+                    continue  # Skip to the next film
+
+                # Create the STRM file only if NFO was successfully created
+                film.create_strm_file(film_path, base_url)
+
+                # Add to the list of new films
+                new_films.append(film)
 
             except OSError as error:
                 xbmc.log(f"Error while creating library files for film '{film.title}': {error}", xbmc.LOGERROR)
@@ -160,7 +184,11 @@ class Library:
                 xbmc.log(f"Invalid data for film '{film.title}': {error}", xbmc.LOGERROR)
 
         pDialog.close()
-        return new_films_count
+
+        # Return a tuple of newly added films and films skipped due to 401 errors
+        return len(new_films), len(skipped_films), canceled
+
+
 
 
     def remove_obsolete_films(self, plugin_userdata_path: Path, obsolete_film_dirs: Set[str]) -> int:
