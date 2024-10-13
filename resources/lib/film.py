@@ -60,6 +60,8 @@ class Film:
             # Fetch IMDb URL if the API key is provided
             imdb_url = ""
             if omdb_api_key:
+                
+                time.sleep(2)  # Introduce a 1-second delay before making the API call
                 imdb_url = self._get_imdb_url(self.metadata.originaltitle, self.title, self.metadata.year, omdb_api_key)
 
                 # If the result is None, it means we encountered repeated 401 errors
@@ -128,7 +130,7 @@ class Film:
 
     def _get_imdb_url(self, original_title: str, english_title: str, year: str, omdb_api_key: str) -> Optional[str]:
         """Fetch the IMDb URL using the OMDb API with retry logic and alternative spelling handling."""
-        max_retries = 7  # Maximum number of retries per title
+        max_retries = 10  # Maximum number of retries per title
         backoff_factor = 1  # Start with a 1-second delay and double with each retry
 
         # Step 1: If original and English titles are the same, skip the original title
@@ -149,13 +151,21 @@ class Film:
             return False
         return True
 
-    def _attempt_fetch_with_titles(self, original_title: str, english_title: str, year: str, omdb_api_key: str, max_attempts: int, initial_backoff: int = 1) -> Optional[str]:
+    def _attempt_fetch_with_titles(
+        self,
+        original_title: str,
+        english_title: str,
+        year: str,
+        omdb_api_key: str,
+        max_attempts: int,
+        initial_backoff: float = 1.0
+    ) -> Optional[str]:
         """Attempt to fetch IMDb URL with the original, cleaned English, and alternative spellings."""
 
         # Prepare the list of titles to try
         titles_to_try = []
 
-        # If original title and English title are the same, skip the original title
+        # If original title and English title are different, add original title
         if original_title.strip().lower() != english_title.strip().lower():
             titles_to_try.append(original_title.strip())
 
@@ -197,14 +207,19 @@ class Film:
                         break  # Break to try the next title
 
                 except requests.exceptions.HTTPError as http_err:
-                    if http_err.response.status_code == 401:
-                        xbmc.log(f"Received 401 Unauthorized. Retrying after {backoff} seconds...", xbmc.LOGWARNING)
+                    status_code = http_err.response.status_code
+                    if status_code in [401, 402, 429]:
+                        xbmc.log(f"Received HTTP {status_code}. Retrying after {backoff:.1f} seconds...", xbmc.LOGWARNING)
                         time.sleep(backoff)  # Apply backoff delay
-                        backoff *= 1.5  # Exponential backoff
+                        backoff *= 1.5  # Increase backoff by a factor of 1.5
                         total_attempts += 1
                         continue  # Retry the same title
+                    elif status_code == 404:
+                        xbmc.log(f"Title '{title}' not found (HTTP 404). Skipping to next title.", xbmc.LOGDEBUG)
+                        total_attempts += 1
+                        break  # Break to try the next title
                     else:
-                        xbmc.log(f"HTTP error occurred while fetching IMDb URL: {http_err}", xbmc.LOGERROR)
+                        xbmc.log(f"HTTP error {status_code} occurred while fetching IMDb URL: {http_err}", xbmc.LOGERROR)
                         total_attempts += 1
                         break  # Break to try the next title
 
@@ -220,9 +235,13 @@ class Film:
 
                 total_attempts += 1  # Increment total attempts after each try
 
+            # Reset backoff delay when moving to the next title
+            backoff = initial_backoff
+
         # If all attempts are exhausted
         xbmc.log(f"Max attempts reached. IMDb URL not fetched for '{original_title}' or any alternative titles", xbmc.LOGWARNING)
         return None
+
 
     def _generate_alternative_titles(self, title: str) -> List[str]:
         """Generate alternative titles by applying common spelling variations."""
