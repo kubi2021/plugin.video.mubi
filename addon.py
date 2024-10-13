@@ -66,7 +66,7 @@ if __name__ == "__main__":
         navigation.log_out()
     elif action == "listing":
         xbmc.log(f"Calling listing with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.list_videos(params['type'], params['id'], params['category_name'])
+        navigation.list_videos(params['id'], params['category_name'])
     elif action == "play_ext":
         xbmc.log(f"Calling play_ext with handle: {handle}", xbmc.LOGDEBUG)
         navigation.play_video_ext(params['web_url'])
