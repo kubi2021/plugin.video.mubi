@@ -51,6 +51,7 @@ Whenever you want to **update** the local database:
 ### October 13th 2024
 
 - improved the first run of the Addon and made compatible with more platforms
+- improved the connection with OMDb. Initially many requests were failing and therefore many movies synced locally would not receive metadata from the Kodi scraper. After this update, there is larger success of connection with OMDb. Also movies for which OMDb was not reachable due to rate limit are not stored locally, so that they can be retried later.
 
 ### October 12th 2024
 
@@ -89,9 +90,19 @@ The code was originally forked from user [Jamieu](https://github.com/jamieu/plug
 
 ### 1. Sync Process is Slow ⏳
 
-If you notice that the sync process is taking longer than expected, this is due to a rate limiting feature we introduced to the Mubi API calls. This rate limiting prevents overloading Mubi's servers and ensures that we comply with their usage policies.
+The addon makes use of two APIs during the sync process:
 
-It's normal for the sync process to have occasional pauses, especially noticeable when syncing categories. Please be patient as the process completes.
+- **Mubi**: This API is used to fetch categories and films.
+- **OMDb**: Queried for each film to retrieve the IMDb ID, which allows Kodi to pull richer metadata like ratings, cast details, and posters.
+
+The connection to Mubi is generally fast and reliable. However, to prevent overwhelming their servers and to comply with their API usage policies, we limit the number of requests to 60 per minute. This rate limiting may occasionally cause brief pauses during the sync, particularly when processing a large number of categories or films. These pauses are expected and help ensure smooth communication with Mubi's servers.
+
+The OMDb API plays a crucial role in the sync by providing the IMDb ID for each film. This ID enables Kodi to enhance its local library with additional metadata. Unlike Mubi, OMDb’s connection can be less predictable. While we aim to query OMDb as quickly as possible, its rate limits are not clearly defined.
+
+If the addon encounters errors such as "401 Unauthorized" or "429 Too Many Requests," it automatically slows down the rate of requests and introduces pauses to avoid being blocked or restricted. This adjustment can significantly impact the speed of the sync, especially when processing a large number of films.
+
+If the addon is unable to retrieve data from OMDb due to rate limits, those specific movies will not be added to Kodi’s local database during that sync. However, you can easily retry syncing these films later, once the API limits have reset.
+
 
 ### 2. Manually Creating the Mubi Source in Kodi 🛠️
 
