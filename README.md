@@ -48,6 +48,10 @@ Whenever you want to **update** the local database:
 
 ## Changelog
 
+### October 13th 2024
+
+- improved the first run of the Addon and made compatible with more platforms
+
 ### October 12th 2024
 
 - improved installation by automatically adding the Mubi Video source to Kodi
