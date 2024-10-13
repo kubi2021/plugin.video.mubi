@@ -87,6 +87,7 @@ class Library:
 
         # If the operation was canceled, display a cancellation message and exit
         if canceled:
+            xbmcgui.Dialog().ok("MUBI", "All movies synced so far were saved locally")
             return  # Exit the method early
 
 
