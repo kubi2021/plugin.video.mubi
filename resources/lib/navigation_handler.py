@@ -111,23 +111,22 @@ class NavigationHandler:
             list_item = xbmcgui.ListItem(label=category["title"])
             list_item.setInfo("video", {"title": category["title"], "plot": category["description"], "mediatype": "video"})
             list_item.setArt({"thumb": category["image"], "poster": category["image"], "banner": category["image"], "fanart": category["image"]})
-            url = self.get_url(action="listing", type=category["type"], id=category["id"], category_name=category["title"])
+            url = self.get_url(action="listing", id=category["id"], category_name=category["title"])
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, True)
         except Exception as e:
             xbmc.log(f"Error adding category item {category['title']}: {e}", xbmc.LOGERROR)
 
-    def list_videos(self, type: str, id: int, category_name: str):
+    def list_videos(self, id: int, category_name: str):
         """
         List videos in a selected category.
 
-        :param type: Type of the category
         :param id: ID of the category
         :param category_name: Name of the category
         """
         try:
             xbmcplugin.setContent(self.handle, "videos")
 
-            library = self.mubi.get_film_list(type, id, category_name)
+            library = self.mubi.get_film_list(id, category_name)
 
             for film in library.films:
                 self._add_film_item(film)
@@ -362,7 +361,7 @@ class NavigationHandler:
                 pDialog.update(percent, f"Fetching {category['title']}")
 
                 try:
-                    films_in_category = self.mubi.get_film_list(category["type"], category["id"], category["title"])
+                    films_in_category = self.mubi.get_film_list(category["id"], category["title"])
                     for film in films_in_category.films:
                         all_films_library.add_film(film)
 

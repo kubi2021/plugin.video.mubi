@@ -128,7 +128,7 @@ class Mubi:
 
             # Log full response content safely
             response_content = response.text
-            xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
+            # xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
 
             return response
 
@@ -291,6 +291,7 @@ class Mubi:
     def get_film_groups(self):
         """
         Retrieves a list of all film groups (collections) from the MUBI API V3, handling pagination.
+        Manually adds an additional entry for "Now Showing".
 
         :return: A list of all film group categories across all pages.
         :rtype: list
@@ -323,7 +324,6 @@ class Mubi:
                         'id': group.get('id', ''),
                         'description': group.get('description', ''),
                         'image': image_url,
-                        'type': 'FilmGroup',  # Set type explicitly
                     }
                     categories.append(category)
 
@@ -337,101 +337,81 @@ class Mubi:
                 xbmc.log(f"Failed to retrieve film groups on page {page}", xbmc.LOGERROR)
                 break  # Exit the loop on failure
 
+        xbmc.log("Manually added 'Now Showing' category", xbmc.LOGDEBUG)
+
         return categories
 
 
 
-    def get_film_list(self, type: str, id: int, category_name: str):
-        """
-        Retrieves and adds films to the library based on the category type and id.
 
-        :param type: Type of the category ('FilmGroup')
-        :param id: ID of the category
-        :param category_name: Name of the category
-        :return: Library instance with films
+    def get_film_list(self, id: int, category_name: str):
+        """
+        Retrieves and adds films to the library based on the category id.
+
+        :param id: ID of the film group (category).
+        :param category_name: Name of the category.
+        :return: Library instance with films.
         """
         try:
-            if type == "FilmGroup":
-                films_data = self.get_films_in_category_json(id)
-                for film_item in films_data:
-                    film = self.get_film_metadata(film_item, category_name)
-                    if film:
-                        self.library.add_film(film)
-            xbmc.log(f"Fetched {len(self.library)} films for category {category_name}", xbmc.LOGDEBUG)
+            # Retrieve films from the film group with the given ID
+            films_data = self.get_films_in_category_json(id)
+
+            # Process and add each film to the library
+            for film_item in films_data:
+                film = self.get_film_metadata(film_item, category_name)
+                if film:
+                    self.library.add_film(film)
+
+            xbmc.log(f"Fetched {len(self.library)} films for category '{category_name}'", xbmc.LOGINFO)
         except Exception as e:
-            xbmc.log(f"Error fetching films for category {category_name}: {e}", xbmc.LOGERROR)
+            xbmc.log(f"Error fetching films for category '{category_name}': {e}", xbmc.LOGERROR)
+
         return self.library
 
 
 
 
-    def get_now_showing_films(self):
+    def get_films_in_category_json(self, category_id):
         """
-        Retrieves the list of films currently showing (playable) from the MUBI API V3.
+        Retrieves films within a specific film group (collection) using the MUBI API V3.
 
-        :return: List of films currently showing.
+        :param category_id: ID of the film group (category).
+        :return: List of film group items (films).
         :rtype: list
         """
-        endpoint = 'browse/films'
-        headers = self.hea_atv_gen()  # Use headers without authorization
-        films = []
+        all_film_items = []
         page = 1
+        per_page = 20
 
         while True:
-            params = {'page': page, 'playable': 'true'}
-            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
-            if response:
-                data = response.json()
-                films_page = data.get('films', [])
-                meta = data.get('meta', {})
+            endpoint = f'film_groups/{category_id}/film_group_items'
+            headers = self.hea_atv_auth()
+            params = {
+                'page': page,
+                'per_page': per_page,
+                'include_upcoming': 'true'  # Include upcoming films if needed
+            }
 
-                films.extend(films_page)
-
-                next_page = meta.get('next_page')
-                if next_page:
-                    page = next_page
-                else:
-                    break
-            else:
-                xbmc.log(f"Failed to retrieve films on page {page}", xbmc.LOGERROR)
-                break
-
-        return films
-
-    def get_films_in_group(self, group_id):
-        """
-        Retrieves items (films) within a specific film group (collection), handling pagination.
-
-        :param group_id: ID of the film group.
-        :type group_id: int
-        :return: List of films in the film group.
-        :rtype: list
-        """
-        endpoint = f'film_groups/{group_id}/film_group_items'
-        headers = self.hea_atv_auth()  # Use headers with authorization
-        films = []
-        page = 1
-
-        while True:
-            params = {'page': page, 'per_page': 24, 'include_upcoming': 'true'}
             response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
             if response:
                 data = response.json()
                 film_group_items = data.get('film_group_items', [])
+                all_film_items.extend(film_group_items)
+
                 meta = data.get('meta', {})
-
-                films.extend(film_group_items)
-
                 next_page = meta.get('next_page')
                 if next_page:
                     page = next_page
                 else:
                     break
             else:
-                xbmc.log(f"Failed to retrieve films in group {group_id} on page {page}", xbmc.LOGERROR)
+                xbmc.log(f"Failed to retrieve film group items for category {category_id}", xbmc.LOGERROR)
                 break
 
-        return films
+        return all_film_items
+
+
+
 
     def get_film_metadata(self, film_data: dict, category_name: str) -> Film:
         """
@@ -487,45 +467,7 @@ class Mubi:
 
 
 
-    def get_films_in_category_json(self, category_id):
-        """
-        Retrieves films within a specific film group (collection) using the MUBI API V3.
 
-        :param category_id: ID of the film group (category).
-        :type category_id: int
-        :return: List of film group items (films).
-        :rtype: list
-        """
-        all_film_items = []
-        page = 1
-        per_page = 20
-
-        while True:
-            endpoint = f'film_groups/{category_id}/film_group_items'
-            headers = self.hea_atv_auth()
-            params = {
-                'page': page,
-                'per_page': per_page,
-                'include_upcoming': 'true'  # Include upcoming films if needed
-            }
-
-            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
-            if response:
-                data = response.json()
-                film_group_items = data.get('film_group_items', [])
-                all_film_items.extend(film_group_items)
-
-                meta = data.get('meta', {})
-                next_page = meta.get('next_page')
-                if next_page:
-                    page = next_page
-                else:
-                    break
-            else:
-                xbmc.log(f"Failed to retrieve film group items for category {category_id}", xbmc.LOGERROR)
-                break
-
-        return all_film_items
 
     def get_secure_stream_info(self, vid: str) -> dict:
         try:
