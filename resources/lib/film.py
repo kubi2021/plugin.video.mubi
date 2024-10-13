@@ -4,6 +4,9 @@ import xbmc
 import xml.etree.ElementTree as ET
 import requests
 from requests.exceptions import RequestException
+import json
+import time
+import re
 
 
 class Film:
@@ -117,28 +120,104 @@ class Film:
 
 
     def _get_imdb_url(self, original_title: str, english_title: str, year: str, omdb_api_key: str) -> str:
-        """Fetch the IMDb URL using the OMDb API."""
+        """Fetch the IMDb URL using the OMDb API with retry logic for 401 errors and title normalization."""
         data_url = "http://www.omdbapi.com/"
+        max_retries = 5  # Maximum number of retries
+        backoff_factor = 1  # Start with a 1-second delay and double with each retry
+
+        # Normalize the titles (remove or replace 'and'/'&')
+        original_title_cleaned = self._normalize_title(original_title)
+        english_title_cleaned = self._normalize_title(english_title)
+
+        # First, we attempt with the original title
         params = {"apikey": omdb_api_key, "t": original_title, "type": "movie", "y": year}
+        use_original_title = True  # Start by trying the original title
+        cleaned_title_attempted = False  # Track if the cleaned title has been attempted
 
-        try:
-            response = requests.get(data_url, params=params, timeout=10)
-            response.raise_for_status()  # Raise error if the request failed
-            data = response.json()
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Log the retry attempt
+                title_in_use = original_title if use_original_title else english_title
+                if cleaned_title_attempted:
+                    title_in_use = original_title_cleaned if use_original_title else english_title_cleaned
 
-            if "imdbID" in data:
-                return f"https://www.imdb.com/title/{data['imdbID']}/"
+                xbmc.log(f"Attempt {attempt} to fetch IMDb URL for '{title_in_use}' ({year})", xbmc.LOGDEBUG)
+                
+                # Make the request to OMDb API
+                response = requests.get(data_url, params=params, timeout=10)
+                
+                # Check if the status code is 401 (Unauthorized)
+                if response.status_code == 401:
+                    xbmc.log(f"Received 401 Unauthorized. Retrying after {backoff_factor} seconds...", xbmc.LOGWARNING)
+                    # Wait before retrying
+                    time.sleep(backoff_factor)
+                    # Increase the backoff delay
+                    backoff_factor *= 2
+                    continue  # Retry the loop
 
-            # Try English title if original title fails
-            params["t"] = english_title
-            response = requests.get(data_url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+                # Raise an exception for any other HTTP errors
+                response.raise_for_status()
 
-            if "imdbID" in data:
-                return f"https://www.imdb.com/title/{data['imdbID']}/"
+                data = response.json()
+                xbmc.log(f"OMDb API response for title '{title_in_use}': {json.dumps(data, indent=4)}", xbmc.LOGDEBUG)
 
-        except (RequestException, KeyError) as error:
-            xbmc.log(f"Error fetching IMDb URL for {self.title}: {error}", xbmc.LOGERROR)
+                # Check if IMDb ID is found
+                if "imdbID" in data:
+                    return f"https://www.imdb.com/title/{data['imdbID']}/"
 
+                # Try the English title if we started with the original title
+                if use_original_title:
+                    xbmc.log(f"IMDb ID not found for '{original_title}'. Trying '{english_title}'", xbmc.LOGDEBUG)
+                    params["t"] = english_title
+                    use_original_title = False  # Switch to English title
+                # If we've already tried both titles, try the cleaned titles
+                elif not cleaned_title_attempted:
+                    xbmc.log(f"Attempting to clean titles. Trying '{original_title_cleaned}' and '{english_title_cleaned}'", xbmc.LOGDEBUG)
+                    params["t"] = original_title_cleaned
+                    use_original_title = True  # Retry with the cleaned original title
+                    cleaned_title_attempted = True  # Track that we've tried the cleaned title
+                else:
+                    # If we've tried all variations, log a warning and return an empty string
+                    xbmc.log(f"IMDb ID not found for both '{original_title}' and '{english_title}' and cleaned titles", xbmc.LOGWARNING)
+                    return ""
+
+            except requests.exceptions.HTTPError as http_err:
+                # Log and retry if the error is a 401 (Unauthorized)
+                if response.status_code == 401:
+                    xbmc.log(f"Received 401 Unauthorized. Retrying after {backoff_factor} seconds...", xbmc.LOGWARNING)
+                    time.sleep(backoff_factor)  # Sleep before retrying
+                    backoff_factor *= 2  # Increase the backoff delay
+                    continue  # Retry the loop
+                # For other HTTP errors, log and return
+                xbmc.log(f"HTTP error occurred while fetching IMDb URL: {http_err}", xbmc.LOGERROR)
+                return ""
+
+            except requests.exceptions.RequestException as req_err:
+                # Handle general request exceptions
+                xbmc.log(f"Request error occurred while fetching IMDb URL: {req_err}", xbmc.LOGERROR)
+                return ""
+
+            except ValueError as val_err:
+                # Handle JSON decoding errors or unexpected response formats
+                xbmc.log(f"Error decoding OMDb API response: {val_err}", xbmc.LOGERROR)
+                return ""
+
+            except KeyError as key_err:
+                # Handle missing fields in the response
+                xbmc.log(f"Missing expected data in OMDb API response: {key_err}", xbmc.LOGERROR)
+                return ""
+
+        # If all retries fail, log a final warning and return an empty string
+        xbmc.log(f"Max retries reached. IMDb URL not fetched for '{original_title}' ({year})", xbmc.LOGWARNING)
         return ""
+
+
+    def _normalize_title(self, title: str) -> str:
+        """Normalize the title by replacing/removing common words and symbols."""
+        # Replace "and" with "&" and vice versa, then remove them entirely
+        title = re.sub(r'\b(and|&)\b', '', title, flags=re.IGNORECASE)
+        
+        # Remove any extra spaces left behind after replacing
+        title = re.sub(r'\s+', ' ', title).strip()
+        
+        return title
