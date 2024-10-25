@@ -344,6 +344,77 @@ class Mubi:
 
 
 
+    def get_watch_list(self):
+        """
+        Retrieves and adds films to the library from the watchlist
+
+        :return: Library instance with films.
+        """
+        try:
+            # Retrieve films from the watchlist
+            films_data = self.get_films_in_watchlist()
+
+            # Process and add each film to the library
+            category_name = "watchlist"
+            for film_item in films_data:
+                this_film = film_item.get('film')
+                consumable = this_film.get('consumable')
+                xbmc.log(f"Consumable is {consumable}", xbmc.LOGINFO)
+                if consumable != None:
+                    film = self.get_film_metadata(film_item, category_name)
+                    if film:
+                        self.library.add_film(film)
+
+            xbmc.log(f"Fetched {len(self.library)} films from the watchlist", xbmc.LOGINFO)
+        except Exception as e:
+            xbmc.log(f"Error fetching films from the watchlist: {e}", xbmc.LOGERROR)
+
+        return self.library
+
+
+
+
+    def get_films_in_watchlist(self):
+        """
+        Retrieves films from the watchlist using the MUBI API V3.
+
+        :return: List of film group items (films).
+        :rtype: list
+        """
+        all_film_items = []
+        page = 1
+        per_page = 20
+
+        while True:
+            endpoint = f'wishes'
+            headers = self.hea_atv_auth()
+            params = {
+		'user_id': self.session_manager.user_id,
+                'page': page,
+                'per_page': per_page
+            }
+
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            if response:
+                data = response.json()
+                wishes = data.get('wishes', [])
+                all_film_items.extend(wishes)
+
+                meta = data.get('meta', {})
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break
+            else:
+                xbmc.log(f"Failed to retrieve films from your watchlist", xbmc.LOGERROR)
+                break
+
+        return all_film_items
+
+
+
+
     def get_film_list(self, id: int, category_name: str):
         """
         Retrieves and adds films to the library based on the category id.

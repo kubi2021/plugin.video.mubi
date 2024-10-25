@@ -64,6 +64,9 @@ if __name__ == "__main__":
     elif action == "log_out":
         xbmc.log(f"Calling log_out with handle: {handle}", xbmc.LOGDEBUG)
         navigation.log_out()
+    elif action == "watchlist":
+        xbmc.log(f"Calling list_watchlist with handle: {handle}", xbmc.LOGDEBUG)
+        navigation.list_watchlist()
     elif action == "listing":
         xbmc.log(f"Calling listing with handle: {handle}", xbmc.LOGDEBUG)
         navigation.list_videos(params['id'], params['category_name'])
