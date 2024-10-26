@@ -359,15 +359,14 @@ class Mubi:
             for film_item in films_data:
                 this_film = film_item.get('film')
                 consumable = this_film.get('consumable')
-                xbmc.log(f"Consumable is {consumable}", xbmc.LOGINFO)
                 if consumable != None:
                     film = self.get_film_metadata(film_item, category_name)
                     if film:
                         self.library.add_film(film)
 
-            xbmc.log(f"Fetched {len(self.library)} films from the watchlist", xbmc.LOGINFO)
+            xbmc.log(f"Fetched {len(self.library)} available films from the watchlist", xbmc.LOGINFO)
         except Exception as e:
-            xbmc.log(f"Error fetching films from the watchlist: {e}", xbmc.LOGERROR)
+            xbmc.log(f"Error retrieving films from the watchlist: {e}", xbmc.LOGERROR)
 
         return self.library
 
@@ -381,37 +380,43 @@ class Mubi:
         :return: List of film group items (films).
         :rtype: list
         """
+        # The wishlist API does not seem to support paging, so we call it two times:
+        # First time with per_page=0, which will just return the total_count
+        # Second time, with per_page=<total_count>, to ensure we retrieve all items
+        response = self._call_wishlist_api(0)
+        data = response.json()
+        meta = data.get('meta')
+        total_count = meta.get('total_count')
+        
         all_film_items = []
-        page = 1
-        per_page = 20
-
-        while True:
-            endpoint = f'wishes'
-            headers = self.hea_atv_auth()
-            params = {
-		'user_id': self.session_manager.user_id,
-                'page': page,
-                'per_page': per_page
-            }
-
-            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
-            if response:
-                data = response.json()
-                wishes = data.get('wishes', [])
-                all_film_items.extend(wishes)
-
-                meta = data.get('meta', {})
-                next_page = meta.get('next_page')
-                if next_page:
-                    page = next_page
-                else:
-                    break
-            else:
-                xbmc.log(f"Failed to retrieve films from your watchlist", xbmc.LOGERROR)
-                break
+        response = self._call_wishlist_api(total_count)
+        data = response.json()
+        wishes = data.get('wishes', [])
+        all_film_items.extend(wishes)
 
         return all_film_items
 
+
+
+
+    def _call_wishlist_api(self, per_page: int):
+        """
+        Retrieves films from the wishlist using the MUBI API V3.
+
+        :return: result
+        :rtype: json
+        """
+        endpoint = f'wishes'
+        headers = self.hea_atv_auth()
+        params = {
+            'user_id': self.session_manager.user_id,
+            'per_page': per_page
+        }
+
+        response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+        if not response:
+            xbmc.log(f"Failed to retrieve films from your watchlist", xbmc.LOGERROR)
+        return response
 
 
 
