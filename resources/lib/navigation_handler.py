@@ -68,6 +68,7 @@ class NavigationHandler:
         if self.session.is_logged_in:
             return [
                 {"label": "Browse Mubi films by category", "description": "Browse Mubi films by category", "action": "list_categories", "is_folder": True},
+                {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
                 {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": True},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
             ]
@@ -115,6 +116,25 @@ class NavigationHandler:
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, True)
         except Exception as e:
             xbmc.log(f"Error adding category item {category['title']}: {e}", xbmc.LOGERROR)
+
+    def list_watchlist(self):
+        """
+        List videos in your watchlist.
+
+        """
+        try:
+            xbmcplugin.setContent(self.handle, "videos")
+
+            library = self.mubi.get_watch_list()
+
+            for film in library.films:
+                self._add_film_item(film)
+
+            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_NONE)
+            xbmcplugin.endOfDirectory(self.handle)
+
+        except Exception as e:
+            xbmc.log(f"Error listing videos: {e}", xbmc.LOGERROR)
 
     def list_videos(self, id: int, category_name: str):
         """
