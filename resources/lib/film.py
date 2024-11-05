@@ -41,7 +41,7 @@ class Film:
         if category and category not in self.categories:
             self.categories.append(category)
 
-    def _sanitize_filename(self, filename: str, replacement: str = "_") -> str:
+    def _sanitize_filename(self, filename: str, replacement: str = " ") -> str:
         """
         Sanitize a filename by removing or replacing characters that are unsafe for file names
         and ensuring compatibility across multiple operating systems.
@@ -71,6 +71,7 @@ class Film:
             sanitized = sanitized[:max_length]
 
         return sanitized.strip()
+
 
     def get_sanitized_folder_name(self) -> str:
         """
