@@ -198,7 +198,7 @@ class NavigationHandler:
                 directors = film.metadata.director
                 if isinstance(directors, str):
                     directors = [directors]
-                 .setDirectors(directors)  # Expects a list
+                info_tag.setDirectors(directors)  # Expects a list
 
             if hasattr(film.metadata, 'cast') and film.metadata.cast:
                 info_tag.setCast(film.metadata.cast)  # Expects a list of dicts with 'name' keys
