@@ -49,6 +49,9 @@ Whenever you want to **update** the local database:
 
 ## Changelog
 
+### Nov 5th, 2024
+- added the action to clean the local library after the sync. It was already implemented that movies no longer available in Mubi would be removed from the local repositry, but they would still show up in the library. Now it's fixed.
+
 ### October 27th 2024
 - added support to Mubi watchlist, thanks [GTBoon72](https://github.com/GTBoon72)
 
