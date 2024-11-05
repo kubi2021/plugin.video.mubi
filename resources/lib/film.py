@@ -8,6 +8,12 @@ import json
 import time
 import re
 from typing import Optional, List
+import re
+from pathlib import Path
+
+
+
+
 
 class Film:
     def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, category: str, metadata):
@@ -26,11 +32,54 @@ class Film:
         if category and category not in self.categories:
             self.categories.append(category)
 
+    def _sanitize_filename(self, filename: str, replacement: str = "_") -> str:
+        """
+        Sanitize a filename by removing or replacing characters that are unsafe for file names
+        and ensuring compatibility across multiple operating systems.
+        
+        :param filename: The original file name.
+        :param replacement: Character to replace invalid characters with.
+        :return: A sanitized file name.
+        """
+        # Replace reserved characters
+        sanitized = re.sub(r'[<>:"/\\|?*^%$&\'{}@!]', replacement, filename)
+
+        # Handle reserved Windows names (e.g., CON, PRN, AUX, NUL, COM1, LPT1, etc.)
+        reserved_names = {
+            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", 
+            "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", 
+            "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        }
+        if sanitized.upper() in reserved_names:
+            sanitized = f"{sanitized}_{replacement}"  # Add suffix to avoid reserved name conflict
+
+        # Strip trailing periods and spaces
+        sanitized = sanitized.rstrip(". ")
+
+        # Enforce length limit (255 characters for most filesystems)
+        max_length = 255
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length]
+
+        return sanitized.strip()
+
+    def get_sanitized_folder_name(self) -> str:
+        """
+        Generate a consistent, sanitized folder name for the film, using the title and year.
+        
+        :return: A sanitized folder name in the format "Title (Year)".
+        """
+        year = self.metadata.year if self.metadata.year else "Unknown"
+        return self._sanitize_filename(f"{self.title} ({year})")
+
+
     def create_strm_file(self, film_path: Path, base_url: str):
         """Create the .strm file for the film."""
         from urllib.parse import urlencode
 
-        film_file_name = f"{self.title} ({self.metadata.year}).strm"
+        # Use sanitized folder name for consistent file naming
+        film_folder_name = self.get_sanitized_folder_name()
+        film_file_name = f"{film_folder_name}.strm"
         film_strm_file = film_path / film_file_name
 
         # Build the query parameters
@@ -48,35 +97,39 @@ class Film:
         except OSError as error:
             xbmc.log(f"Error while creating STRM file for {self.title}: {error}", xbmc.LOGERROR)
 
-
-
     def create_nfo_file(self, film_path: Path, base_url: str, omdb_api_key: str):
         """Create the .nfo file for the film."""
-        nfo_file_name = f"{self.title} ({self.metadata.year}).nfo"
+        # Use sanitized folder name for consistent file naming
+        film_folder_name = self.get_sanitized_folder_name()
+        nfo_file_name = f"{film_folder_name}.nfo"
         nfo_file = film_path / nfo_file_name
         kodi_trailer_url = f"{base_url}?action=play_trailer&url={self.metadata.trailer}"
 
         try:
-            # Fetch IMDb URL if the API key is provided
             imdb_url = ""
             if omdb_api_key:
-                
-                time.sleep(2)  # Introduce a 1-second delay before making the API call
+                time.sleep(2)
                 imdb_url = self._get_imdb_url(self.metadata.originaltitle, self.title, self.metadata.year, omdb_api_key)
 
-                # If the result is None, it means we encountered repeated 401 errors
                 if imdb_url is None:
                     xbmc.log(f"Skipping creation of NFO file for '{self.title}' due to repeated API errors.", xbmc.LOGWARNING)
-                    return  # Skip creation of NFO
+                    return
 
-            # Generate the NFO XML with the IMDb URL included
             nfo_tree = self._get_nfo_tree(self.metadata, self.categories, kodi_trailer_url, imdb_url)
-            
-            # Write the XML to file
             with open(nfo_file, "wb") as f:
+                if isinstance(nfo_tree, str):
+                    nfo_tree = nfo_tree.encode("utf-8")
                 f.write(nfo_tree)
+
+            if not nfo_file.exists():
+                xbmc.log(f"Failed to create NFO file for '{self.title}'", xbmc.LOGWARNING)
+            else:
+                xbmc.log(f"NFO file successfully created at {nfo_file}", xbmc.LOGDEBUG)
+
         except (OSError, ValueError) as error:
             xbmc.log(f"Error while creating NFO file for {self.title}: {error}", xbmc.LOGERROR)
+
+
 
     def _get_nfo_tree(self, metadata, categories: list, kodi_trailer_url: str, imdb_url: str) -> bytes:
         """Generate the NFO XML tree structure, including IMDb URL if available."""
