@@ -400,8 +400,9 @@ class NavigationHandler:
             pDialog.close()
             xbmcgui.Dialog().notification("MUBI", "Sync completed successfully!", xbmcgui.NOTIFICATION_INFO)
 
-            # Trigger Kodi library update after sync is done
+            # Trigger Kodi library update and clean after sync is done
             self.update_kodi_library()
+            self.clean_kodi_library()
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
@@ -417,3 +418,14 @@ class NavigationHandler:
             xbmcgui.Dialog().notification("MUBI", "Kodi library update triggered.", xbmcgui.NOTIFICATION_INFO)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library update: {e}", xbmc.LOGERROR)
+
+    def clean_kodi_library(self):
+        """
+        Triggers a Kodi library clean to remove items from the library that are not found locally.
+        """
+        try:
+            xbmc.log("Triggering Kodi library clean...", xbmc.LOGDEBUG)
+            xbmc.executebuiltin('CleanLibrary(video)')
+            xbmcgui.Dialog().notification("MUBI", "Kodi library clean triggered.", xbmcgui.NOTIFICATION_INFO)
+        except Exception as e:
+            xbmc.log(f"Error triggering Kodi library clean: {e}", xbmc.LOGERROR)
