@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 import os
 import shutil
 from typing import Set
+import re
 
 
 class Library:
@@ -28,29 +29,97 @@ class Library:
             raise ValueError("Invalid film: missing required fields (mubi_id, title, or metadata).")
         self.films.append(film)
 
-    def merge_duplicates(self) -> List[Film]:
+
+    def merge_duplicates(self, plugin_userdata_path: Path) -> List[Film]:
         """
         Merge duplicate films based on their Mubi ID, combining categories.
+        Removes old folders for duplicates with outdated names.
 
+        :param plugin_userdata_path: The path where the library files are saved.
         :return: A list of unique films with merged categories.
         """
+        # Track unique films by Mubi ID and corresponding folders
         unique_films = {}
+        folders_by_id = {}
 
-        for film in self.films:
-            try:
-                if film.mubi_id in unique_films:
-                    # Add new categories to the existing film's categories
-                    for category in film.categories:
-                        unique_films[film.mubi_id].add_category(category)
+        # Log the start of the scanning process
+        xbmc.log("Starting to scan plugin_userdata_path for existing folders.", xbmc.LOGDEBUG)
+
+        # Scan plugin_userdata_path to map existing Mubi IDs to all related folder paths
+        for folder in plugin_userdata_path.iterdir():
+            if folder.is_dir():
+                xbmc.log(f"Found directory: {folder}", xbmc.LOGDEBUG)
+
+                # Search for a STRM file in the folder, ignoring folder naming conventions
+                strm_files = list(folder.glob("*.strm"))
+                if strm_files:
+                    strm_file = strm_files[0]  # Take the first STRM file found
+                    xbmc.log(f"Found STRM file in folder '{folder}': {strm_file}", xbmc.LOGDEBUG)
+                    try:
+                        with strm_file.open("r") as f:
+                            strm_content = f.read()
+                            mubi_id = self._extract_mubi_id_from_strm(strm_content)
+                            if mubi_id:
+                                xbmc.log(f"Extracted Mubi ID '{mubi_id}' from STRM file '{strm_file}'", xbmc.LOGDEBUG)
+                                if mubi_id not in folders_by_id:
+                                    folders_by_id[mubi_id] = []
+                                folders_by_id[mubi_id].append(folder)
+                            else:
+                                xbmc.log(f"No valid Mubi ID found in STRM file '{strm_file}'", xbmc.LOGWARNING)
+                    except Exception as e:
+                        xbmc.log(f"Error reading STRM file '{strm_file}': {e}", xbmc.LOGERROR)
                 else:
-                    # Add the film if it's not already in the collection
-                    unique_films[film.mubi_id] = film
+                    xbmc.log(f"No STRM file found in directory '{folder}'", xbmc.LOGDEBUG)
+
+        # Process films to merge duplicates and remove outdated folders
+        for film in self.films:
+            mubi_id = film.mubi_id
+            try:
+                if mubi_id in unique_films:
+                    # Merge categories if duplicate
+                    for category in film.categories:
+                        unique_films[mubi_id].add_category(category)
+                else:
+                    # Add the film if it's not already in the unique collection
+                    unique_films[mubi_id] = film
             except AttributeError as e:
                 xbmc.log(f"Error processing film '{film.title}': {e}", xbmc.LOGERROR)
+
+        # Remove outdated folders for merged duplicates
+        for mubi_id, folders in folders_by_id.items():
+            # Only keep the latest folder associated with this Mubi ID
+            if mubi_id in unique_films:
+                latest_folder = folders[-1]  # Assuming last folder in list is the latest
+                expected_folder_name = unique_films[mubi_id].get_sanitized_folder_name()  # Get the sanitized name
+
+                for folder in folders:
+                    if folder.name == expected_folder_name:
+                        xbmc.log(f"Folder '{folder}' matches the expected name, skipping removal.", xbmc.LOGDEBUG)
+                        continue  # Skip if the folder name matches the expected sanitized name
+                    elif folder != latest_folder and folder.exists():
+                        try:
+                            shutil.rmtree(folder)
+                            xbmc.log(f"Removed outdated folder: {folder}", xbmc.LOGDEBUG)
+                        except Exception as e:
+                            xbmc.log(f"Error removing folder '{folder}': {e}", xbmc.LOGERROR)
 
         # Replace the current list of films with the merged list
         self.films = list(unique_films.values())
         return self.films
+
+
+    def _extract_mubi_id_from_strm(self, strm_content: str) -> Optional[str]:
+        """
+        Extract the Mubi ID from the STRM file content.
+
+        :param strm_content: Content of the STRM file.
+        :return: The Mubi ID if found, else None.
+        """
+        # Assuming film_id appears as 'film_id=<id>' in the STRM content URL
+        match = re.search(r"film_id=(\d+)", strm_content)
+        return match.group(1) if match else None
+
+
 
     def __len__(self) -> int:
         """
@@ -74,7 +143,7 @@ class Library:
             raise ValueError("No films available to sync.")
 
         # Merge duplicates before syncing
-        self.merge_duplicates()
+        self.merge_duplicates(plugin_userdata_path)
 
         # Collect existing film directories before syncing
         existing_film_dirs = set()
@@ -147,12 +216,9 @@ class Library:
 
             try:
                 # Prepare file name and path
-                clean_title = film.title.replace("/", " ")
-                year = film.metadata.year if film.metadata.year else "Unknown"
-                film_folder_name = f"{clean_title} ({year})"
+                film_folder_name = film.get_sanitized_folder_name()
                 film_path = plugin_userdata_path / film_folder_name
 
-                # Paths to the STRM and NFO files
                 strm_file = film_path / f"{film_folder_name}.strm"
                 nfo_file = film_path / f"{film_folder_name}.nfo"
 
