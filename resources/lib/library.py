@@ -1,6 +1,7 @@
 from pathlib import Path
 import xbmc
 import xbmcgui
+import xbmcaddon
 from resources.lib.film import Film
 from typing import List, Optional, Tuple
 import os
@@ -29,6 +30,9 @@ class Library:
         :param plugin_userdata_path: The path where film folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
         """
+        # Filter film by genre
+        self.filter_films_by_genre()
+
         # Initialize counters
         newly_added = 0
         failed_to_add = 0
@@ -81,6 +85,36 @@ class Library:
         finally:
             # Ensure the dialog is closed in the end
             pDialog.close()
+
+    def filter_films_by_genre(self):
+        """
+        Remove films from the library based on genres specified in the settings to skip.
+        """
+        import xbmcaddon
+
+        # Retrieve settings
+        addon = xbmcaddon.Addon()
+
+        # Get the genres to skip from the text input setting
+        skip_genres_setting = addon.getSetting('skip_genres')  # Returns a string of genres separated by semicolons
+        xbmc.log(f"Skip genres setting value: '{skip_genres_setting}'", xbmc.LOGDEBUG)
+
+        # Parse the genres to skip
+        skip_genres = []
+        if skip_genres_setting:
+            # Split by semicolon, strip whitespace, convert to lowercase
+            skip_genres = [genre.strip().lower() for genre in skip_genres_setting.split(';') if genre.strip()]
+        
+        xbmc.log(f"Genres to skip: {skip_genres}", xbmc.LOGDEBUG)
+
+        # Filter films
+        initial_count = len(self.films)
+        self.films = [
+            film for film in self.films
+            if not any(genre.lower() in skip_genres for genre in (film.metadata.genre or []))
+        ]
+        removed_count = initial_count - len(self.films)
+        xbmc.log(f"Removed {removed_count} films based on genre filtering.", xbmc.LOGDEBUG)
 
 
 

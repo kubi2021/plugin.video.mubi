@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
     <category label="General">
-        <setting id="omdbapiKey" label="OMDB api Key" type="text" default=""/>
+        <setting id="omdbapiKey" label="OMDB API Key" type="text" default=""/>
         <setting id="client_country" label="Country" type="text" default="" visible="false"/>
         <setting id="deviceID" type="text" default="" visible="false"/>
         <setting id="logged" type="bool" default="false" visible="false"/>
@@ -9,5 +9,10 @@
         <setting id="userID" type="text" default="" visible="false"/>
         <setting label="Language for titles and descriptions" type="labelenum" id="accept-language" values="tr|en|fr|es|de|it|nl|pt" default=""/>
         <setting id="first_run_completed" type="bool" default="false" visible="false"/>
+    </category>
+
+    <!-- New Category for Advanced Settings -->
+    <category label="Genres to skip">
+        <setting id="skip_genres" label="Genres to skip (separate multiple genres with semicolons)" type="text" default=""/>
     </category>
 </settings>
