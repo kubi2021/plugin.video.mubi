@@ -19,6 +19,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 - 🈯 Supports display of titles and descriptions in the languages supported by Mubi
 - 🔖 Retrieves and displays your MUBI watchlist within Kodi, allowing quick access to saved films directly from the main interface
 - 🗂️ Mubi collections are automatically converted to Kodi tags, enabling easy navigation of Mubi-curated collections directly within Kodi
+- 🎛️ Skip specific Mubi genres: Configure the addon to ignore movies from certain genres. Go to settings and enter the genres you'd like to skip, separated by semicolons (e.g., horror;comedy).
 
 ## Installation
 
@@ -54,6 +55,7 @@ Whenever you want to **update** the local database:
 - added the action to clean the local library after the sync. It was already implemented that movies no longer available in Mubi would be removed from the local repositry, but they would still show up in the library. Now it's fixed.
 - fixed a bug that skipped movies with special character in the title.
 - refactoring of library class, included automated testing
+- added the possiblity to skip Mubi genres you don't want to see in your library. Go to settings and enter the genres you'd like to skip, separated by semicolons (e.g., horror;comedy).
 
 ### October 27th 2024
 - added support to Mubi watchlist, thanks [GTBoon72](https://github.com/GTBoon72)
