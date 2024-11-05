@@ -1,5 +1,5 @@
 import tempfile
-from unittest.mock import patch, call
+from unittest.mock import Mock, patch, call
 from pathlib import Path
 from resources.lib.film import Film
 from resources.lib.library import Library
@@ -204,6 +204,7 @@ def test_remove_obsolete_files():
         # Check that the current film folder was not removed
         assert current_folder.exists(), "Current film folder should not have been removed."
 
+@patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
 @patch.object(Library, "remove_obsolete_files")
@@ -251,6 +252,7 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         # Assert that remove_obsolete_files was called
         mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
 
+@patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
 @patch.object(Library, "remove_obsolete_files")
@@ -394,6 +396,7 @@ def test_remove_obsolete_files_nonexistent_path():
         # Expected behavior if the method does not handle non-existent paths internally
         pass
 
+@patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "remove_obsolete_files")
 def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress):
@@ -493,7 +496,7 @@ def test_prepare_files_for_film_unwritable_path():
         # Reset permissions for cleanup
         os.chmod(plugin_userdata_path, 0o700)
 
-
+@patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
 @patch.object(Library, "remove_obsolete_files")
@@ -550,3 +553,63 @@ def test_film_equality():
 
     assert film1 == film2, "Films with the same mubi_id should be equal."
     assert film1 != film3, "Films with different mubi_id should not be equal."
+
+@patch("xbmcaddon.Addon")
+@patch("xbmcgui.DialogProgress")
+@patch.object(Library, "prepare_files_for_film")
+@patch.object(Library, "remove_obsolete_files")
+def test_sync_locally_with_genre_filtering(
+    mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon
+):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        plugin_userdata_path = Path(tmpdirname)
+        library = Library()
+
+        # Mock the settings to have 'skip_genres' as 'horror;comedy'
+        addon_instance = mock_addon.return_value
+        addon_instance.getSetting.return_value = 'horror;comedy'
+
+        # Create a Film object with genre 'Horror'
+        metadata_horror = MockMetadata(year=2023)
+        metadata_horror.genre = ['Horror']
+        film_horror = Film(
+            mubi_id="999",
+            title="Scary Movie",
+            artwork="http://example.com/art.jpg",
+            web_url="http://example.com",
+            category="Horror",
+            metadata=metadata_horror
+        )
+        library.add_film(film_horror)
+
+        # Create a Film object with genre 'Drama'
+        metadata_drama = MockMetadata(year=2023)
+        metadata_drama.genre = ['Drama']
+        film_drama = Film(
+            mubi_id="1000",
+            title="Dramatic Movie",
+            artwork="http://example.com/art2.jpg",
+            web_url="http://example.com",
+            category="Drama",
+            metadata=metadata_drama
+        )
+        library.add_film(film_drama)
+
+        # Mock dialog behavior to not cancel
+        mock_dialog = mock_dialog_progress.return_value
+        mock_dialog.iscanceled.return_value = False
+
+        # Run sync_locally
+        base_url = "plugin://plugin.video.mubi/"
+        omdb_api_key = "fake_api_key"
+        library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
+
+        # After sync_locally, the film with genre 'Horror' should have been filtered out
+        assert len(library.films) == 1, "Library should have one film after filtering out horror films."
+        assert film_drama in library.films, "Drama film should remain in the library."
+
+        # Assert that prepare_files_for_film was called only for the 'Drama' film
+        mock_prepare_files.assert_called_once_with(film_drama, base_url, plugin_userdata_path, omdb_api_key)
+
+        # Assert that remove_obsolete_files was called
+        mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
