@@ -27,6 +27,15 @@ class Film:
         self.categories = [category]  # Store categories as a list to handle multiple categories
         self.metadata = metadata
 
+    def __eq__(self, other):
+        if not isinstance(other, Film):
+            return False
+        return self.mubi_id == other.mubi_id
+
+    def __hash__(self):
+        return hash(self.mubi_id)
+
+
     def add_category(self, category: str):
         """Add a category to the film, ensuring no duplicates."""
         if category and category not in self.categories:
