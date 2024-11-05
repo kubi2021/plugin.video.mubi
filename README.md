@@ -18,6 +18,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 - 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on macOS only)
 - 🈯 Supports display of titles and descriptions in the languages supported by Mubi
 - 🔖 Retrieves and displays your MUBI watchlist within Kodi, allowing quick access to saved films directly from the main interface
+- 🗂️ Mubi collections are automatically converted to Kodi tags, enabling easy navigation of Mubi-curated collections directly within Kodi
 
 ## Installation
 
@@ -48,6 +49,11 @@ Whenever you want to **update** the local database:
 3. 🎥 Go to the **Movies** tab in Kodi and **update the library** to see the newly added Mubi movies.
 
 ## Changelog
+
+### Nov 5th, 2024
+- added the action to clean the local library after the sync. It was already implemented that movies no longer available in Mubi would be removed from the local repositry, but they would still show up in the library. Now it's fixed.
+- fixed a bug that skipped movies with special character in the title.
+- refactoring of library class, included automated testing
 
 ### October 27th 2024
 - added support to Mubi watchlist, thanks [GTBoon72](https://github.com/GTBoon72)

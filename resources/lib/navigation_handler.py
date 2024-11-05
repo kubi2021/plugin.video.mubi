@@ -78,14 +78,17 @@ class NavigationHandler:
             ]
 
     def _add_menu_item(self, item: dict):
-        """ Helper method to add a menu item to Kodi """
         try:
             list_item = xbmcgui.ListItem(label=item["label"])
-            list_item.setInfo("video", {"title": item["label"], "plot": item["description"], "mediatype": "video"})
+            info_tag = list_item.getVideoInfoTag()
+            info_tag.setTitle(item["label"])
+            info_tag.setPlot(item["description"])
+            info_tag.setMediaType("video")
             url = self.get_url(action=item["action"])
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, item["is_folder"])
         except Exception as e:
             xbmc.log(f"Error adding menu item {item['label']}: {e}", xbmc.LOGERROR)
+
 
     def list_categories(self):
         """
@@ -107,15 +110,23 @@ class NavigationHandler:
             xbmc.log(f"Error listing categories: {e}", xbmc.LOGERROR)
 
     def _add_category_item(self, category: dict):
-        """ Helper method to add a category to the Kodi directory """
         try:
             list_item = xbmcgui.ListItem(label=category["title"])
-            list_item.setInfo("video", {"title": category["title"], "plot": category["description"], "mediatype": "video"})
-            list_item.setArt({"thumb": category["image"], "poster": category["image"], "banner": category["image"], "fanart": category["image"]})
+            info_tag = list_item.getVideoInfoTag()
+            info_tag.setTitle(category["title"])
+            info_tag.setPlot(category["description"])
+            info_tag.setMediaType("video")
+            list_item.setArt({
+                "thumb": category["image"],
+                "poster": category["image"],
+                "banner": category["image"],
+                "fanart": category["image"]
+            })
             url = self.get_url(action="listing", id=category["id"], category_name=category["title"])
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, True)
         except Exception as e:
             xbmc.log(f"Error adding category item {category['title']}: {e}", xbmc.LOGERROR)
+
 
     def list_watchlist(self):
         """
@@ -158,34 +169,78 @@ class NavigationHandler:
             xbmc.log(f"Error listing videos: {e}", xbmc.LOGERROR)
 
     def _add_film_item(self, film):
-        """ Helper method to add a film item to the Kodi directory """
         try:
             list_item = xbmcgui.ListItem(label=film.title)
-            list_item.setInfo("video", {
-                "title": film.title,
-                "originaltitle": film.metadata.originaltitle,
-                "genre": ', '.join(film.metadata.genre),
-                "plot": film.metadata.plot,
-                "mediatype": "video"
-            })
-            list_item.setArt({
-                "thumb": film.metadata.image,
-                "poster": film.metadata.image,
-                "fanart": film.metadata.image,
-                "landscape": film.metadata.image
-            })
-            
+            info_tag = list_item.getVideoInfoTag()
+
+            # Set basic metadata
+            info_tag.setTitle(film.title)
+
+            if hasattr(film.metadata, 'originaltitle') and film.metadata.originaltitle:
+                info_tag.setOriginalTitle(film.metadata.originaltitle)
+
+            if hasattr(film.metadata, 'genre') and film.metadata.genre:
+                genres = film.metadata.genre
+                if isinstance(genres, str):
+                    genres = [genres]
+                info_tag.setGenres(genres)  # Expects a list
+
+            if hasattr(film.metadata, 'plot') and film.metadata.plot:
+                info_tag.setPlot(film.metadata.plot)
+
+            if hasattr(film.metadata, 'year') and film.metadata.year:
+                info_tag.setYear(int(film.metadata.year))
+
+            if hasattr(film.metadata, 'duration') and film.metadata.duration:
+                info_tag.setDuration(int(film.metadata.duration))  # Duration in seconds
+
+            if hasattr(film.metadata, 'director') and film.metadata.director:
+                directors = film.metadata.director
+                if isinstance(directors, str):
+                    directors = [directors]
+                 .setDirectors(directors)  # Expects a list
+
+            if hasattr(film.metadata, 'cast') and film.metadata.cast:
+                info_tag.setCast(film.metadata.cast)  # Expects a list of dicts with 'name' keys
+
+            if hasattr(film.metadata, 'rating') and film.metadata.rating:
+                info_tag.setRating(float(film.metadata.rating))
+
+            if hasattr(film.metadata, 'votes') and film.metadata.votes:
+                info_tag.setVotes(int(film.metadata.votes))
+
+            if hasattr(film.metadata, 'imdb_id') and film.metadata.imdb_id:
+                info_tag.setUniqueID(film.metadata.imdb_id, 'imdb')
+
+            info_tag.setMediaType('movie')
+
+            # Set artwork
+            if hasattr(film.metadata, 'image') and film.metadata.image:
+                list_item.setArt({
+                    "thumb": film.metadata.image,
+                    "poster": film.metadata.image,
+                    "fanart": film.metadata.image,
+                    "landscape": film.metadata.image
+                })
+
             # Set 'IsPlayable' property to inform Kodi this is a playable item
             list_item.setProperty('IsPlayable', 'true')
-            
+
             # Set the URL and path to the plugin URL
             url = self.get_url(action="play_mubi_video", film_id=film.mubi_id)
             list_item.setPath(url)
-            
+
             # Add the item to the directory with isFolder=False
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, isFolder=False)
+
         except Exception as e:
             xbmc.log(f"Error adding film item {film.title}: {e}", xbmc.LOGERROR)
+            import traceback
+            xbmc.log(traceback.format_exc(), xbmc.LOGERROR)
+
+
+
+
 
 
     def play_video_ext(self, web_url: str):
@@ -400,8 +455,9 @@ class NavigationHandler:
             pDialog.close()
             xbmcgui.Dialog().notification("MUBI", "Sync completed successfully!", xbmcgui.NOTIFICATION_INFO)
 
-            # Trigger Kodi library update after sync is done
+            # Trigger Kodi library update and clean after sync is done
             self.update_kodi_library()
+            self.clean_kodi_library()
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
@@ -417,3 +473,14 @@ class NavigationHandler:
             xbmcgui.Dialog().notification("MUBI", "Kodi library update triggered.", xbmcgui.NOTIFICATION_INFO)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library update: {e}", xbmc.LOGERROR)
+
+    def clean_kodi_library(self):
+        """
+        Triggers a Kodi library clean to remove items from the library that are not found locally.
+        """
+        try:
+            xbmc.log("Triggering Kodi library clean...", xbmc.LOGDEBUG)
+            xbmc.executebuiltin('CleanLibrary(video)')
+            xbmcgui.Dialog().notification("MUBI", "Kodi library clean triggered.", xbmcgui.NOTIFICATION_INFO)
+        except Exception as e:
+            xbmc.log(f"Error triggering Kodi library clean: {e}", xbmc.LOGERROR)
