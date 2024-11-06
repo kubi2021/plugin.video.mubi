@@ -32,7 +32,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 1. 🔑 Get an **OMDb API key** from [here](http://www.omdbapi.com/apikey.aspx). It's free and will be needed to populate the library with rich metadata. Don't forget to activate your key using the link in the email.
 2. ⚙️ In the **add-on settings**, enter your **OMDb API key**. It's important to do this before the first sync of Mubi to Kodi.
 3. 🎬 Launch the **Mubi** add-on.
-4. 📁 The **Mubi Movies** folder is automatically added to the Kodi video sources by the addon.
+4. 📁 The **Mubi Movies** folder is automatically added to the Kodi video sources when the addon is first launched. But you need to restart Kodi to see it.
 5. ⚙️ For the Mubi movies to be properly scraped and displayed in your library, configure the source in **Kodi settings > Media > Video**:
     - 1️⃣ Set the content type to **'Video'**.
     - 2️⃣ In the **Set Content** window, check "**Movies are in separate folders**," and leave the other toggles as they are.
@@ -44,10 +44,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 
 ### Next Runs 🚀
 
-Whenever you want to **update** the local database:
-1. Run the **sync** process again (as described above).
-2. Then update the **Kodi library** to fetch the latest metadata.
-3. 🎥 Go to the **Movies** tab in Kodi and **update the library** to see the newly added Mubi movies.
+Whenever you want to **update** the local database, run the **sync** process again. The Kodi library will be automatically updated and cleaned (movies that are no longer available in Mubi will be removed from Kodi)
 
 ## Changelog
 
