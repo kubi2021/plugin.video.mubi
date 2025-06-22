@@ -2,7 +2,7 @@ import xbmc
 from typing import List, Optional
 
 
-class Metadata:
+class FilmMetadata:
     def __init__(
         self, 
         title: str, 

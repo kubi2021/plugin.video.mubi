@@ -15,31 +15,29 @@ from pathlib import Path
 
 
 
-class Film:
-    def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, category: str, metadata):
+class Episode:
+    def __init__(self, mubi_id: str, season: str, episode_number: str, series_title: str, title: str, artwork: str, web_url: str, metadata):
         if not mubi_id or not title or not metadata:
-            raise ValueError("Film must have a mubi_id, title, and metadata")
+            raise ValueError("Episode must have a mubi_id, title, and metadata")
+            xbmc.log(f"Episode not valid", xbmc.LOGERROR)
         
         self.mubi_id = mubi_id
+        self.season = season
+        self.episode_number = episode_number
+        self.series_title = series_title
         self.title = title
         self.artwork = artwork
         self.web_url = web_url
-        self.categories = [category]  # Store categories as a list to handle multiple categories
         self.metadata = metadata
 
     def __eq__(self, other):
-        if not isinstance(other, Film):
+        if not isinstance(other, Episode):
             return False
         return self.mubi_id == other.mubi_id
 
     def __hash__(self):
         return hash(self.mubi_id)
 
-
-    def add_category(self, category: str):
-        """Add a category to the film, ensuring no duplicates."""
-        if category and category not in self.categories:
-            self.categories.append(category)
 
     def _sanitize_filename(self, filename: str, replacement: str = " ") -> str:
         """
@@ -75,22 +73,21 @@ class Film:
 
     def get_sanitized_folder_name(self) -> str:
         """
-        Generate a consistent, sanitized folder name for the film, using the title and year.
+        Generate a consistent, sanitized folder name for the serie, using the episode's series_title attribute.
         
-        :return: A sanitized folder name in the format "Title (Year)".
+        :return: A sanitized folder name in the format "Title".
         """
-        year = self.metadata.year if self.metadata.year else "Unknown"
-        return self._sanitize_filename(f"{self.title} ({year})")
+        return self._sanitize_filename(f"{self.series_title}")
 
 
-    def create_strm_file(self, film_path: Path, base_url: str):
-        """Create the .strm file for the film."""
+    def create_strm_file(self, serie_path: Path, base_url: str):
+        """Create the .strm file for the episode."""
         from urllib.parse import urlencode
 
         # Use sanitized folder name for consistent file naming
-        film_folder_name = self.get_sanitized_folder_name()
-        film_file_name = f"{film_folder_name}.strm"
-        film_strm_file = film_path / film_file_name
+        serie_folder_name = self.get_sanitized_folder_name()
+        strm_file_name = f"{serie_folder_name} S{self.season:02d}E{self.episode_number:02d}.strm"
+        strm_file = serie_path / strm_file_name
 
         # Build the query parameters
         query_params = {
@@ -102,30 +99,30 @@ class Film:
         kodi_movie_url = f"{base_url}?{encoded_params}"
 
         try:
-            with open(film_strm_file, "w") as f:
+            with open(strm_file, "w") as f:
                 f.write(kodi_movie_url)
         except OSError as error:
             xbmc.log(f"Error while creating STRM file for {self.title}: {error}", xbmc.LOGERROR)
 
-    def create_nfo_file(self, film_path: Path, base_url: str, omdb_api_key: str):
-        """Create the .nfo file for the film."""
+    def create_nfo_file(self, serie_path: Path, base_url: str, omdb_api_key: str):
+        """Create the .nfo file for the episode."""
         # Use sanitized folder name for consistent file naming
-        film_folder_name = self.get_sanitized_folder_name()
-        nfo_file_name = f"{film_folder_name}.nfo"
-        nfo_file = film_path / nfo_file_name
-        kodi_trailer_url = f"{base_url}?action=play_trailer&url={self.metadata.trailer}"
+        serie_folder_name = self.get_sanitized_folder_name()
+        nfo_file_name = f"{serie_folder_name} S{self.season:02d}E{self.episode_number:02d}.nfo"
+        nfo_file = serie_path / nfo_file_name
+        kodi_trailer_url = ""
 
         try:
             imdb_url = ""
             if omdb_api_key:
                 time.sleep(2)
-                imdb_url = self._get_imdb_url(self.metadata.originaltitle, self.title, self.metadata.year, omdb_api_key)
+                imdb_url = self._get_imdb_url(self.original_title, self.title, self.year, omdb_api_key)
 
                 if imdb_url is None:
                     xbmc.log(f"Skipping creation of NFO file for '{self.title}' due to repeated API errors.", xbmc.LOGWARNING)
                     return
 
-            nfo_tree = self._get_nfo_tree(self.metadata, self.categories, kodi_trailer_url, imdb_url)
+            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url)
             with open(nfo_file, "wb") as f:
                 if isinstance(nfo_tree, str):
                     nfo_tree = nfo_tree.encode("utf-8")
@@ -141,51 +138,44 @@ class Film:
 
 
 
-    def _get_nfo_tree(self, metadata, categories: list, kodi_trailer_url: str, imdb_url: str) -> bytes:
+    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str) -> bytes:
         """Generate the NFO XML tree structure, including IMDb URL if available."""
         if not metadata.title:
             raise ValueError("Metadata must contain a title")
 
-        movie = ET.Element("movie")
+        episodedetails = ET.Element("episodedetails")
 
-        ET.SubElement(movie, "title").text = metadata.title
-        ET.SubElement(movie, "originaltitle").text = metadata.originaltitle
+        ET.SubElement(episodedetails, "title").text = metadata.title
+        ET.SubElement(episodedetails, "originaltitle").text = metadata.originaltitle
 
-        ratings = ET.SubElement(movie, "ratings")
+        ratings = ET.SubElement(episodedetails, "ratings")
         rating = ET.SubElement(ratings, "rating")
         rating.set("name", "MUBI")
         ET.SubElement(rating, "value").text = str(metadata.rating)
-        ET.SubElement(rating, "votes").text = str(metadata.votes)
-
-        ET.SubElement(movie, "plot").text = metadata.plot
-        ET.SubElement(movie, "outline").text = metadata.plotoutline
-        ET.SubElement(movie, "runtime").text = str(metadata.duration)
+        ET.SubElement(episodedetails, "runtime").text = str(metadata.duration)
 
         if metadata.country:
-            ET.SubElement(movie, "country").text = metadata.country[0]
+            ET.SubElement(episodedetails, "country").text = metadata.country[0]
 
         for genre in metadata.genre:
-            ET.SubElement(movie, "genre").text = genre
+            ET.SubElement(episodedetails, "genre").text = genre
 
         for director in metadata.director:
-            ET.SubElement(movie, "director").text = director
+            ET.SubElement(episodedetails, "director").text = director
 
-        ET.SubElement(movie, "year").text = str(metadata.year)
-        ET.SubElement(movie, "trailer").text = kodi_trailer_url
-        thumb = ET.SubElement(movie, "thumb")
+        ET.SubElement(episodedetails, "year").text = str(metadata.year)
+        ET.SubElement(episodedetails, "trailer").text = kodi_trailer_url
+        thumb = ET.SubElement(episodedetails, "thumb")
         thumb.set("aspect", "landscape")
         thumb.text = metadata.image
 
-        for category in categories:
-            ET.SubElement(movie, "tag").text = category
-
-        ET.SubElement(movie, "dateadded").text = str(metadata.dateadded)
+        ET.SubElement(episodedetails, "dateadded").text = str(metadata.dateadded)
 
         # Add IMDb URL if available
         if imdb_url:
-            ET.SubElement(movie, "imdbid").text = imdb_url
+            ET.SubElement(episodedetails, "imdbid").text = imdb_url
 
-        return ET.tostring(movie)
+        return ET.tostring(episodedetails)
 
 
 

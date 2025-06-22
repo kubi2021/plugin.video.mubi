@@ -6,7 +6,8 @@ import webbrowser
 from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
-from resources.lib.library import Library
+from resources.lib.film_library import Film_Library
+from resources.lib.serie_library import Serie_Library
 from resources.lib.playback import play_with_inputstream_adaptive
 
 class LibraryMonitor(xbmc.Monitor):
@@ -84,7 +85,8 @@ class NavigationHandler:
             return [
                 {"label": "Browse Mubi films by category", "description": "Browse Mubi films by category", "action": "list_categories", "is_folder": True},
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
-                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": True},
+                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_films_locally", "is_folder": False},
+                {"label": "Sync all Mubi series locally", "description": "Sync Mubi series locally", "action": "sync_series_locally", "is_folder": False},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
             ]
         else:
@@ -412,10 +414,9 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error during logout: {e}", xbmc.LOGERROR)
 
-    def sync_locally(self):
+    def _check_omdb_api_key(self):
         """
-        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
-        This allows the films to be imported into Kodi's standard media library.
+        Check OMDb API key.
         """
         try:
             # Retrieve the OMDb API key from the settings
@@ -436,14 +437,25 @@ class NavigationHandler:
 
                 if ret:  # If the user clicks 'Go to Settings'
                     self.plugin.openSettings()  # Opens the settings for the user to add the OMDb API key
-                return  # Exit the function if the OMDb API key is missing or the user cancels
+                return omdb_api_key # Exit the function if the OMDb API key is missing or the user cancels
+
+        except Exception as e:
+            xbmc.log(f"Error during OMDb API key: {e}", xbmc.LOGERROR)
+
+    def sync_films_locally(self):
+        """
+        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        This allows the films to be imported into Kodi's standard media library.
+        """
+        try:
+            omdb_api_key = self._check_omdb_api_key()
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
             pDialog.create("Syncing with Mubi", "Fetching all categories...")
 
             categories = self.mubi.get_film_groups()
-            all_films_library = Library()
+            all_films_library = Film_Library()
             total_categories = len(categories)
 
             for idx, category in enumerate(categories):
@@ -482,7 +494,36 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
 
+    def sync_series_locally(self):
+        """
+        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        This allows the films to be imported into Kodi's standard media library.
+        """
+        try:
+            omdb_api_key = self._check_omdb_api_key()
 
+            # Proceed with the sync process if OMDb API key is provided
+            episodes = self.mubi.get_episodes_list()
+            total_episodes = len(episodes)
+            xbmc.log(f"Amount of episodes found during sync: {total_episodes}", xbmc.LOGINFO)
+
+            plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
+            xbmc.log(f"Starting actual sync", xbmc.LOGINFO)
+            episodes.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
+
+            # Create a monitor instance
+            monitor = LibraryMonitor()
+
+            # Trigger Kodi library clean first and wait for it to complete
+            self.clean_kodi_library(monitor)
+
+            # After clean is complete, trigger Kodi library update and wait for it to complete
+            self.update_kodi_library(monitor)
+
+        except Exception as e:
+            xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
+
+ 
     def update_kodi_library(self, monitor):
         """
         Triggers a Kodi library update to scan for new movies after the sync process.
