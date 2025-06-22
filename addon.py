@@ -76,9 +76,12 @@ if __name__ == "__main__":
     elif action == "play_trailer":
         xbmc.log(f"Calling play_trailer with handle: {handle}", xbmc.LOGDEBUG)
         navigation.play_trailer(params['url'])
-    elif action == "sync_locally":
+    elif action == "sync_films_locally":
         xbmc.log(f"Calling sync_locally with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.sync_locally()
+        navigation.sync_films_locally()
+    elif action == "sync_series_locally":
+        xbmc.log(f"Calling sync_locally with handle: {handle}", xbmc.LOGDEBUG)
+        navigation.sync_series_locally()
     elif action == "play_mubi_video":
         film_id = params.get('film_id')
         web_url = params.get('web_url')
