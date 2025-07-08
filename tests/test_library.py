@@ -638,3 +638,39 @@ def test_sync_locally_with_genre_filtering(
 
         # Assert that remove_obsolete_files was called
         mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
+
+
+def test_add_film_invalid_film_object():
+    """Test adding invalid film object."""
+    library = Film_Library()
+
+    # Test with None film
+    with pytest.raises(ValueError, match="Invalid film: missing required fields"):
+        library.add_film(None)
+
+    # Test with film object that has None mubi_id (create a mock film)
+    mock_film = Mock()
+    mock_film.mubi_id = None
+    mock_film.title = "Test Movie"
+    mock_film.metadata = Mock()
+
+    with pytest.raises(ValueError, match="Invalid film: missing required fields"):
+        library.add_film(mock_film)
+
+    # Test with film object that has None title
+    mock_film2 = Mock()
+    mock_film2.mubi_id = "123"
+    mock_film2.title = None
+    mock_film2.metadata = Mock()
+
+    with pytest.raises(ValueError, match="Invalid film: missing required fields"):
+        library.add_film(mock_film2)
+
+    # Test with film object that has None metadata
+    mock_film3 = Mock()
+    mock_film3.mubi_id = "123"
+    mock_film3.title = "Test Movie"
+    mock_film3.metadata = None
+
+    with pytest.raises(ValueError, match="Invalid film: missing required fields"):
+        library.add_film(mock_film3)
