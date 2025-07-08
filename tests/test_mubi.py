@@ -215,40 +215,102 @@ class TestMubi:
     @patch.object(Mubi, 'get_films_in_category_json')
     @patch.object(Mubi, 'get_film_metadata')
     @patch('xbmc.log')
-    def test_get_film_list_success(self, mock_log, mock_get_metadata, 
+    def test_get_film_list_success(self, mock_log, mock_get_metadata,
                                  mock_get_films, mubi_instance):
-        """Test successful film list retrieval."""
-        # Mock films data
+        """Test successful film list retrieval with comprehensive validation."""
+        # Mock realistic films data
         mock_get_films.return_value = [
-            {"film": {"id": 1, "title": "Movie 1"}},
-            {"film": {"id": 2, "title": "Movie 2"}}
+            {"film": {"id": 1, "title": "Movie 1", "year": 2023}},
+            {"film": {"id": 2, "title": "Movie 2", "year": 2022}}
         ]
-        
-        # Mock film metadata
-        mock_film1 = Mock()
-        mock_film1.title = "Movie 1"
-        mock_film2 = Mock()
-        mock_film2.title = "Movie 2"
+
+        # Mock film metadata with proper Film objects
+        from resources.lib.film import Film
+        from resources.lib.film_metadata import FilmMetadata
+
+        metadata1 = FilmMetadata(
+            title="Movie 1",
+            director=["Test Director"],
+            year=2023,
+            duration=120,
+            country=["USA"],
+            plot="Test plot for Movie 1",
+            plotoutline="Short plot outline",
+            genre=["Drama"],
+            originaltitle="Movie 1"
+        )
+        metadata2 = FilmMetadata(
+            title="Movie 2",
+            director=["Test Director"],
+            year=2022,
+            duration=110,
+            country=["USA"],
+            plot="Test plot for Movie 2",
+            plotoutline="Short plot outline",
+            genre=["Drama"],
+            originaltitle="Movie 2"
+        )
+
+        mock_film1 = Film("1", "Movie 1", "", "", "Drama", metadata1)
+        mock_film2 = Film("2", "Movie 2", "", "", "Drama", metadata2)
         mock_get_metadata.side_effect = [mock_film1, mock_film2]
-        
+
+        # Execute the method
         library = mubi_instance.get_film_list(123, "Drama")
-        
-        assert len(library.films) == 2
-        mock_get_films.assert_called_with(123)
-        assert mock_get_metadata.call_count == 2
+
+        # Comprehensive assertions
+        assert isinstance(library, Film_Library), f"Expected Film_Library, got {type(library)}"
+        assert len(library.films) == 2, f"Expected 2 films, got {len(library.films)}"
+        assert len(library) == 2, f"Library length should be 2, got {len(library)}"
+
+        # Verify specific films were added
+        film_titles = [film.title for film in library.films]
+        assert "Movie 1" in film_titles, "Movie 1 should be in library"
+        assert "Movie 2" in film_titles, "Movie 2 should be in library"
+
+        # Verify method calls with exact parameters
+        mock_get_films.assert_called_once_with(123)
+        assert mock_get_metadata.call_count == 2, f"Expected 2 metadata calls, got {mock_get_metadata.call_count}"
+
+        # Verify logging with specific message pattern
         mock_log.assert_called()
+        log_calls = [call.args[0] for call in mock_log.call_args_list if len(call.args) > 0]
+        success_logs = [msg for msg in log_calls if "Fetched" in msg and "Drama" in msg]
+        assert len(success_logs) >= 1, "Should log successful fetch with category name"
 
     @patch.object(Mubi, 'get_films_in_category_json')
     @patch('xbmc.log')
     def test_get_film_list_exception(self, mock_log, mock_get_films, mubi_instance):
-        """Test film list retrieval with exception."""
-        mock_get_films.side_effect = Exception("API error")
-        
-        library = mubi_instance.get_film_list(123, "Drama")
+        """Test film list retrieval with comprehensive error handling."""
+        # Test multiple error scenarios
+        error_scenarios = [
+            (ConnectionError("Network unreachable"), "network error"),
+            (TimeoutError("Request timeout"), "timeout error"),
+            (ValueError("Invalid JSON"), "data parsing error"),
+            (Exception("Generic API error"), "generic error")
+        ]
 
-        # Should return film_library even on error
-        assert isinstance(library, Film_Library)
-        mock_log.assert_called()
+        for error, description in error_scenarios:
+            # Reset the library for each test
+            mubi_instance.film_library = Film_Library()
+            mock_get_films.side_effect = error
+
+            # Should handle error gracefully
+            library = mubi_instance.get_film_list(123, "Drama")
+
+            # Comprehensive error handling validation
+            assert isinstance(library, Film_Library), f"Should return Film_Library even on {description}"
+            assert len(library.films) == 0, f"Library should be empty after {description}"
+            assert len(library) == 0, f"Library length should be 0 after {description}"
+
+            # Verify error was logged appropriately
+            mock_log.assert_called()
+            error_logs = [call.args[0] for call in mock_log.call_args_list
+                         if len(call.args) > 0 and "Error" in call.args[0]]
+            assert len(error_logs) >= 1, f"Should log error for {description}"
+
+            # Reset mock for next iteration
+            mock_log.reset_mock()
 
     def test_get_watch_list_success(self, mubi_instance):
         """Test successful watchlist retrieval."""
