@@ -17,14 +17,14 @@ else
 fi
 
 # Activate virtual environment and install requirements
-echo "📋 Installing test requirements..."
-./venv/bin/pip install -r requirements-test.txt
+echo "📋 Installing development requirements..."
+./venv/bin/pip install -r requirements-dev.txt
 
 echo ""
 echo "🎯 Test Environment Setup Complete!"
 echo "=================================="
 echo ""
-echo "To use the test environment:"
+echo "To use the development environment:"
 echo "1. Activate the virtual environment:"
 echo "   source venv/bin/activate"
 echo ""
@@ -39,11 +39,11 @@ echo ""
 echo "3. Run with coverage:"
 echo "   pytest tests/ --cov=resources/lib --cov-report=html"
 echo ""
-echo "4. Run test discovery validation:"
-echo "   python tests/test_discovery.py"
+echo "4. Run environment validation:"
+echo "   pytest tests/test_environment.py -v"
 echo ""
-echo "5. Run enterprise test runner:"
-echo "   python tests/test_runner_enterprise.py"
+echo "5. Run test discovery validation:"
+echo "   python tests/test_discovery.py"
 echo ""
 echo "📊 Current test status:"
 ./venv/bin/python -m pytest --collect-only tests/ -q | grep "collected"
