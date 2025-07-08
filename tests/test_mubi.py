@@ -1,4 +1,5 @@
 import pytest
+import requests
 from unittest.mock import Mock, patch, MagicMock
 import json
 from resources.lib.mubi import Mubi
@@ -295,3 +296,235 @@ class TestMubi:
     def test_api_url_property(self, mubi_instance):
         """Test API URL property."""
         assert mubi_instance.apiURL == "https://api.mubi.com/v3/"
+
+    # Additional tests for better coverage
+    @patch('requests.Session')
+    @patch('time.time')
+    def test_make_api_call_rate_limiting(self, mock_time, mock_session, mubi_instance):
+        """Test API call rate limiting."""
+        # Mock time to simulate rapid calls
+        mock_time.side_effect = [0, 0.1, 0.2, 0.3]  # 4 calls in quick succession
+
+        # Fill up the call history to trigger rate limiting
+        mubi_instance._call_history = [0] * 60  # 60 calls at time 0
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"test": "data"}
+        mock_session_instance = Mock()
+        mock_session_instance.request.return_value = mock_response
+        mock_session.return_value = mock_session_instance
+
+        with patch('time.sleep') as mock_sleep:
+            mubi_instance._make_api_call("GET", "test")
+
+            # Should have triggered rate limiting
+            mock_sleep.assert_called()
+
+    @patch('requests.Session')
+    def test_make_api_call_http_error(self, mock_session, mubi_instance):
+        """Test API call with HTTP error."""
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Not Found")
+        mock_response.headers = {"Content-Type": "application/json"}
+        mock_response.text = "Not Found"
+
+        mock_session_instance = Mock()
+        mock_session_instance.request.return_value = mock_response
+        mock_session.return_value = mock_session_instance
+
+        result = mubi_instance._make_api_call("GET", "nonexistent")
+
+        assert result is None
+
+    @patch('requests.Session')
+    def test_make_api_call_request_exception(self, mock_session, mubi_instance):
+        """Test API call with request exception."""
+        mock_session_instance = Mock()
+        mock_session_instance.request.side_effect = requests.exceptions.ConnectionError("Connection failed")
+        mock_session.return_value = mock_session_instance
+
+        result = mubi_instance._make_api_call("GET", "test")
+
+        assert result is None
+
+    @patch('requests.Session')
+    def test_make_api_call_unexpected_exception(self, mock_session, mubi_instance):
+        """Test API call with unexpected exception."""
+        mock_session_instance = Mock()
+        mock_session_instance.request.side_effect = Exception("Unexpected error")
+        mock_session.return_value = mock_session_instance
+
+        result = mubi_instance._make_api_call("GET", "test")
+
+        assert result is None
+
+    @patch('requests.Session')
+    def test_make_api_call_with_full_url(self, mock_session, mubi_instance):
+        """Test API call with full URL."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"test": "data"}
+
+        mock_session_instance = Mock()
+        mock_session_instance.request.return_value = mock_response
+        mock_session.return_value = mock_session_instance
+
+        result = mubi_instance._make_api_call("GET", None, full_url="https://example.com/api")
+
+        assert result is not None
+        mock_session_instance.request.assert_called_once()
+        # Check that the URL was passed correctly (it's the second positional argument)
+        call_args = mock_session_instance.request.call_args
+        assert call_args[0][1] == "https://example.com/api"
+
+    @patch('requests.Session')
+    def test_make_api_call_with_all_parameters(self, mock_session, mubi_instance):
+        """Test API call with all parameters."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"test": "data"}'
+
+        mock_session_instance = Mock()
+        mock_session_instance.request.return_value = mock_response
+        mock_session.return_value = mock_session_instance
+
+        headers = {"Custom-Header": "value"}
+        params = {"param1": "value1"}
+        data = {"data": "value"}
+        json_data = {"json": "value"}
+
+        result = mubi_instance._make_api_call(
+            "POST", "test",
+            headers=headers,
+            params=params,
+            data=data,
+            json=json_data
+        )
+
+        assert result is not None
+        mock_session_instance.request.assert_called_once()
+        call_args = mock_session_instance.request.call_args[1]
+        assert "Custom-Header" in call_args["headers"]
+        assert call_args["params"] == params
+        assert call_args["data"] == data
+        assert call_args["json"] == json_data
+
+    def test_get_secure_stream_info_success(self, mubi_instance):
+        """Test successful secure stream info retrieval."""
+        # Mock the viewing response (can fail, it's optional)
+        viewing_response = Mock()
+        viewing_response.status_code = 200
+
+        # Mock the preroll response (optional)
+        preroll_response = Mock()
+        preroll_response.status_code = 200
+
+        # Mock the secure URL response
+        secure_response = Mock()
+        secure_response.status_code = 200
+        secure_response.json.return_value = {
+            "url": "https://example.com/stream.m3u8",
+            "urls": [
+                {"src": "https://example.com/stream.m3u8", "content_type": "application/x-mpegURL"}
+            ]
+        }
+
+        with patch.object(mubi_instance, '_make_api_call', side_effect=[viewing_response, preroll_response, secure_response]):
+            with patch('resources.lib.mubi.generate_drm_license_key', return_value="license-key"):
+                result = mubi_instance.get_secure_stream_info("12345")
+
+                assert "stream_url" in result
+                assert result["stream_url"] == "https://example.com/stream.m3u8"
+                assert "license_key" in result
+
+    def test_get_secure_stream_info_secure_url_failure(self, mubi_instance):
+        """Test secure stream info when secure URL request fails."""
+        # Mock responses: viewing and preroll succeed, but secure URL fails
+        viewing_response = Mock()
+        viewing_response.status_code = 200
+
+        preroll_response = Mock()
+        preroll_response.status_code = 200
+
+        # Secure URL request fails
+        with patch.object(mubi_instance, '_make_api_call', side_effect=[viewing_response, preroll_response, None]):
+            result = mubi_instance.get_secure_stream_info("12345")
+
+            assert "error" in result
+            assert "unknown error" in result["error"].lower()
+
+    def test_get_secure_stream_info_stream_failure(self, mubi_instance):
+        """Test secure stream info when stream request fails."""
+        # Mock successful viewing but failed stream
+        viewing_response = Mock()
+        viewing_response.json.return_value = {"status": "success"}
+
+        with patch.object(mubi_instance, '_make_api_call', side_effect=[viewing_response, None]):
+            result = mubi_instance.get_secure_stream_info("12345")
+
+            assert "error" in result
+            assert "stream" in result["error"].lower()
+
+    def test_get_secure_stream_info_exception(self, mubi_instance):
+        """Test secure stream info with exception."""
+        with patch.object(mubi_instance, '_make_api_call', side_effect=Exception("Network error")):
+            result = mubi_instance.get_secure_stream_info("12345")
+
+            assert "error" in result
+            assert "unexpected error" in result["error"].lower()
+
+    def test_select_best_stream_dash_preferred(self, mubi_instance):
+        """Test stream selection with DASH preferred."""
+        stream_info = {
+            "urls": [
+                {"src": "https://example.com/stream.m3u8", "content_type": "application/x-mpegURL"},
+                {"src": "https://example.com/stream.mpd", "content_type": "application/dash+xml"}
+            ]
+        }
+
+        result = mubi_instance.select_best_stream(stream_info)
+
+        # Should prefer DASH
+        assert result == "https://example.com/stream.mpd"
+
+    def test_select_best_stream_hls_fallback(self, mubi_instance):
+        """Test stream selection with HLS fallback."""
+        stream_info = {
+            "urls": [
+                {"src": "https://example.com/stream.m3u8", "content_type": "application/x-mpegURL"}
+            ]
+        }
+
+        result = mubi_instance.select_best_stream(stream_info)
+
+        # Should fallback to HLS
+        assert result == "https://example.com/stream.m3u8"
+
+    def test_select_best_stream_no_suitable_stream(self, mubi_instance):
+        """Test stream selection with no suitable streams."""
+        stream_info = {
+            "urls": [
+                {"src": "https://example.com/stream.mp4", "content_type": "video/mp4"}
+            ]
+        }
+
+        result = mubi_instance.select_best_stream(stream_info)
+
+        # Should return None for unsupported formats
+        assert result is None
+
+    def test_select_best_stream_no_urls(self, mubi_instance):
+        """Test stream selection with no URLs."""
+        stream_info = {"urls": []}
+
+        result = mubi_instance.select_best_stream(stream_info)
+
+        assert result is None
+
+    def test_select_best_stream_invalid_input(self, mubi_instance):
+        """Test stream selection with invalid input."""
+        result = mubi_instance.select_best_stream({})
+
+        assert result is None
