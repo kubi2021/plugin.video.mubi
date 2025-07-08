@@ -12,7 +12,7 @@ This document provides comprehensive information about testing the MUBI plugin.
 
 # Or manually:
 python3 -m venv venv
-./venv/bin/pip install -r requirements-test.txt
+./venv/bin/pip install -r requirements-dev.txt
 ```
 
 > **Note**: The `venv/` directory is automatically excluded from git via `.gitignore`. Virtual environments should never be committed to version control.
@@ -52,8 +52,9 @@ pytest tests/ --cov=resources/lib --cov-report=html
 | **Security Tests** | `test_security.py` | 12 | Security vulnerability testing |
 | **Stress Tests** | `test_stress.py` | 7 | Performance and load testing |
 | **Quality Framework** | `test_quality_framework.py` | 11 | Enterprise testing patterns |
+| **Environment Tests** | `test_environment.py` | 7 | Environment validation and CI/CD testing |
 
-**Total: 217 tests across all suites**
+**Total: 224 tests across all suites**
 
 ### Test Markers
 
@@ -164,30 +165,52 @@ open htmlcov/index.html
 
 ### GitHub Actions Integration
 
-The test suite is designed for CI/CD integration:
+The test suite is fully integrated with GitHub Actions and runs automatically on pull requests and pushes to main branches.
 
+**Current Workflow** (`.github/workflows/test.yml`):
+- ✅ **Multi-Python Support**: Tests run on Python 3.8, 3.9, 3.10, and 3.11
+- ✅ **Complete Dependencies**: All test dependencies including `psutil` are installed
+- ✅ **Full Test Suite**: All 224 tests including stress tests run successfully
+- ✅ **Coverage Reporting**: Automatic coverage reports with 65% minimum threshold
+- ✅ **Codecov Integration**: Coverage data uploaded to Codecov for tracking
+
+**Dependencies Installation**:
 ```yaml
-- name: Setup Test Environment
+- name: Install dependencies
   run: |
-    python -m venv venv
-    ./venv/bin/pip install -r requirements-test.txt
+    python -m pip install --upgrade pip
+    pip install -r requirements-dev.txt  # Includes psutil for stress tests
+```
 
-- name: Run Tests
+**Test Execution**:
+```yaml
+- name: Run tests with pytest
   run: |
-    source venv/bin/activate
-    pytest tests/ --cov=resources/lib --cov-report=xml
+    pytest tests/ -v --tb=short --strict-markers
 
-- name: Run Security Tests
+- name: Generate test coverage report
   run: |
-    source venv/bin/activate
-    pytest tests/ -m security
+    pytest tests/ --cov=resources --cov-config=.coveragerc --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=65
 ```
 
 ### Test Selection for CI
 
 - **Fast CI**: Unit + Integration tests (~30 seconds)
-- **Full CI**: All tests including stress tests (~5 minutes)
+  ```bash
+  pytest tests/ -m "not stress and not slow"
+  ```
+- **Full CI**: All tests including stress tests (~8 minutes)
+  ```bash
+  pytest tests/ -v
+  ```
 - **Security CI**: Security tests only (~1 minute)
+  ```bash
+  pytest tests/ -m security
+  ```
+- **Stress CI**: Stress tests only (~8 minutes)
+  ```bash
+  pytest tests/ -m stress
+  ```
 
 ## Troubleshooting
 

@@ -17,8 +17,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 @pytest.mark.stress
 @pytest.mark.slow
-
-
 class TestStressScenarios:
     """Test application behavior under stress conditions."""
     
@@ -92,7 +90,7 @@ class TestStressScenarios:
                 current_memory = self.get_memory_usage()
                 memory_growth = current_memory - initial_memory
                 print(f"Added {i} films, memory usage: {current_memory:.1f}MB (+{memory_growth:.1f}MB)")
-                
+
                 # Memory growth should be reasonable (less than 100MB per 1000 films)
                 assert memory_growth < 100, f"Excessive memory growth: {memory_growth:.1f}MB for {i} films"
         
@@ -239,11 +237,11 @@ class TestStressScenarios:
                     library.add_film(film)
                 
                 libraries.append(library)
-                
+
                 current_memory = self.get_memory_usage()
                 memory_used = current_memory - initial_memory
                 print(f"Created library {lib_num + 1}/10, memory usage: {current_memory:.1f}MB (+{memory_used:.1f}MB)")
-                
+
                 # Should handle memory pressure gracefully
                 assert memory_used < 500, f"Excessive memory usage: {memory_used:.1f}MB"
         
@@ -395,7 +393,7 @@ class TestStressScenarios:
         
         mocks = mock_kodi_environment
         initial_memory = self.get_memory_usage()
-        
+
         # Create and destroy many objects
         for cycle in range(100):
             objects = []
@@ -420,7 +418,7 @@ class TestStressScenarios:
                 current_memory = self.get_memory_usage()
                 memory_growth = current_memory - initial_memory
                 print(f"Cycle {cycle}, memory usage: {current_memory:.1f}MB (+{memory_growth:.1f}MB)")
-                
+
                 # Memory growth should be reasonable (allow for normal Python overhead and test environment)
                 # In test environments, memory growth can be higher due to mocking and test infrastructure
                 assert memory_growth < 100, f"Excessive memory leak detected: {memory_growth:.1f}MB growth"
