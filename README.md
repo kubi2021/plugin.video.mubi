@@ -1,5 +1,8 @@
 # MUBI Addon for Kodi 🎥🚀
 
+![Tests](https://github.com/YOUR_USERNAME/plugin.video.mubi/workflows/Run%20Tests/badge.svg)
+[![codecov](https://codecov.io/gh/YOUR_USERNAME/plugin.video.mubi/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/plugin.video.mubi)
+
 ## Why I'm doing this
 
 I really enjoy MUBI and their curated selection of films. However, I find their interface somewhat cluttered, often requiring too many clicks to make a decision. When selecting a film, I prefer to have the key information readily available: duration, genre, and rating. I also value the ability to sort films by rating or recent additions. Thankfully, Kodi offers all of these features.
@@ -34,6 +37,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 3. 🎬 Launch the **Mubi** add-on.
 4. 📁 The **Mubi Movies** folder is automatically added to the Kodi video sources when the addon is first launched. But you need to restart Kodi to see it.
 5. ⚙️ For the Mubi movies to be properly scraped and displayed in your library, configure the source in **Kodi settings > Media > Video**:
+    - Select the source "Mubi movies" and edit it
     - 1️⃣ Set the content type to **'Video'**.
     - 2️⃣ In the **Set Content** window, check "**Movies are in separate folders**," and leave the other toggles as they are.
     - 3️⃣ Choose your preferred information provider (e.g., **Universal Movie Scraper**).
