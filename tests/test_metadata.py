@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from resources.lib.metadata import Metadata
+from resources.lib.film_metadata import FilmMetadata
 
 
 class TestMetadata:
@@ -8,7 +8,7 @@ class TestMetadata:
 
     def test_metadata_initialization_all_fields(self):
         """Test metadata initialization with all fields provided."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Director One", "Director Two"],
             year=2023,
@@ -44,7 +44,7 @@ class TestMetadata:
 
     def test_metadata_initialization_minimal_fields(self):
         """Test metadata initialization with only required fields."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Minimal Movie",
             director=[],
             year=None,
@@ -70,7 +70,7 @@ class TestMetadata:
 
     def test_metadata_initialization_none_values(self):
         """Test metadata initialization handles None values correctly."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=None,  # Should become empty list
             year=None,  # Should become "Unknown"
@@ -94,7 +94,7 @@ class TestMetadata:
 
     def test_metadata_initialization_optional_defaults(self):
         """Test metadata initialization with optional parameters using defaults."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Test Director"],
             year=2023,
@@ -116,7 +116,7 @@ class TestMetadata:
 
     def test_metadata_repr(self):
         """Test string representation of metadata."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Test Director"],
             year=2023,
@@ -141,7 +141,7 @@ class TestMetadata:
 
     def test_metadata_as_dict_complete(self):
         """Test converting metadata to dictionary with all fields."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Director One"],
             year=2023,
@@ -183,7 +183,7 @@ class TestMetadata:
 
     def test_metadata_as_dict_minimal(self):
         """Test converting minimal metadata to dictionary."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Minimal Movie",
             director=[],
             year=None,
@@ -215,7 +215,7 @@ class TestMetadata:
 
         # Test with data that could potentially cause issues
         try:
-            metadata = Metadata(
+            metadata = FilmMetadata(
                 title=None,  # This might cause issues in string operations
                 director=None,
                 year="invalid",  # Non-numeric year
@@ -234,7 +234,7 @@ class TestMetadata:
 
     def test_metadata_as_dict_normal_operation(self):
         """Test as_dict method normal operation."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Test Director"],
             year=2023,
@@ -257,7 +257,7 @@ class TestMetadata:
 
     def test_metadata_edge_cases(self):
         """Test metadata with edge case values."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="",  # Empty title
             director=[""],  # Empty director name
             year=0,  # Zero year
@@ -283,7 +283,7 @@ class TestMetadata:
 
     def test_metadata_large_values(self):
         """Test metadata with very large values."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="A" * 1000,  # Very long title
             director=["Director"] * 100,  # Many directors
             year=9999,  # Large year
