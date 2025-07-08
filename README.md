@@ -2,6 +2,7 @@
 
 ![Tests](https://github.com/YOUR_USERNAME/plugin.video.mubi/workflows/Run%20Tests/badge.svg)
 [![codecov](https://codecov.io/gh/YOUR_USERNAME/plugin.video.mubi/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/plugin.video.mubi)
+![GitHub branch protection](https://img.shields.io/badge/branch%20protection-enabled-green)
 
 ## Why I'm doing this
 
