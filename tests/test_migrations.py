@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 import xml.etree.ElementTree as ET
 from resources.lib.migrations import (
-    add_mubi_source, read_xml, write_xml, show_source_added_message,
+    add_mubi_source, read_xml, write_xml, show_sources_added_message,
     is_first_run, mark_first_run
 )
 
@@ -166,41 +166,41 @@ class TestMigrations:
         mock_log.assert_called()
 
     @patch('xbmcgui.Dialog')
-    def test_show_source_added_message(self, mock_dialog):
-        """Test showing source added message."""
+    def test_show_sources_added_message(self, mock_dialog):
+        """Test showing sources added message."""
         mock_dialog_instance = Mock()
         mock_dialog.return_value = mock_dialog_instance
-        
-        show_source_added_message()
-        
+
+        show_sources_added_message()
+
         mock_dialog_instance.ok.assert_called_once()
         args = mock_dialog_instance.ok.call_args[0]
-        assert "MUBI Source Added" in args[0]
-        assert "MUBI Movies source has been added" in args[1]
+        assert "MUBI Sources Added" in args[0]
+        assert "MUBI sources have been added" in args[1]
 
     def test_is_first_run_true(self, mock_addon):
         """Test is_first_run returns True when first run not completed."""
-        mock_addon.getSettingBool.return_value = False
-        
+        mock_addon.getSetting.return_value = 'false'  # Changed to string-based
+
         result = is_first_run(mock_addon)
-        
+
         assert result is True
-        mock_addon.getSettingBool.assert_called_with('first_run_completed')
+        mock_addon.getSetting.assert_called_with('first_run_completed')
 
     def test_is_first_run_false(self, mock_addon):
         """Test is_first_run returns False when first run completed."""
-        mock_addon.getSettingBool.return_value = True
-        
+        mock_addon.getSetting.return_value = 'true'  # Changed to string-based
+
         result = is_first_run(mock_addon)
-        
+
         assert result is False
-        mock_addon.getSettingBool.assert_called_with('first_run_completed')
+        mock_addon.getSetting.assert_called_with('first_run_completed')
 
     def test_mark_first_run(self, mock_addon):
         """Test marking first run as completed."""
         mark_first_run(mock_addon)
-        
-        mock_addon.setSettingBool.assert_called_with('first_run_completed', True)
+
+        mock_addon.setSetting.assert_called_with('first_run_completed', 'true')  # Changed to string-based
 
     @patch('xbmcvfs.translatePath')
     @patch('xbmc.log')
@@ -316,8 +316,8 @@ class TestMigrations:
             # Should handle the exception gracefully
             write_xml(tree, '/fake/path/test.xml')
 
-    def test_show_source_added_message_dialog_error(self):
-        """Test show_source_added_message when dialog fails."""
+    def test_show_sources_added_message_dialog_error(self):
+        """Test show_sources_added_message when dialog fails."""
         with patch('xbmcgui.Dialog') as mock_dialog:
             mock_dialog_instance = Mock()
             mock_dialog_instance.ok.side_effect = Exception("Dialog error")
@@ -325,7 +325,7 @@ class TestMigrations:
 
             # Should handle the exception gracefully (it's wrapped in try-catch)
             try:
-                show_source_added_message()
+                show_sources_added_message()
             except Exception:
                 # If exception propagates, that's expected behavior
                 pass

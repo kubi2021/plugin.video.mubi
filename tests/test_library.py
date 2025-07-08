@@ -2,7 +2,7 @@ import tempfile
 from unittest.mock import Mock, patch, call
 from pathlib import Path
 from resources.lib.film import Film
-from resources.lib.library import Library
+from resources.lib.film_library import Film_Library
 import pytest
 import os
 
@@ -29,14 +29,14 @@ class MockMetadata:
         self.image = image
 
 def test_add_valid_film():
-    library = Library()
+    library = Film_Library()
     metadata = MockMetadata(year=2023)
     film = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg", web_url="http://example.com", category="Drama", metadata=metadata)
     library.add_film(film)
     assert len(library.films) == 1, "Film should have been added to the library."
 
 def test_library_len():
-    library = Library()
+    library = Film_Library()
     assert len(library) == 0, "Expected library length to be 0 when empty."
     film1 = Film(mubi_id="123", title="Film One", artwork="http://example.com/art1.jpg", web_url="http://example.com/film1", category="Drama", metadata=MockMetadata(2021))
     film2 = Film(mubi_id="456", title="Film Two", artwork="http://example.com/art2.jpg", web_url="http://example.com/film2", category="Comedy", metadata=MockMetadata(2022))
@@ -49,7 +49,7 @@ def test_library_len():
 def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
         
         # Create a Film object
         metadata = MockMetadata(year=2023)
@@ -63,9 +63,9 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
         )
         library.add_film(film)
 
-        # Prepare paths
+        # Prepare paths (films are stored in "films" subfolder)
         film_folder_name = film.get_sanitized_folder_name()
-        film_path = plugin_userdata_path / film_folder_name
+        film_path = plugin_userdata_path / "films" / film_folder_name
         nfo_file = film_path / f"{film_folder_name}.nfo"
         strm_file = film_path / f"{film_folder_name}.strm"
 
@@ -91,7 +91,7 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
         assert result is True, "prepare_files_for_film should return True for successful file creation."
 
         # Check if the calls to `create_nfo_file` and `create_strm_file` have the expected arguments
-        expected_folder = plugin_userdata_path / film.get_sanitized_folder_name()
+        expected_folder = plugin_userdata_path / "films" / film.get_sanitized_folder_name()
         
         # Assert that create_nfo_file is called with `expected_folder`, `base_url`, and `omdb_api_key`
         mock_create_nfo.assert_called_once_with(expected_folder, base_url, omdb_api_key)
@@ -105,7 +105,7 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
 def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
         
         # Create a Film object
         metadata = MockMetadata(year=2023)
@@ -119,9 +119,9 @@ def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
         )
         library.add_film(film)
 
-        # Prepare paths
+        # Prepare paths (films are stored in "films" subfolder)
         film_folder_name = film.get_sanitized_folder_name()
-        film_path = plugin_userdata_path / film_folder_name
+        film_path = plugin_userdata_path / "films" / film_folder_name
         nfo_file = film_path / f"{film_folder_name}.nfo"
         strm_file = film_path / f"{film_folder_name}.strm"
 
@@ -148,7 +148,7 @@ def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
 def test_prepare_files_for_film_failure(mock_create_strm, mock_create_nfo):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
         
         # Create a Film object
         metadata = MockMetadata(year=2023)
@@ -162,9 +162,9 @@ def test_prepare_files_for_film_failure(mock_create_strm, mock_create_nfo):
         )
         library.add_film(film)
 
-        # Prepare paths
+        # Prepare paths (films are stored in "films" subfolder)
         film_folder_name = film.get_sanitized_folder_name()
-        film_path = plugin_userdata_path / film_folder_name
+        film_path = plugin_userdata_path / "films" / film_folder_name
         nfo_file = film_path / f"{film_folder_name}.nfo"
         strm_file = film_path / f"{film_folder_name}.strm"
 
@@ -187,7 +187,7 @@ def test_prepare_files_for_film_failure(mock_create_strm, mock_create_nfo):
         assert result is False, "prepare_files_for_film should return False when file creation fails."
 
         # Assert that create_nfo_file was called
-        expected_folder = plugin_userdata_path / film.get_sanitized_folder_name()
+        expected_folder = plugin_userdata_path / "films" / film.get_sanitized_folder_name()
         mock_create_nfo.assert_called_once_with(expected_folder, base_url, omdb_api_key)
 
         # Assert that create_strm_file was not called since NFO creation failed
@@ -197,38 +197,42 @@ def test_remove_obsolete_files():
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
 
-        # Create dummy folders to simulate obsolete files
-        (plugin_userdata_path / "Old Film (2021)").mkdir()
-        (plugin_userdata_path / "Another Old Film (2022)").mkdir()
+        # Create films directory
+        films_dir = plugin_userdata_path / "films"
+        films_dir.mkdir()
+
+        # Create dummy folders to simulate obsolete files (in films directory)
+        (films_dir / "Old Film (2021)").mkdir()
+        (films_dir / "Another Old Film (2022)").mkdir()
 
         # Create a film and add it to the library
-        library = Library()
+        library = Film_Library()
         metadata = MockMetadata(year=2023)
         film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg", web_url="http://example.com", category="Drama", metadata=metadata)
         library.add_film(film)
 
-        # Create the folder for the current film to simulate an existing folder
-        current_folder = plugin_userdata_path / film.get_sanitized_folder_name()
+        # Create the folder for the current film to simulate an existing folder (in films directory)
+        current_folder = films_dir / film.get_sanitized_folder_name()
         current_folder.mkdir()
 
         # Remove obsolete files
         library.remove_obsolete_files(plugin_userdata_path)
 
         # Check that obsolete folders were removed
-        assert not (plugin_userdata_path / "Old Film (2021)").exists(), "Obsolete folder 'Old Film (2021)' was not removed."
-        assert not (plugin_userdata_path / "Another Old Film (2022)").exists(), "Obsolete folder 'Another Old Film (2022)' was not removed."
+        assert not (films_dir / "Old Film (2021)").exists(), "Obsolete folder 'Old Film (2021)' was not removed."
+        assert not (films_dir / "Another Old Film (2022)").exists(), "Obsolete folder 'Another Old Film (2022)' was not removed."
 
         # Check that the current film folder was not removed
         assert current_folder.exists(), "Current film folder should not have been removed."
 
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
-@patch.object(Library, "prepare_files_for_film")
-@patch.object(Library, "remove_obsolete_files")
+@patch.object(Film_Library, "prepare_files_for_film")
+@patch.object(Film_Library, "remove_obsolete_files")
 def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
 
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
@@ -271,12 +275,12 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
 
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
-@patch.object(Library, "prepare_files_for_film")
-@patch.object(Library, "remove_obsolete_files")
+@patch.object(Film_Library, "prepare_files_for_film")
+@patch.object(Film_Library, "remove_obsolete_files")
 def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
 
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
@@ -309,7 +313,7 @@ def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files
 def test_prepare_files_for_film_exception_in_nfo(mock_create_strm, mock_create_nfo):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
 
         # Create a Film object
         metadata = MockMetadata(year=2023)
@@ -342,7 +346,7 @@ def test_prepare_files_for_film_exception_in_nfo(mock_create_strm, mock_create_n
 def test_prepare_files_for_film_exception_in_strm(mock_create_strm, mock_create_nfo):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
 
         # Create a Film object
         metadata = MockMetadata(year=2023)
@@ -378,15 +382,19 @@ def test_remove_obsolete_files_no_obsolete():
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
 
+        # Create films directory
+        films_dir = plugin_userdata_path / "films"
+        films_dir.mkdir()
+
         # Create a film and add it to the library
-        library = Library()
+        library = Film_Library()
         metadata = MockMetadata(year=2023)
         film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg",
                     web_url="http://example.com", category="Drama", metadata=metadata)
         library.add_film(film)
 
-        # Create the folder for the current film to simulate an existing folder
-        current_folder = plugin_userdata_path / film.get_sanitized_folder_name()
+        # Create the folder for the current film to simulate an existing folder (in films directory)
+        current_folder = films_dir / film.get_sanitized_folder_name()
         current_folder.mkdir()
 
         # Remove obsolete files
@@ -399,7 +407,7 @@ def test_remove_obsolete_files_nonexistent_path():
     plugin_userdata_path = Path("/non/existent/path")
 
     # Create a film and add it to the library
-    library = Library()
+    library = Film_Library()
     metadata = MockMetadata(year=2023)
     film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg",
                 web_url="http://example.com", category="Drama", metadata=metadata)
@@ -415,11 +423,11 @@ def test_remove_obsolete_files_nonexistent_path():
 
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
-@patch.object(Library, "remove_obsolete_files")
+@patch.object(Film_Library, "remove_obsolete_files")
 def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()  # Empty library
+        library = Film_Library()  # Empty library
 
         # Mock dialog behavior to not cancel
         mock_dialog = mock_dialog_progress.return_value
@@ -441,7 +449,7 @@ def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress, 
 def test_prepare_files_for_film_with_invalid_characters():
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
 
         # Create a Film object with invalid characters in the title
         metadata = MockMetadata(year=2023)
@@ -477,9 +485,9 @@ def test_prepare_files_for_film_with_invalid_characters():
             # Assert that prepare_files_for_film returned True
             assert result is True, "Should return True when files are created successfully."
 
-            # Check that the folder was created with sanitized name
+            # Check that the folder was created with sanitized name (in films directory)
             sanitized_folder_name = film.get_sanitized_folder_name()
-            film_path = plugin_userdata_path / sanitized_folder_name
+            film_path = plugin_userdata_path / "films" / sanitized_folder_name
             assert film_path.exists(), "Film folder with sanitized name should exist."
 
 
@@ -489,7 +497,7 @@ def test_prepare_files_for_film_unwritable_path():
         plugin_userdata_path.mkdir()
         os.chmod(plugin_userdata_path, 0o400)  # Read-only permissions
 
-        library = Library()
+        library = Film_Library()
         metadata = MockMetadata(year=2023)
         film = Film(
             mubi_id="777777",
@@ -515,12 +523,12 @@ def test_prepare_files_for_film_unwritable_path():
 
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
-@patch.object(Library, "prepare_files_for_film")
-@patch.object(Library, "remove_obsolete_files")
+@patch.object(Film_Library, "prepare_files_for_film")
+@patch.object(Film_Library, "remove_obsolete_files")
 def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
 
         # Create 1000 Film objects and add them to the library
         metadata = MockMetadata(year=2023)
@@ -551,7 +559,7 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
         assert mock_prepare_files.call_count == 1000, "prepare_files_for_film should be called 1000 times."
 
 def test_add_duplicate_film():
-    library = Library()
+    library = Film_Library()
     metadata = MockMetadata(year=2023)
     film = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg",
                 web_url="http://example.com", category="Drama", metadata=metadata)
@@ -573,14 +581,14 @@ def test_film_equality():
 
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
-@patch.object(Library, "prepare_files_for_film")
-@patch.object(Library, "remove_obsolete_files")
+@patch.object(Film_Library, "prepare_files_for_film")
+@patch.object(Film_Library, "remove_obsolete_files")
 def test_sync_locally_with_genre_filtering(
     mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+        library = Film_Library()
 
         # Mock the settings to have 'skip_genres' as 'horror;comedy'
         addon_instance = mock_addon.return_value

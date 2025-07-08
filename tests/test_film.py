@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from resources.lib.film import Film
-from resources.lib.metadata import Metadata
+from resources.lib.film_metadata import FilmMetadata
 
 
 class TestFilm:

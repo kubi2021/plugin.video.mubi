@@ -71,7 +71,7 @@ class TestNavigationHandler:
         mock_end_dir.assert_called_with(123)
         
         # Verify menu items were added (logged in menu)
-        assert mock_add_item.call_count == 4  # 4 menu items for logged in users
+        assert mock_add_item.call_count == 5  # 5 menu items for logged in users (including series sync)
 
     @patch('xbmcplugin.setPluginCategory')
     @patch('xbmcplugin.setContent')
@@ -104,10 +104,11 @@ class TestNavigationHandler:
         
         items = navigation_handler._get_main_menu_items()
         
-        assert len(items) == 4
+        assert len(items) == 5
         assert any("Browse Mubi films by category" in item["label"] for item in items)
         assert any("Browse your Mubi watchlist" in item["label"] for item in items)
         assert any("Sync all Mubi films locally" in item["label"] for item in items)
+        assert any("Sync all Mubi series locally" in item["label"] for item in items)
         assert any("Log Out" in item["label"] for item in items)
 
     def test_get_main_menu_items_logged_out(self, navigation_handler):
@@ -334,8 +335,8 @@ class TestNavigationHandler:
 
             navigation_handler.play_video_ext("http://example.com/movie")
 
-            # Should call subprocess.Popen with 'open' command on macOS
-            mock_popen.assert_called_with(['open', "http://example.com/movie"])
+            # Should call subprocess.Popen with 'open' command on macOS (with shell=False for security)
+            mock_popen.assert_called_with(['open', "http://example.com/movie"], shell=False)
 
     @patch('xbmcplugin.setResolvedUrl')
     @patch('xbmcgui.ListItem')
@@ -365,13 +366,13 @@ class TestNavigationHandler:
         
         with patch('xbmcvfs.translatePath', return_value="/fake/path"):
             with patch('xbmcgui.Dialog') as mock_notification:
-                with patch('resources.lib.navigation_handler.Library') as mock_library_class:
+                with patch('resources.lib.navigation_handler.Film_Library') as mock_library_class:
                     mock_library_instance = Mock()
                     mock_library_class.return_value = mock_library_instance
                     with patch.object(navigation_handler, 'clean_kodi_library'):
                         with patch.object(navigation_handler, 'update_kodi_library'):
                             with patch('resources.lib.navigation_handler.LibraryMonitor'):
-                                navigation_handler.sync_locally()
+                                navigation_handler.sync_films_locally()
         
         mock_mubi.get_film_groups.assert_called_once()
         mock_dialog.create.assert_called()
@@ -384,7 +385,7 @@ class TestNavigationHandler:
         """Test sync locally handles exceptions."""
         mock_mubi.get_film_groups.side_effect = Exception("API Error")
         
-        navigation_handler.sync_locally()
+        navigation_handler.sync_films_locally()
         
         mock_log.assert_called()
 
@@ -458,5 +459,5 @@ class TestNavigationHandler:
 
         navigation_handler.play_video_ext("http://example.com/movie")
 
-        # Should call subprocess.Popen with 'xdg-open' command on Linux
-        mock_popen.assert_called_with(['xdg-open', "http://example.com/movie"])
+        # Should call subprocess.Popen with 'xdg-open' command on Linux (with shell=False for security)
+        mock_popen.assert_called_with(['xdg-open', "http://example.com/movie"], shell=False)

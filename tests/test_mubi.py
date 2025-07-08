@@ -3,7 +3,8 @@ import requests
 from unittest.mock import Mock, patch, MagicMock
 import json
 from resources.lib.mubi import Mubi
-from resources.lib.library import Library
+from resources.lib.film_library import Film_Library
+from resources.lib.serie_library import Serie_Library
 
 
 class TestMubi:
@@ -31,7 +32,8 @@ class TestMubi:
         mubi = Mubi(mock_session)
 
         assert mubi.session_manager == mock_session
-        assert isinstance(mubi.library, Library)
+        assert isinstance(mubi.film_library, Film_Library)
+        assert isinstance(mubi.serie_library, Serie_Library)
         assert mubi.apiURL == "https://api.mubi.com/v3/"
 
     def test_get_cli_country_success(self, mubi_instance):
@@ -243,9 +245,9 @@ class TestMubi:
         mock_get_films.side_effect = Exception("API error")
         
         library = mubi_instance.get_film_list(123, "Drama")
-        
-        # Should return library even on error
-        assert isinstance(library, Library)
+
+        # Should return film_library even on error
+        assert isinstance(library, Film_Library)
         mock_log.assert_called()
 
     def test_get_watch_list_success(self, mubi_instance):
@@ -262,7 +264,7 @@ class TestMubi:
 
             library = mubi_instance.get_watch_list()
 
-            assert isinstance(library, Library)
+            assert isinstance(library, Film_Library)
             assert mock_get_metadata.call_count == 2
 
     def test_get_watch_list_failure(self, mubi_instance):
@@ -271,7 +273,7 @@ class TestMubi:
         with patch.object(mubi_instance, 'get_films_in_watchlist', side_effect=Exception("API error")):
             library = mubi_instance.get_watch_list()
 
-            assert isinstance(library, Library)
+            assert isinstance(library, Film_Library)
             # Should return empty library on error
 
     def test_hea_atv_gen(self, mubi_instance):
