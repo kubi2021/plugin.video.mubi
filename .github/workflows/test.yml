@@ -29,23 +29,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
 
-    - name: Debug Python path and structure
-      run: |
-        echo "Current directory: $(pwd)"
-        echo "PYTHONPATH: $PYTHONPATH"
-        echo "Directory structure:"
-        find . -name "*.py" | head -20
-        echo "Testing import:"
-        python -c "import sys; print('Python path:'); [print(p) for p in sys.path]"
-        python -c "from resources.lib.film import Film; print('Import successful!')" || echo "Import failed"
-
     - name: Run tests with pytest
       run: |
-        pytest tests/ -v --tb=short
+        pytest tests/ -v --tb=short --strict-markers
+      continue-on-error: false
 
     - name: Generate test coverage report
       run: |
-        pytest tests/ --cov=resources --cov-report=xml --cov-report=html
+        pytest tests/ --cov=resources --cov-report=xml --cov-report=html --cov-fail-under=80
+      continue-on-error: false
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
