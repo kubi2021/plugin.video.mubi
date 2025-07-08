@@ -13,6 +13,7 @@ import dateutil.parser
 import requests
 import json
 import hashlib
+import re
 import base64
 from collections import namedtuple
 import xbmc
@@ -522,15 +523,22 @@ class Mubi:
         """
         all_episodes = []
         page = 1
+        max_pages = 1000  # Prevent infinite loops
 
-        while True:
+        while page <= max_pages:
             endpoint = f'/browse/films'
             headers = self.hea_atv_auth()
+
+            # Validate and sanitize page parameter
+            if not isinstance(page, int) or page < 1:
+                xbmc.log(f"Invalid page number: {page}", xbmc.LOGERROR)
+                break
+
             params = {
                 'genre': 'TV Series',
                 'playable': 'true',
                 'sort': 'title',
-                'page': page
+                'page': min(page, 9999)  # Limit page number to reasonable range
             }
 
             response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
@@ -638,14 +646,34 @@ class Mubi:
                 image=film_info.get('still_url', '')
             )
 
+            # Validate episode data before creating Episode object
+            mubi_id = film_info.get('id')
+            episode_data = film_info.get('episode', {})
+            season = episode_data.get('season_number')
+            episode_number = episode_data.get('number')
+            series_title = episode_data.get('series_title')
+            title = film_info.get('title', '')
+            artwork = film_info.get('still_url', '')
+            web_url = film_info.get('web_url', '')
+
+            # Validate required fields
+            if not mubi_id or not title or not series_title:
+                xbmc.log(f"Missing required episode data: id={mubi_id}, title={title}, series_title={series_title}", xbmc.LOGWARNING)
+                return None
+
+            # Validate season and episode numbers
+            if season is None or episode_number is None:
+                xbmc.log(f"Missing season or episode number for {title}", xbmc.LOGWARNING)
+                return None
+
             return Episode(
-                mubi_id=film_info.get('id'),
-                season = film_info.get('episode', {}).get('season_number'),
-                episode_number = film_info.get('episode', {}).get('number'),
-                series_title = film_info.get('episode', {}).get('series_title'),
-                title=film_info.get('title', ''),
-                artwork=film_info.get('still_url', ''),
-                web_url=film_info.get('web_url', ''),
+                mubi_id=str(mubi_id),
+                season=str(season),
+                episode_number=str(episode_number),
+                series_title=str(series_title),
+                title=str(title),
+                artwork=str(artwork) if artwork else '',
+                web_url=str(web_url) if web_url else '',
                 metadata=metadata
             )
         except Exception as e:
@@ -656,6 +684,20 @@ class Mubi:
 
     def get_secure_stream_info(self, vid: str) -> dict:
         try:
+            # Validate video ID to prevent injection attacks
+            if not vid or not isinstance(vid, str):
+                return {'error': 'Invalid video ID'}
+
+            # Sanitize video ID - should only contain alphanumeric characters, hyphens, and underscores
+            if not re.match(r'^[a-zA-Z0-9_-]+$', vid):
+                xbmc.log(f"Invalid video ID format: {vid}", xbmc.LOGERROR)
+                return {'error': 'Invalid video ID format'}
+
+            # Limit video ID length to prevent abuse
+            if len(vid) > 50:
+                xbmc.log(f"Video ID too long: {vid}", xbmc.LOGERROR)
+                return {'error': 'Video ID too long'}
+
             # Step 1: Attempt to check film viewing availability with parental lock
             viewing_url = f"{self.apiURL}films/{vid}/viewing"
             params = {'parental_lock_enabled': 'true'}  # Add as query parameter

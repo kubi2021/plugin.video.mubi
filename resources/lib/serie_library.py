@@ -109,17 +109,37 @@ class Serie_Library:
         :param base_url: The base URL for the STRM file.
         :param plugin_userdata_path: The path where Mubi folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
-        :return: 
+        :return:
             - True if both NFO and STRM files were created successfully.
             - False if file creation failed.
             - None if files already exist and were skipped.
         """
-        serie_folder_name = episode.get_sanitized_folder_name()
+        try:
+            serie_folder_name = episode.get_sanitized_folder_name()
+        except ValueError as e:
+            xbmc.log(f"Invalid folder name for episode '{episode.title}': {e}", xbmc.LOGERROR)
+            return False
+
         episode_path = plugin_userdata_path / "series" / serie_folder_name
 
-        # Define file paths
+        # Security check: Ensure the episode_path is within the expected directory
+        try:
+            episode_path.resolve().relative_to(plugin_userdata_path.resolve())
+        except ValueError:
+            xbmc.log(f"Security: Path traversal attempt blocked for episode '{episode.title}'", xbmc.LOGERROR)
+            return False
+
+        # Define file paths with additional validation
         strm_file = episode_path / f"{serie_folder_name} S{episode.season:02d}E{episode.episode_number:02d}.strm"
         nfo_file = episode_path / f"{serie_folder_name} S{episode.season:02d}E{episode.episode_number:02d}.nfo"
+
+        # Validate that the file paths are still within the expected directory
+        try:
+            strm_file.resolve().relative_to(plugin_userdata_path.resolve())
+            nfo_file.resolve().relative_to(plugin_userdata_path.resolve())
+        except ValueError:
+            xbmc.log(f"Security: File path traversal attempt blocked for episode '{episode.title}'", xbmc.LOGERROR)
+            return False
 
         try:
             # Check if both STRM and NFO files already exist
@@ -162,23 +182,66 @@ class Serie_Library:
     def remove_obsolete_files(self, plugin_userdata_path: Path) -> int:
         """
         Remove folders in plugin_userdata_path that do not correspond to any film in the library.
-        
+
         :param plugin_userdata_path: Path where the film folders are stored.
         :return: The number of obsolete film folders removed.
         """
         # Get a set of sanitized folder names for the current films in the library
-        current_episodes_folders = {episode.get_sanitized_folder_name() for episode in self.episodes}
+        current_episodes_folders = set()
+        for episode in self.episodes:
+            try:
+                folder_name = episode.get_sanitized_folder_name()
+                current_episodes_folders.add(folder_name)
+            except ValueError as e:
+                xbmc.log(f"Skipping episode with invalid folder name: {e}", xbmc.LOGWARNING)
+                continue
 
         # Track obsolete folder count
         obsolete_folders_count = 0
 
-        # Loop through each directory in plugin_userdata_path
+        # Validate series directory
         series_dir = plugin_userdata_path / "series"
-        for folder in series_dir.iterdir():
-            if folder.is_dir() and folder.name not in current_episodes_folders:
-                # Remove the folder if it's not in the current films
-                shutil.rmtree(folder)
-                obsolete_folders_count += 1
+
+        # Ensure we're only operating within the expected directory
+        if not series_dir.exists() or not series_dir.is_dir():
+            xbmc.log("Series directory does not exist or is not a directory", xbmc.LOGWARNING)
+            return 0
+
+        # Validate that series_dir is actually within plugin_userdata_path
+        try:
+            series_dir.resolve().relative_to(plugin_userdata_path.resolve())
+        except ValueError:
+            xbmc.log("Security: Series directory is outside expected path", xbmc.LOGERROR)
+            return 0
+
+        # Loop through each directory in series_dir
+        try:
+            for folder in series_dir.iterdir():
+                if not folder.is_dir():
+                    continue
+
+                # Additional security check for each folder
+                try:
+                    folder.resolve().relative_to(series_dir.resolve())
+                except ValueError:
+                    xbmc.log(f"Security: Skipping folder outside series directory: {folder}", xbmc.LOGWARNING)
+                    continue
+
+                # Check if folder name contains suspicious characters
+                if '..' in folder.name or '/' in folder.name or '\\' in folder.name:
+                    xbmc.log(f"Security: Skipping folder with suspicious name: {folder.name}", xbmc.LOGWARNING)
+                    continue
+
+                if folder.name not in current_episodes_folders:
+                    try:
+                        # Remove the folder if it's not in the current episodes
+                        shutil.rmtree(folder)
+                        obsolete_folders_count += 1
+                        xbmc.log(f"Removed obsolete folder: {folder.name}", xbmc.LOGDEBUG)
+                    except (OSError, PermissionError) as e:
+                        xbmc.log(f"Failed to remove folder {folder.name}: {e}", xbmc.LOGERROR)
+        except (OSError, PermissionError) as e:
+            xbmc.log(f"Error accessing series directory: {e}", xbmc.LOGERROR)
 
         return obsolete_folders_count
 

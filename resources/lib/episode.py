@@ -2,14 +2,14 @@ import os
 from pathlib import Path
 import xbmc
 import xml.etree.ElementTree as ET
+import xml.sax.saxutils as saxutils
 import requests
 from requests.exceptions import RequestException
 import json
 import time
 import re
 from typing import Optional, List
-import re
-from pathlib import Path
+from urllib.parse import urlencode
 
 
 
@@ -17,17 +17,51 @@ from pathlib import Path
 
 class Episode:
     def __init__(self, mubi_id: str, season: str, episode_number: str, series_title: str, title: str, artwork: str, web_url: str, metadata):
+        # Validate required fields
         if not mubi_id or not title or not metadata:
             raise ValueError("Episode must have a mubi_id, title, and metadata")
-            xbmc.log(f"Episode not valid", xbmc.LOGERROR)
-        
-        self.mubi_id = mubi_id
-        self.season = season
-        self.episode_number = episode_number
-        self.series_title = series_title
-        self.title = title
-        self.artwork = artwork
-        self.web_url = web_url
+
+        # Validate and sanitize mubi_id (should be alphanumeric)
+        if not isinstance(mubi_id, str) or not mubi_id.strip():
+            raise ValueError("mubi_id must be a non-empty string")
+        if not re.match(r'^[a-zA-Z0-9_-]+$', mubi_id):
+            raise ValueError("mubi_id contains invalid characters")
+
+        # Validate season and episode numbers
+        if not isinstance(season, (int, str)) or not str(season).isdigit():
+            raise ValueError("Season must be a valid number")
+        if not isinstance(episode_number, (int, str)) or not str(episode_number).isdigit():
+            raise ValueError("Episode number must be a valid number")
+
+        season_int = int(season)
+        episode_int = int(episode_number)
+
+        # Validate ranges to prevent path traversal and ensure reasonable values
+        if not (1 <= season_int <= 999):
+            raise ValueError("Season must be between 1 and 999")
+        if not (1 <= episode_int <= 9999):
+            raise ValueError("Episode number must be between 1 and 9999")
+
+        # Validate series_title and title for basic safety
+        if not isinstance(series_title, str) or not series_title.strip():
+            raise ValueError("series_title must be a non-empty string")
+        if not isinstance(title, str) or not title.strip():
+            raise ValueError("title must be a non-empty string")
+
+        # Validate web_url format if provided
+        if web_url and not isinstance(web_url, str):
+            raise ValueError("web_url must be a string")
+        if web_url and not (web_url.startswith('http://') or web_url.startswith('https://')):
+            xbmc.log(f"Warning: web_url does not appear to be a valid URL: {web_url}", xbmc.LOGWARNING)
+
+        # Store validated values
+        self.mubi_id = mubi_id.strip()
+        self.season = season_int
+        self.episode_number = episode_int
+        self.series_title = series_title.strip()
+        self.title = title.strip()
+        self.artwork = artwork.strip() if artwork else ""
+        self.web_url = web_url.strip() if web_url else ""
         self.metadata = metadata
 
     def __eq__(self, other):
@@ -74,10 +108,20 @@ class Episode:
     def get_sanitized_folder_name(self) -> str:
         """
         Generate a consistent, sanitized folder name for the serie, using the episode's series_title attribute.
-        
+
         :return: A sanitized folder name in the format "Title".
         """
-        return self._sanitize_filename(f"{self.series_title}")
+        sanitized = self._sanitize_filename(f"{self.series_title}")
+
+        # Additional validation to prevent path traversal
+        if '..' in sanitized or '/' in sanitized or '\\' in sanitized:
+            raise ValueError("Invalid characters in folder name - potential path traversal attempt")
+
+        # Ensure the sanitized name is not empty
+        if not sanitized or sanitized.isspace():
+            raise ValueError("Folder name cannot be empty after sanitization")
+
+        return sanitized
 
 
     def create_strm_file(self, serie_path: Path, base_url: str):
@@ -145,35 +189,40 @@ class Episode:
 
         episodedetails = ET.Element("episodedetails")
 
-        ET.SubElement(episodedetails, "title").text = metadata.title
-        ET.SubElement(episodedetails, "originaltitle").text = metadata.originaltitle
+        # Use XML escaping to prevent XML injection
+        ET.SubElement(episodedetails, "title").text = saxutils.escape(str(metadata.title))
+        ET.SubElement(episodedetails, "originaltitle").text = saxutils.escape(str(metadata.originaltitle))
 
         ratings = ET.SubElement(episodedetails, "ratings")
         rating = ET.SubElement(ratings, "rating")
         rating.set("name", "MUBI")
-        ET.SubElement(rating, "value").text = str(metadata.rating)
-        ET.SubElement(episodedetails, "runtime").text = str(metadata.duration)
+        ET.SubElement(rating, "value").text = saxutils.escape(str(metadata.rating))
+        ET.SubElement(episodedetails, "runtime").text = saxutils.escape(str(metadata.duration))
 
         if metadata.country:
-            ET.SubElement(episodedetails, "country").text = metadata.country[0]
+            ET.SubElement(episodedetails, "country").text = saxutils.escape(str(metadata.country[0]))
 
         for genre in metadata.genre:
-            ET.SubElement(episodedetails, "genre").text = genre
+            ET.SubElement(episodedetails, "genre").text = saxutils.escape(str(genre))
 
         for director in metadata.director:
-            ET.SubElement(episodedetails, "director").text = director
+            ET.SubElement(episodedetails, "director").text = saxutils.escape(str(director))
 
-        ET.SubElement(episodedetails, "year").text = str(metadata.year)
-        ET.SubElement(episodedetails, "trailer").text = kodi_trailer_url
+        ET.SubElement(episodedetails, "year").text = saxutils.escape(str(metadata.year))
+        ET.SubElement(episodedetails, "trailer").text = saxutils.escape(str(kodi_trailer_url))
         thumb = ET.SubElement(episodedetails, "thumb")
         thumb.set("aspect", "landscape")
-        thumb.text = metadata.image
+        thumb.text = saxutils.escape(str(metadata.image))
 
-        ET.SubElement(episodedetails, "dateadded").text = str(metadata.dateadded)
+        ET.SubElement(episodedetails, "dateadded").text = saxutils.escape(str(metadata.dateadded))
 
-        # Add IMDb URL if available
+        # Add IMDb URL if available (validate URL format)
         if imdb_url:
-            ET.SubElement(episodedetails, "imdbid").text = imdb_url
+            # Basic URL validation for IMDb URLs
+            if isinstance(imdb_url, str) and (imdb_url.startswith('http://') or imdb_url.startswith('https://')):
+                ET.SubElement(episodedetails, "imdbid").text = saxutils.escape(imdb_url)
+            else:
+                xbmc.log(f"Invalid IMDb URL format: {imdb_url}", xbmc.LOGWARNING)
 
         return ET.tostring(episodedetails)
 
@@ -315,8 +364,25 @@ class Episode:
     def _make_omdb_request(self, params: dict) -> Optional[dict]:
         """Make a request to the OMDb API and handle the response."""
         data_url = "http://www.omdbapi.com/"
+
+        # Validate and sanitize parameters
+        safe_params = {}
+        for key, value in params.items():
+            # Only allow expected parameter names
+            if key not in ['t', 'y', 'apikey', 'type']:
+                xbmc.log(f"Unexpected OMDb parameter: {key}", xbmc.LOGWARNING)
+                continue
+
+            # Sanitize parameter values
+            if isinstance(value, str):
+                # Remove potentially dangerous characters
+                sanitized_value = re.sub(r'[<>&"\']', '', str(value))
+                safe_params[key] = sanitized_value[:100]  # Limit length
+            else:
+                safe_params[key] = str(value)[:100]
+
         try:
-            response = requests.get(data_url, params=params, timeout=10)
+            response = requests.get(data_url, params=safe_params, timeout=10)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as req_err:
