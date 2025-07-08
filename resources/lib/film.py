@@ -2,14 +2,13 @@ import os
 from pathlib import Path
 import xbmc
 import xml.etree.ElementTree as ET
+import xml.sax.saxutils as saxutils
 import requests
 from requests.exceptions import RequestException
 import json
 import time
 import re
 from typing import Optional, List
-import re
-from pathlib import Path
 
 
 
@@ -17,14 +16,37 @@ from pathlib import Path
 
 class Film:
     def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, category: str, metadata):
+        # Validate required fields
         if not mubi_id or not title or not metadata:
             raise ValueError("Film must have a mubi_id, title, and metadata")
-        
-        self.mubi_id = mubi_id
-        self.title = title
-        self.artwork = artwork
-        self.web_url = web_url
-        self.categories = [category]  # Store categories as a list to handle multiple categories
+
+        # Validate and sanitize mubi_id (should be alphanumeric)
+        if not isinstance(mubi_id, str) or not mubi_id.strip():
+            raise ValueError("mubi_id must be a non-empty string")
+        if not re.match(r'^[a-zA-Z0-9_-]+$', mubi_id):
+            raise ValueError("mubi_id contains invalid characters")
+
+        # Validate title
+        if not isinstance(title, str) or not title.strip():
+            raise ValueError("title must be a non-empty string")
+        if len(title) > 500:  # Reasonable title length limit
+            raise ValueError("title is too long")
+
+        # Validate URLs if provided
+        if web_url and not self._is_valid_url(web_url):
+            raise ValueError("Invalid web_url format")
+        if artwork and not self._is_valid_url(artwork):
+            raise ValueError("Invalid artwork URL format")
+
+        # Validate category
+        if category and not isinstance(category, str):
+            raise ValueError("category must be a string")
+
+        self.mubi_id = str(mubi_id).strip()
+        self.title = str(title).strip()
+        self.artwork = str(artwork) if artwork else ""
+        self.web_url = str(web_url) if web_url else ""
+        self.categories = [str(category)] if category else []  # Store categories as a list
         self.metadata = metadata
 
     def __eq__(self, other):
@@ -34,6 +56,26 @@ class Film:
 
     def __hash__(self):
         return hash(self.mubi_id)
+
+    def _is_valid_url(self, url: str) -> bool:
+        """Validate URL format for security."""
+        if not url or not isinstance(url, str):
+            return False
+
+        # Basic URL validation
+        if not (url.startswith('http://') or url.startswith('https://')):
+            return False
+
+        # Check for dangerous characters
+        dangerous_chars = ['<', '>', '"', "'", '`', '\n', '\r']
+        if any(char in url for char in dangerous_chars):
+            return False
+
+        # Reasonable length limit
+        if len(url) > 2048:
+            return False
+
+        return True
 
 
     def add_category(self, category: str):
@@ -50,13 +92,17 @@ class Film:
         :param replacement: Character to replace invalid characters with.
         :return: A sanitized file name.
         """
-        # Replace reserved characters
+        # Replace reserved characters and potential path traversal sequences
         sanitized = re.sub(r'[<>:"/\\|?*^%$&\'{}@!]', replacement, filename)
+
+        # Security: Block path traversal attempts
+        if '..' in sanitized or '/' in sanitized or '\\' in sanitized:
+            raise ValueError("Invalid characters in filename - potential path traversal attempt")
 
         # Handle reserved Windows names (e.g., CON, PRN, AUX, NUL, COM1, LPT1, etc.)
         reserved_names = {
-            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", 
-            "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", 
+            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5",
+            "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4",
             "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
         }
         if sanitized.upper() in reserved_names:
@@ -64,6 +110,10 @@ class Film:
 
         # Strip trailing periods and spaces
         sanitized = sanitized.rstrip(". ")
+
+        # Security: Ensure filename is not empty after sanitization
+        if not sanitized or sanitized.isspace():
+            raise ValueError("Filename becomes empty after sanitization")
 
         # Enforce length limit (255 characters for most filesystems)
         max_length = 255
@@ -148,42 +198,46 @@ class Film:
 
         movie = ET.Element("movie")
 
-        ET.SubElement(movie, "title").text = metadata.title
-        ET.SubElement(movie, "originaltitle").text = metadata.originaltitle
+        ET.SubElement(movie, "title").text = saxutils.escape(str(metadata.title))
+        ET.SubElement(movie, "originaltitle").text = saxutils.escape(str(metadata.originaltitle))
 
         ratings = ET.SubElement(movie, "ratings")
         rating = ET.SubElement(ratings, "rating")
         rating.set("name", "MUBI")
-        ET.SubElement(rating, "value").text = str(metadata.rating)
-        ET.SubElement(rating, "votes").text = str(metadata.votes)
+        ET.SubElement(rating, "value").text = saxutils.escape(str(metadata.rating))
+        ET.SubElement(rating, "votes").text = saxutils.escape(str(metadata.votes))
 
-        ET.SubElement(movie, "plot").text = metadata.plot
-        ET.SubElement(movie, "outline").text = metadata.plotoutline
-        ET.SubElement(movie, "runtime").text = str(metadata.duration)
+        ET.SubElement(movie, "plot").text = saxutils.escape(str(metadata.plot))
+        ET.SubElement(movie, "outline").text = saxutils.escape(str(metadata.plotoutline))
+        ET.SubElement(movie, "runtime").text = saxutils.escape(str(metadata.duration))
 
         if metadata.country:
-            ET.SubElement(movie, "country").text = metadata.country[0]
+            ET.SubElement(movie, "country").text = saxutils.escape(str(metadata.country[0]))
 
         for genre in metadata.genre:
-            ET.SubElement(movie, "genre").text = genre
+            ET.SubElement(movie, "genre").text = saxutils.escape(str(genre))
 
         for director in metadata.director:
-            ET.SubElement(movie, "director").text = director
+            ET.SubElement(movie, "director").text = saxutils.escape(str(director))
 
-        ET.SubElement(movie, "year").text = str(metadata.year)
-        ET.SubElement(movie, "trailer").text = kodi_trailer_url
+        ET.SubElement(movie, "year").text = saxutils.escape(str(metadata.year))
+        ET.SubElement(movie, "trailer").text = saxutils.escape(str(kodi_trailer_url))
         thumb = ET.SubElement(movie, "thumb")
         thumb.set("aspect", "landscape")
-        thumb.text = metadata.image
+        thumb.text = saxutils.escape(str(metadata.image))
 
         for category in categories:
-            ET.SubElement(movie, "tag").text = category
+            ET.SubElement(movie, "tag").text = saxutils.escape(str(category))
 
-        ET.SubElement(movie, "dateadded").text = str(metadata.dateadded)
+        ET.SubElement(movie, "dateadded").text = saxutils.escape(str(metadata.dateadded))
 
-        # Add IMDb URL if available
+        # Add IMDb URL if available (validate URL format)
         if imdb_url:
-            ET.SubElement(movie, "imdbid").text = imdb_url
+            # Basic URL validation for IMDb URLs
+            if isinstance(imdb_url, str) and (imdb_url.startswith('http://') or imdb_url.startswith('https://')):
+                ET.SubElement(movie, "imdbid").text = saxutils.escape(imdb_url)
+            else:
+                xbmc.log(f"Invalid IMDb URL format: {imdb_url}", xbmc.LOGWARNING)
 
         return ET.tostring(movie)
 
