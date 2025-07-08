@@ -387,3 +387,76 @@ class TestNavigationHandler:
         navigation_handler.sync_locally()
         
         mock_log.assert_called()
+
+    # Additional tests for better coverage
+    @patch('xbmcplugin.endOfDirectory')
+    @patch('xbmcplugin.setContent')
+    def test_list_watchlist_success(self, mock_content, mock_end_dir, navigation_handler, mock_mubi):
+        """Test successful watchlist listing."""
+        # Mock library with films
+        mock_library = Mock()
+        mock_film = Mock()
+        mock_film.title = "Watchlist Movie"
+        mock_library.films = [mock_film]
+        mock_mubi.get_watch_list.return_value = mock_library
+
+        with patch.object(navigation_handler, '_add_film_item') as mock_add_film:
+            navigation_handler.list_watchlist()
+
+            mock_content.assert_called_with(123, "videos")
+            mock_add_film.assert_called_once_with(mock_film)
+            mock_end_dir.assert_called_with(123)
+
+    @patch('xbmcgui.ListItem')
+    @patch('xbmcplugin.addDirectoryItem')
+    def test_add_category_item_success(self, mock_add_dir, mock_list_item, navigation_handler):
+        """Test adding a category item successfully."""
+        category = {
+            "id": "123",
+            "title": "Drama",
+            "description": "Drama films",
+            "image": "http://example.com/image.jpg"
+        }
+
+        mock_list_item_instance = Mock()
+        mock_list_item.return_value = mock_list_item_instance
+
+        navigation_handler._add_category_item(category)
+
+        mock_list_item.assert_called_with(label="Drama")
+        mock_list_item_instance.getVideoInfoTag.assert_called()
+        mock_list_item_instance.setArt.assert_called()
+        mock_add_dir.assert_called()
+
+    def test_get_url(self, navigation_handler):
+        """Test URL generation."""
+        url = navigation_handler.get_url(action="test", param1="value1", param2="value2")
+
+        assert "action=test" in url
+        assert "param1=value1" in url
+        assert "param2=value2" in url
+
+    @patch('xbmc.getCondVisibility')
+    def test_play_video_ext_windows(self, mock_cond, navigation_handler):
+        """Test playing video externally on Windows."""
+        # Mock Windows platform
+        mock_cond.side_effect = lambda x: x == 'System.Platform.Windows'
+
+        # Mock os.startfile since it doesn't exist on non-Windows systems
+        with patch('os.startfile', create=True) as mock_startfile:
+            navigation_handler.play_video_ext("http://example.com/movie")
+
+            # Should call os.startfile on Windows
+            mock_startfile.assert_called_with("http://example.com/movie")
+
+    @patch('subprocess.Popen')
+    @patch('xbmc.getCondVisibility')
+    def test_play_video_ext_linux(self, mock_cond, mock_popen, navigation_handler):
+        """Test playing video externally on Linux."""
+        # Mock Linux platform
+        mock_cond.side_effect = lambda x: x == 'System.Platform.Linux'
+
+        navigation_handler.play_video_ext("http://example.com/movie")
+
+        # Should call subprocess.Popen with 'xdg-open' command on Linux
+        mock_popen.assert_called_with(['xdg-open', "http://example.com/movie"])
