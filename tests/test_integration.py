@@ -9,6 +9,7 @@ from unittest.mock import patch, Mock, MagicMock
 import sys
 import json
 
+
 # Import real components (not mocked)
 from resources.lib.session_manager import SessionManager
 from resources.lib.film_library import Film_Library
@@ -18,6 +19,7 @@ from resources.lib.navigation_handler import NavigationHandler
 from resources.lib.mubi import Mubi
 
 
+@pytest.mark.integration
 class TestRealComponentIntegration:
     """Test real component interactions with minimal mocking."""
 
@@ -279,6 +281,7 @@ class TestRealComponentIntegration:
         assert mubi.film_library.films == []
 
 
+@pytest.mark.integration
 class TestWorkflowIntegration:
     """Test complete user workflows with minimal mocking."""
     

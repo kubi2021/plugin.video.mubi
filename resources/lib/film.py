@@ -95,6 +95,9 @@ class Film:
         # Replace reserved characters and potential path traversal sequences
         sanitized = re.sub(r'[<>:"/\\|?*^%$&\'{}@!]', replacement, filename)
 
+        # Security: Remove null bytes and control characters (0x00-0x1F, 0x7F-0x9F)
+        sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', replacement, sanitized)
+
         # Security: Block path traversal attempts
         if '..' in sanitized or '/' in sanitized or '\\' in sanitized:
             raise ValueError("Invalid characters in filename - potential path traversal attempt")

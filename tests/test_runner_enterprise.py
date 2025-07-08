@@ -76,18 +76,52 @@ class EnterpriseTestRunner:
     def run_quality_framework_tests(self):
         """Run quality framework validation tests."""
         print("⚡ Running quality framework tests...")
-        
+
         cmd = [
             sys.executable, "-m", "pytest",
             str(self.test_dir / "test_quality_framework.py"),
             "-v", "--tb=short"
         ]
-        
+
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
             return result.returncode == 0, result.stdout, result.stderr
         except Exception as e:
             self.results['errors'].append(f"Quality framework tests failed: {e}")
+            return False, "", str(e)
+
+    def run_security_tests(self):
+        """Run security validation tests."""
+        print("🔒 Running security tests...")
+
+        cmd = [
+            sys.executable, "-m", "pytest",
+            str(self.test_dir / "test_security.py"),
+            "-v", "--tb=short"
+        ]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
+            return result.returncode == 0, result.stdout, result.stderr
+        except Exception as e:
+            self.results['errors'].append(f"Security tests failed: {e}")
+            return False, "", str(e)
+
+    def run_stress_tests(self):
+        """Run stress tests."""
+        print("💪 Running stress tests...")
+
+        cmd = [
+            sys.executable, "-m", "pytest",
+            str(self.test_dir / "test_stress.py"),
+            "-v", "--tb=short", "-x"  # Stop on first failure for stress tests
+        ]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
+            return result.returncode == 0, result.stdout, result.stderr
+        except Exception as e:
+            self.results['errors'].append(f"Stress tests failed: {e}")
             return False, "", str(e)
     
     def analyze_test_quality_metrics(self):
@@ -253,6 +287,8 @@ class EnterpriseTestRunner:
             ("Coverage Analysis", self.run_coverage_analysis),
             ("Integration Tests", self.run_integration_tests),
             ("Quality Framework", self.run_quality_framework_tests),
+            ("Security Tests", self.run_security_tests),
+            ("Stress Tests", self.run_stress_tests),
             ("Performance Tests", self.run_performance_tests)
         ]
         
@@ -285,20 +321,27 @@ def main():
     parser.add_argument("--coverage-only", action="store_true", help="Run only coverage analysis")
     parser.add_argument("--integration-only", action="store_true", help="Run only integration tests")
     parser.add_argument("--quality-only", action="store_true", help="Run only quality framework tests")
-    
+    parser.add_argument("--security-only", action="store_true", help="Run only security tests")
+    parser.add_argument("--stress-only", action="store_true", help="Run only stress tests")
+    parser.add_argument("--skip-stress", action="store_true", help="Skip stress tests (for faster runs)")
+
     args = parser.parse_args()
-    
+
     runner = EnterpriseTestRunner()
-    
+
     if args.coverage_only:
         success, _, _ = runner.run_coverage_analysis()
     elif args.integration_only:
         success, _, _ = runner.run_integration_tests()
     elif args.quality_only:
         success, _, _ = runner.run_quality_framework_tests()
+    elif args.security_only:
+        success, _, _ = runner.run_security_tests()
+    elif args.stress_only:
+        success, _, _ = runner.run_stress_tests()
     else:
         success = runner.run_all()
-    
+
     sys.exit(0 if success else 1)
 
 
