@@ -263,33 +263,78 @@ class NavigationHandler:
     def play_video_ext(self, web_url: str):
         """
         Open a web URL using the appropriate system command.
-        
+
         :param web_url: Web URL of the video
         """
         try:
+            # Validate URL format to prevent command injection
+            if not self._is_safe_url(web_url):
+                xbmc.log(f"Invalid or unsafe URL rejected: {web_url}", xbmc.LOGERROR)
+                xbmcgui.Dialog().ok("MUBI", "Invalid URL format. Cannot open external video.")
+                return
+
             xbmc.log(f"Opening external video URL: {web_url}", xbmc.LOGDEBUG)
-            
+
             import subprocess
             import os
-            
+
             if xbmc.getCondVisibility('System.Platform.Windows'):
-                # Windows platform
+                # Windows platform - os.startfile is safer than subprocess for URLs
                 os.startfile(web_url)
             elif xbmc.getCondVisibility('System.Platform.OSX'):
-                # macOS platform
-                subprocess.Popen(['open', web_url])
+                # macOS platform - use list form to prevent shell injection
+                subprocess.Popen(['open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Linux'):
-                # Linux platform
-                subprocess.Popen(['xdg-open', web_url])
+                # Linux platform - use list form to prevent shell injection
+                subprocess.Popen(['xdg-open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Android'):
-                # Android platform
-                xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{web_url}")')
+                # Android platform - escape quotes to prevent injection
+                safe_url = web_url.replace('"', '\\"')
+                xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{safe_url}")')
             else:
                 # Unsupported platform
                 xbmcgui.Dialog().ok("MUBI", "Cannot open web browser on this platform.")
         except Exception as e:
             xbmc.log(f"Error opening external video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().ok("MUBI", f"Error opening external video: {e}")
+
+    def _is_safe_url(self, url: str) -> bool:
+        """
+        Validate that the URL is safe to open externally.
+
+        :param url: URL to validate
+        :return: True if URL is safe, False otherwise
+        """
+        import re
+        from urllib.parse import urlparse
+
+        try:
+            # Basic URL format validation
+            if not url or not isinstance(url, str):
+                return False
+
+            # Check for basic URL structure
+            if not re.match(r'^https?://', url):
+                return False
+
+            # Parse URL to validate structure
+            parsed = urlparse(url)
+            if not parsed.netloc:
+                return False
+
+            # Block dangerous characters that could be used for injection
+            dangerous_chars = ['`', '$', '(', ')', ';', '|', '&', '<', '>', '\n', '\r']
+            if any(char in url for char in dangerous_chars):
+                return False
+
+            # Limit URL length to prevent abuse
+            if len(url) > 2048:
+                return False
+
+            return True
+
+        except Exception:
+            return False
 
 
 

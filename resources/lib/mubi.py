@@ -75,17 +75,17 @@ class Mubi:
             headers = {}
         headers.setdefault('Accept-Encoding', 'gzip')
 
-        # Log API call details
+        # Log API call details (sanitized)
         xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
-        xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
-        
-        # Log parameters if they exist
+        xbmc.log(f"Headers: {self._sanitize_headers_for_logging(headers)}", xbmc.LOGDEBUG)
+
+        # Log parameters if they exist (sanitized)
         if params:
-            xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
-        
-        # Log JSON body if it exists
+            xbmc.log(f"Parameters: {self._sanitize_params_for_logging(params)}", xbmc.LOGDEBUG)
+
+        # Log JSON body if it exists (sanitized)
         if json:
-            xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
+            xbmc.log(f"JSON: {self._sanitize_json_for_logging(json)}", xbmc.LOGDEBUG)
 
         # Rate limiting: Max 60 calls per minute
         with self._lock:
@@ -155,6 +155,54 @@ class Mubi:
         finally:
             session.close()
             xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
+
+    def _sanitize_headers_for_logging(self, headers: dict) -> dict:
+        """Sanitize headers for safe logging by masking sensitive values."""
+        if not headers:
+            return {}
+
+        sanitized = {}
+        sensitive_keys = ['authorization', 'token', 'api-key', 'x-api-key', 'cookie']
+
+        for key, value in headers.items():
+            if key.lower() in sensitive_keys:
+                sanitized[key] = "***REDACTED***"
+            else:
+                sanitized[key] = value
+
+        return sanitized
+
+    def _sanitize_params_for_logging(self, params: dict) -> dict:
+        """Sanitize parameters for safe logging by masking sensitive values."""
+        if not params:
+            return {}
+
+        sanitized = {}
+        sensitive_keys = ['apikey', 'api_key', 'token', 'password', 'secret']
+
+        for key, value in params.items():
+            if key.lower() in sensitive_keys:
+                sanitized[key] = "***REDACTED***"
+            else:
+                sanitized[key] = value
+
+        return sanitized
+
+    def _sanitize_json_for_logging(self, json_data: dict) -> dict:
+        """Sanitize JSON data for safe logging by masking sensitive values."""
+        if not json_data:
+            return {}
+
+        sanitized = {}
+        sensitive_keys = ['token', 'password', 'secret', 'api_key', 'auth_token']
+
+        for key, value in json_data.items():
+            if key.lower() in sensitive_keys:
+                sanitized[key] = "***REDACTED***"
+            else:
+                sanitized[key] = value
+
+        return sanitized
 
 
 
