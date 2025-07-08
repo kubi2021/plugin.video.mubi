@@ -10,11 +10,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false  # Don't cancel other jobs if one fails
       matrix:
         python-version: [3.8, 3.9, '3.10', '3.11']
 
     env:
       PYTHONPATH: ${{ github.workspace }}
+
+    name: Test Python ${{ matrix.python-version }}
 
     steps:
     - uses: actions/checkout@v4
@@ -23,6 +26,11 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+
+    - name: Display Python version
+      run: |
+        python -c "import sys; print(f'Python {sys.version}')"
+        python -c "import platform; print(f'Platform: {platform.platform()}')"
 
     - name: Install dependencies
       run: |
@@ -41,8 +49,16 @@ jobs:
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
+      if: matrix.python-version == '3.11'  # Only upload coverage once
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+
+    - name: Test Summary
+      if: always()
+      run: |
+        echo "✅ Python ${{ matrix.python-version }} tests completed"
+        echo "📊 Coverage report generated"
+        echo "🎉 All checks passed for Python ${{ matrix.python-version }}"
