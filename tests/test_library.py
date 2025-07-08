@@ -8,8 +8,25 @@ import os
 
 # Mock Metadata class for testing
 class MockMetadata:
-    def __init__(self, year):
+    def __init__(self, year=2023, genre=None, title="Test Movie", director=None,
+                 duration=120, country=None, plot="Test plot", plotoutline="Test outline",
+                 originaltitle="Test Original Title", rating=7.5, votes=1000,
+                 castandrole="", dateadded="", trailer="", image=""):
         self.year = year
+        self.genre = genre or ["Drama"]
+        self.title = title
+        self.director = director or ["Test Director"]
+        self.duration = duration
+        self.country = country or ["USA"]
+        self.plot = plot
+        self.plotoutline = plotoutline
+        self.originaltitle = originaltitle
+        self.rating = rating
+        self.votes = votes
+        self.castandrole = castandrole
+        self.dateadded = dateadded
+        self.trailer = trailer
+        self.image = image
 
 def test_add_valid_film():
     library = Library()
@@ -208,7 +225,7 @@ def test_remove_obsolete_files():
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
 @patch.object(Library, "remove_obsolete_files")
-def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress):
+def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
@@ -256,7 +273,7 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
 @patch.object(Library, "remove_obsolete_files")
-def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress):
+def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
@@ -399,7 +416,7 @@ def test_remove_obsolete_files_nonexistent_path():
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "remove_obsolete_files")
-def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress):
+def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()  # Empty library
@@ -500,7 +517,7 @@ def test_prepare_files_for_film_unwritable_path():
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
 @patch.object(Library, "remove_obsolete_files")
-def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress):
+def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
