@@ -275,9 +275,11 @@ class TestStressScenarios:
                 if hasattr(elapsed, '_mock_name'):
                     # Time is mocked, skip rate calculation
                     print(f"Completed {i} login/logout cycles")
-                else:
+                elif elapsed > 0:
                     rate = i / elapsed
                     print(f"Completed {i} login/logout cycles, rate: {rate:.1f} ops/sec")
+                else:
+                    print(f"Completed {i} login/logout cycles (too fast to measure rate)")
 
         end_time = time_module.time()
         duration = end_time - start_time
@@ -332,9 +334,11 @@ class TestStressScenarios:
                     elapsed = time_module.time() - start_time
                     if hasattr(elapsed, '_mock_name'):
                         print(f"Created {i} files")
-                    else:
+                    elif elapsed > 0:
                         rate = i / elapsed
                         print(f"Created {i} files, rate: {rate:.1f} files/sec")
+                    else:
+                        print(f"Created {i} files (too fast to measure rate)")
 
         end_time = time_module.time()
         duration = end_time - start_time
