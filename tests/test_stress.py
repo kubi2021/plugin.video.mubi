@@ -151,15 +151,10 @@ class TestStressScenarios:
                 # Create a fresh Mubi instance for each call to avoid rate limiting conflicts
                 mubi = Mubi(session)
 
-                with patch('requests.Session') as mock_session_class, \
-                     patch('time.time') as mock_time:
-
-                    # Mock time to avoid rate limiting issues
-                    mock_time.return_value = 1000.0 + call_id * 0.1
-
-                    mock_session = Mock()
-                    mock_session_class.return_value = mock_session
-                    mock_session.request.return_value = mock_response
+                # Mock only the API call method to return our test response
+                with patch.object(mubi, '_make_api_call') as mock_api_call:
+                    # Mock the _make_api_call method to return our test response
+                    mock_api_call.return_value = mock_response
 
                     # Simulate API call
                     result = mubi.get_films_in_category_json(call_id)
