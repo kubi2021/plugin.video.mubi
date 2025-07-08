@@ -114,19 +114,18 @@ class TestAddonEntryPoint:
 
         # Simulate first run workflow
         from resources.lib.session_manager import SessionManager
-        from resources.lib.migrations import is_first_run, add_mubi_sources, mark_first_run
 
         session = SessionManager(mocks['addon'])
 
-        # Test first run detection
-        if is_first_run(mocks['addon']):
-            add_mubi_sources()
-            mark_first_run(mocks['addon'])
+        # Test first run detection using mocked functions
+        if mock_is_first_run(mocks['addon']):
+            mock_add_sources()
+            mock_mark_first_run(mocks['addon'])
 
         # Verify first run sequence
-        mock_is_first_run.assert_called_once()
+        mock_is_first_run.assert_called_once_with(mocks['addon'])
         mock_add_sources.assert_called_once()
-        mock_mark_first_run.assert_called_once()
+        mock_mark_first_run.assert_called_once_with(mocks['addon'])
 
     def test_addon_list_categories_e2e(self, mock_kodi_environment):
         """Test list categories action simulation."""
