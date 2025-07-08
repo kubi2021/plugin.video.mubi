@@ -120,7 +120,7 @@ class TestAddonEntryPoint:
 
         # Test first run detection
         if is_first_run(mocks['addon']):
-            add_mubi_sources(mocks['addon'])
+            add_mubi_sources()
             mark_first_run(mocks['addon'])
 
         # Verify first run sequence
