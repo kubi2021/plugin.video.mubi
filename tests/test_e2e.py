@@ -10,6 +10,9 @@ from unittest.mock import patch, Mock, MagicMock
 from urllib.parse import parse_qsl
 
 
+@pytest.mark.e2e
+
+
 class TestAddonEntryPoint:
     """Test the actual addon.py entry point with real parameter flows."""
 

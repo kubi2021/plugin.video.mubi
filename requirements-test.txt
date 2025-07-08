@@ -12,6 +12,7 @@ isort>=5.12.0
 # Additional testing utilities
 coverage>=7.0.0
 mock>=4.0.0
+psutil>=5.9.0
 
 # Runtime dependencies needed for testing
 requests>=2.25.0

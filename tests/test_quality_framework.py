@@ -11,6 +11,9 @@ import json
 import time
 
 
+@pytest.mark.quality
+
+
 class TestQualityPatterns:
     """Demonstrates enterprise-grade test patterns and practices."""
 
