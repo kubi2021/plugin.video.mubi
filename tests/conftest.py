@@ -170,11 +170,54 @@ def mock_film():
 @pytest.fixture
 def mock_library():
     """Fixture providing a mock Library instance."""
-    from resources.lib.library import Library
-    library = Mock(spec=Library)
+    from resources.lib.film_library import Film_Library
+    library = Mock(spec=Film_Library)
     library.films = []
     library.__len__ = Mock(return_value=0)
     return library
+
+@pytest.fixture
+def real_film_library():
+    """Fixture providing a REAL Film_Library instance for integration tests."""
+    from resources.lib.film_library import Film_Library
+    return Film_Library()
+
+@pytest.fixture
+def real_session_manager():
+    """Fixture providing a REAL SessionManager for integration tests."""
+    from resources.lib.session_manager import SessionManager
+    mock_addon = Mock()
+    mock_addon.getSetting.return_value = ""
+    mock_addon.setSetting.return_value = None
+    mock_addon.getAddonInfo.return_value = "/fake/path"
+    return SessionManager(mock_addon)
+
+@pytest.fixture
+def isolated_test_environment():
+    """Fixture that ensures complete test isolation."""
+    import sys
+    import tempfile
+
+    # Store original state
+    original_modules = sys.modules.copy()
+
+    # Create isolated temp directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield {
+            'temp_dir': temp_dir,
+            'original_modules': original_modules
+        }
+
+    # Restore original state
+    # Remove any modules that were imported during test
+    modules_to_remove = []
+    for module_name in sys.modules:
+        if module_name not in original_modules:
+            modules_to_remove.append(module_name)
+
+    for module_name in modules_to_remove:
+        if module_name in sys.modules:
+            del sys.modules[module_name]
 
 @pytest.fixture(autouse=True)
 def reset_modules():
