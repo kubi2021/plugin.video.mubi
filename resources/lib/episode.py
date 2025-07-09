@@ -271,7 +271,7 @@ class Episode:
         if original_title.strip().lower() != english_title.strip().lower():
             titles_to_try.append(original_title.strip())
 
-        # Normalize the English title by removing 'and' and '&'
+        # Normalize the English title by removing 'and' and '&' and everything after first colon
         english_title_cleaned = self._normalize_title(english_title.strip())
         titles_to_try.append(english_title_cleaned)
 
@@ -390,9 +390,10 @@ class Episode:
             return None
 
     def _normalize_title(self, title: str) -> str:
-        """Normalize the title by removing 'and' and '&'."""
+        """Normalize the title by removing 'and' and '&' and everything behind the first colon."""
         title = re.sub(r'\b(and|&)\b', '', title, flags=re.IGNORECASE)
         title = re.sub(r'\s+', ' ', title).strip()
+        title = title.split(':')[0]
         return title
     
 
