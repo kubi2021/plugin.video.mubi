@@ -85,6 +85,9 @@ class Episode:
         # Replace reserved characters
         sanitized = re.sub(r'[<>:"/\\|?*^%$&\'{}@!]', replacement, filename)
 
+        # Collapse multiple consecutive spaces (including replacement spaces) into a single space
+        sanitized = re.sub(r' +', ' ', sanitized)
+
         # Handle reserved Windows names (e.g., CON, PRN, AUX, NUL, COM1, LPT1, etc.)
         reserved_names = {
             "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", 
@@ -111,15 +114,16 @@ class Episode:
 
         :return: A sanitized folder name in the format "Title".
         """
-        sanitized = self._sanitize_filename(f"{self.series_title}")
+        # Check for path traversal in the original series title
+        # Look for actual path traversal patterns, not just any occurrence of '..'
+        if '../' in self.series_title or '..\\' in self.series_title or self.series_title.startswith('../') or self.series_title.startswith('..\\') or self.series_title.endswith('/..') or self.series_title.endswith('\\..') or self.series_title == '..':
+            raise ValueError(f"Invalid characters in folder name - potential path traversal attempt: '{self.series_title}'")
 
-        # Additional validation to prevent path traversal
-        if '..' in sanitized or '/' in sanitized or '\\' in sanitized:
-            raise ValueError("Invalid characters in folder name - potential path traversal attempt")
+        sanitized = self._sanitize_filename(f"{self.series_title}")
 
         # Ensure the sanitized name is not empty
         if not sanitized or sanitized.isspace():
-            raise ValueError("Folder name cannot be empty after sanitization")
+            raise ValueError(f"Folder name cannot be empty after sanitization: original='{self.series_title}', sanitized='{sanitized}'")
 
         return sanitized
 
