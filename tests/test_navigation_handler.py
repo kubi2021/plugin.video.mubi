@@ -42,9 +42,14 @@ class TestNavigationHandler:
         session.user_id = "test-user"
         return session
 
-    @pytest.fixture
+    @pytest.fixture(scope="function")
     def navigation_handler(self, mock_addon, mock_mubi, mock_session):
-        """Fixture providing a NavigationHandler instance."""
+        """Fixture providing a NavigationHandler instance with fresh mocks for each test."""
+        # Reset all mocks to ensure clean state
+        mock_addon.reset_mock()
+        mock_mubi.reset_mock()
+        mock_session.reset_mock()
+
         return NavigationHandler(
             handle=123,
             base_url="plugin://plugin.video.mubi/",
@@ -494,7 +499,7 @@ class TestNavigationHandler:
         # Should show dialog and open settings
         mock_dialog_instance.yesno.assert_called_once()
         navigation_handler.plugin.openSettings.assert_called_once()
-        assert result == ""  # Returns the empty API key
+        assert result is None  # Returns None when API key is missing
 
     def test_check_omdb_api_key_present(self, navigation_handler):
         """Test OMDB API key check when key is present."""
@@ -503,8 +508,8 @@ class TestNavigationHandler:
 
         result = navigation_handler._check_omdb_api_key()
 
-        # Method doesn't return anything when key exists (implicit None)
-        assert result is None
+        # Should return the actual API key when it exists
+        assert result == "test_api_key"
 
     @patch('xbmcgui.Dialog')
     def test_check_omdb_api_key_user_cancels(self, mock_dialog, navigation_handler):
@@ -525,7 +530,7 @@ class TestNavigationHandler:
         # Should show dialog but not open settings when user cancels
         mock_dialog_instance.yesno.assert_called_once()
         navigation_handler.plugin.openSettings.assert_not_called()
-        assert result == ""
+        assert result is None  # Returns None when user cancels
 
 
 
@@ -537,7 +542,7 @@ class TestNavigationHandler:
 
         result = navigation_handler._check_omdb_api_key()
 
-        # Should log error and return None (implicit)
+        # Should log error and return None
         mock_log.assert_called()
         error_calls = [call for call in mock_log.call_args_list if "Error during OMDb API key" in str(call)]
         assert len(error_calls) > 0
@@ -635,8 +640,8 @@ class TestNavigationHandler:
     @patch('xbmcgui.DialogProgress')
     def test_sync_films_locally_api_key_check(self, mock_progress, navigation_handler):
         """Test sync films locally with API key validation."""
-        # Mock the _check_omdb_api_key to return empty (user cancelled)
-        with patch.object(navigation_handler, '_check_omdb_api_key', return_value=""):
+        # Mock the _check_omdb_api_key to return None (user cancelled)
+        with patch.object(navigation_handler, '_check_omdb_api_key', return_value=None):
             # Mock progress dialog
             mock_progress_instance = Mock()
             mock_progress.return_value = mock_progress_instance
@@ -646,6 +651,8 @@ class TestNavigationHandler:
             # Progress dialog should still be created (method always creates it)
             mock_progress.assert_called_once()
             mock_progress_instance.create.assert_called_once()
+
+
 
     @patch('xbmcgui.Dialog')
     def test_log_out_success_workflow(self, mock_dialog, navigation_handler, mock_mubi, mock_session):
