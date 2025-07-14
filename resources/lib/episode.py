@@ -164,7 +164,7 @@ class Episode:
             imdb_url = ""
             if omdb_api_key:
                 time.sleep(2)
-                imdb_url = self._get_imdb_url(self.original_title, self.title, self.year, omdb_api_key)
+                imdb_url = self._get_imdb_url(self.metadata.originaltitle, self.title, self.metadata.year, omdb_api_key)
 
                 if imdb_url is None:
                     xbmc.log(f"Skipping creation of NFO file for '{self.title}' due to repeated API errors.", xbmc.LOGWARNING)
