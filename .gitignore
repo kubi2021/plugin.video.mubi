@@ -1,5 +1,6 @@
-# General
+# General - macOS files
 .DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 
@@ -28,8 +29,17 @@ Temporary Items
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
-.pyc
-.DS_Store
-__pycache__/addon.cpython-38.opt-1.pyc
-resources/lib/__pycache__/
-resources/.DS_Store
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+venv*/
+env*/
