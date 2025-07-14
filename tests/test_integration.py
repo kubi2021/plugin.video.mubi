@@ -150,8 +150,8 @@ class TestRealComponentIntegration:
         assert "*" not in folder_name
         assert "?" not in folder_name
 
-        # The actual result replaces characters with spaces
-        assert "Test Movie  With Bad Characters (2023)" == folder_name
+        # The actual result replaces characters with spaces and collapses multiple spaces
+        assert "Test Movie With Bad Characters (2023)" == folder_name
 
     @patch('requests.get')
     def test_film_imdb_integration(self, mock_get, sample_film):

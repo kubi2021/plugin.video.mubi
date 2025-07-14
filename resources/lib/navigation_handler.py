@@ -461,7 +461,9 @@ class NavigationHandler:
 
     def _check_omdb_api_key(self):
         """
-        Check OMDb API key.
+        Check OMDb API key and return it if available.
+
+        :return: OMDb API key if available, None if missing or user cancels
         """
         try:
             # Retrieve the OMDb API key from the settings
@@ -482,10 +484,14 @@ class NavigationHandler:
 
                 if ret:  # If the user clicks 'Go to Settings'
                     self.plugin.openSettings()  # Opens the settings for the user to add the OMDb API key
-                return omdb_api_key # Exit the function if the OMDb API key is missing or the user cancels
+                return None  # Return None if API key is missing or user cancels
+
+            # Return the API key if it exists
+            return omdb_api_key
 
         except Exception as e:
             xbmc.log(f"Error during OMDb API key: {e}", xbmc.LOGERROR)
+            return None
 
     def sync_films_locally(self):
         """
