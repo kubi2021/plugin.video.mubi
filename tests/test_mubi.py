@@ -72,6 +72,54 @@ class TestMubi:
 
             assert language == "en"  # Default fallback
 
+    def test_audio_codec_support_in_headers(self, mubi_instance):
+        """Test that headers include support for 5.1 surround sound audio codecs."""
+        # Get the headers that would be sent to Mubi API
+        headers = mubi_instance.hea_atv_auth()
+
+        # Check that Client-Accept-Audio-Codecs header exists
+        assert 'Client-Accept-Audio-Codecs' in headers
+
+        audio_codecs = headers['Client-Accept-Audio-Codecs']
+
+        # Verify support for surround sound codecs
+        assert 'eac3' in audio_codecs, "Enhanced AC-3 (eac3) codec should be supported for 5.1 surround sound"
+        assert 'ac3' in audio_codecs, "AC-3 (ac3) codec should be supported for 5.1 surround sound"
+        assert 'dts' in audio_codecs, "DTS codec should be supported for surround sound"
+        assert 'aac' in audio_codecs, "AAC codec should be supported for compatibility"
+
+        # Verify the codecs are properly comma-separated
+        codec_list = [codec.strip() for codec in audio_codecs.split(',')]
+        expected_codecs = ['aac', 'eac3', 'ac3', 'dts']
+
+        for codec in expected_codecs:
+            assert codec in codec_list, f"Audio codec '{codec}' should be declared in headers"
+
+        # Log the audio codecs for verification
+        print(f"Declared audio codecs: {audio_codecs}")
+
+    def test_audio_codec_support_enables_surround_sound(self, mubi_instance):
+        """Test that the audio codec declaration enables 5.1 surround sound capability."""
+        headers = mubi_instance.hea_atv_auth()
+        audio_codecs = headers.get('Client-Accept-Audio-Codecs', '')
+
+        # Enhanced AC-3 (eac3) is the primary codec for 5.1 surround sound on Mubi
+        assert 'eac3' in audio_codecs, "Enhanced AC-3 support is required for 5.1 surround sound"
+
+        # Verify that we're not limited to stereo-only codecs
+        stereo_only_codecs = ['mp3', 'opus']
+        surround_capable_codecs = ['eac3', 'ac3', 'dts']
+
+        declared_codecs = [codec.strip().lower() for codec in audio_codecs.split(',')]
+
+        # Should have at least one surround-capable codec
+        has_surround_support = any(codec in declared_codecs for codec in surround_capable_codecs)
+        assert has_surround_support, "At least one surround sound capable codec should be declared"
+
+        # Should not be limited to only stereo codecs
+        is_stereo_only = all(codec in stereo_only_codecs for codec in declared_codecs if codec not in ['aac'])
+        assert not is_stereo_only, "Should not be limited to stereo-only audio codecs"
+
     def test_get_link_code_success(self, mubi_instance):
         """Test successful link code generation."""
         mock_response = Mock()
