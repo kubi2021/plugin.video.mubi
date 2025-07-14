@@ -87,20 +87,24 @@ class Film:
         """
         Sanitize a filename by removing or replacing characters that are unsafe for file names
         and ensuring compatibility across multiple operating systems.
-        
+
         :param filename: The original file name.
         :param replacement: Character to replace invalid characters with.
         :return: A sanitized file name.
         """
+        # Security: Check for path traversal attempts in the original filename
+        # Look for actual path traversal patterns, not just any occurrence of '..'
+        if '../' in filename or '..\\' in filename or filename.startswith('../') or filename.startswith('..\\') or filename.endswith('/..') or filename.endswith('\\..') or filename == '..':
+            raise ValueError(f"Invalid characters in filename - potential path traversal attempt: '{filename}'")
+
         # Replace reserved characters and potential path traversal sequences
         sanitized = re.sub(r'[<>:"/\\|?*^%$&\'{}@!]', replacement, filename)
 
         # Security: Remove null bytes and control characters (0x00-0x1F, 0x7F-0x9F)
         sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', replacement, sanitized)
 
-        # Security: Block path traversal attempts
-        if '..' in sanitized or '/' in sanitized or '\\' in sanitized:
-            raise ValueError("Invalid characters in filename - potential path traversal attempt")
+        # Collapse multiple consecutive spaces (including replacement spaces) into a single space
+        sanitized = re.sub(r' +', ' ', sanitized)
 
         # Handle reserved Windows names (e.g., CON, PRN, AUX, NUL, COM1, LPT1, etc.)
         reserved_names = {
@@ -116,7 +120,7 @@ class Film:
 
         # Security: Ensure filename is not empty after sanitization
         if not sanitized or sanitized.isspace():
-            raise ValueError("Filename becomes empty after sanitization")
+            raise ValueError(f"Filename becomes empty after sanitization: original='{filename}', sanitized='{sanitized}'")
 
         # Enforce length limit (255 characters for most filesystems)
         max_length = 255
@@ -129,9 +133,13 @@ class Film:
     def get_sanitized_folder_name(self) -> str:
         """
         Generate a consistent, sanitized folder name for the film, using the title and year.
-        
+
         :return: A sanitized folder name in the format "Title (Year)".
         """
+        # Check the original title for path traversal before adding year
+        if '../' in self.title or '..\\' in self.title or self.title.startswith('../') or self.title.startswith('..\\') or self.title.endswith('/..') or self.title.endswith('\\..') or self.title == '..':
+            raise ValueError(f"Invalid characters in filename - potential path traversal attempt: '{self.title}'")
+
         year = self.metadata.year if self.metadata.year else "Unknown"
         return self._sanitize_filename(f"{self.title} ({year})")
 

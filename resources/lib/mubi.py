@@ -633,8 +633,16 @@ class Mubi:
                 if available_at_dt > now or expires_at_dt < now:
                     return None
 
+            # Validate required fields before creating Film object
+            mubi_id = film_info.get('id')
+            title = film_info.get('title', '')
+
+            if not mubi_id or not title:
+                xbmc.log(f"Missing required film data: id={mubi_id}, title={title}", xbmc.LOGWARNING)
+                return None
+
             metadata = FilmMetadata(
-                title=film_info.get('title', ''),
+                title=title,
                 director=[d['name'] for d in film_info.get('directors', [])],
                 year=film_info.get('year', ''),
                 duration=film_info.get('duration', 0),
@@ -651,8 +659,8 @@ class Mubi:
             )
 
             return Film(
-                mubi_id=film_info.get('id'),
-                title=film_info.get('title', ''),
+                mubi_id=str(mubi_id),  # Ensure it's a string
+                title=title,
                 artwork=film_info.get('still_url', ''),
                 web_url=film_info.get('web_url', ''),
                 category=category_name,

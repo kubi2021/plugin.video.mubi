@@ -574,3 +574,118 @@ class TestSecurityRegression:
             except json.JSONDecodeError:
                 # Expected for malformed JSON
                 pass
+
+    def test_episode_filename_sanitization_security_regression(self):
+        """
+        Regression test for episode filename sanitization security.
+
+        Ensures that episode series titles are properly sanitized and
+        path traversal attempts are blocked with informative error messages.
+        """
+        from resources.lib.episode import Episode
+        from resources.lib.episode_metadata import EpisodeMetadata
+
+        # Mock metadata
+        metadata = EpisodeMetadata(
+            title="Test Episode",
+            director=["Test Director"],
+            year=2023,
+            duration=45,
+            country=["USA"],
+            genre=["Drama"],
+            originaltitle="Test Episode"
+        )
+
+        # Test legitimate series titles with special characters
+        legitimate_series_titles = [
+            "Series A/B",  # Contains slash
+            "Show: The Series",  # Contains colon
+            "Series & More",  # Contains ampersand
+            "Show (2023)",  # Contains parentheses
+            "Series's Title",  # Contains apostrophe
+            "Show \"Quote\"",  # Contains quotes
+            "Series*Star",  # Contains asterisk
+            "Show?",  # Contains question mark
+            "Series|TV",  # Contains pipe
+            "Show<>",  # Contains angle brackets
+        ]
+
+        for series_title in legitimate_series_titles:
+            episode = Episode(
+                mubi_id="123",
+                season="1",
+                episode_number="1",
+                series_title=series_title,
+                title="Episode 1",
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/episode",
+                metadata=metadata
+            )
+
+            # Should not raise an exception
+            sanitized_name = episode.get_sanitized_folder_name()
+
+            # Should produce a valid folder name
+            assert sanitized_name is not None
+            assert len(sanitized_name) > 0
+            assert not sanitized_name.isspace()
+
+            # Should not contain dangerous characters after sanitization
+            dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+            for char in dangerous_chars:
+                assert char not in sanitized_name, f"Dangerous character '{char}' found in sanitized name: '{sanitized_name}' for series: '{series_title}'"
+
+        # Test legitimate series titles with multiple dots (should work)
+        legitimate_series_with_dots = [
+            "Series... The Beginning",  # Ellipsis in title
+            "Show... and More",  # Ellipsis
+            "Series with ... in middle",  # Ellipsis with spaces
+        ]
+
+        for series_title in legitimate_series_with_dots:
+            episode = Episode(
+                mubi_id="456",
+                season="1",
+                episode_number="1",
+                series_title=series_title,
+                title="Episode 1",
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/episode",
+                metadata=metadata
+            )
+
+            # Should not raise an exception
+            sanitized_name = episode.get_sanitized_folder_name()
+            assert sanitized_name is not None
+            assert len(sanitized_name) > 0
+
+        # Test malicious series titles (path traversal attempts)
+        malicious_series_titles = [
+            "../../../etc/passwd",  # Path traversal
+            "..\\..\\windows\\system32",  # Windows path traversal
+            "series/../malicious",  # Mixed legitimate and malicious
+            "normal_series/../../../secret",  # Hidden path traversal
+            "../malicious",  # Simple path traversal
+            "..\\malicious",  # Windows path traversal
+            "..",  # Just parent directory
+        ]
+
+        for series_title in malicious_series_titles:
+            with pytest.raises(ValueError) as exc_info:
+                episode = Episode(
+                    mubi_id="123",
+                    season="1",
+                    episode_number="1",
+                    series_title=series_title,
+                    title="Episode 1",
+                    artwork="http://example.com/art.jpg",
+                    web_url="http://example.com/episode",
+                    metadata=metadata
+                )
+                # The error should be raised when trying to get the sanitized folder name
+                episode.get_sanitized_folder_name()
+
+            # Verify the error message includes the original series title
+            error_message = str(exc_info.value)
+            assert "potential path traversal attempt" in error_message
+            assert series_title in error_message, f"Original series title '{series_title}' not found in error message: '{error_message}'"
