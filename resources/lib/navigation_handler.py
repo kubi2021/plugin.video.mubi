@@ -6,7 +6,8 @@ import webbrowser
 from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
-from resources.lib.library import Library
+from resources.lib.film_library import Film_Library
+from resources.lib.serie_library import Serie_Library
 from resources.lib.playback import play_with_inputstream_adaptive
 
 class LibraryMonitor(xbmc.Monitor):
@@ -84,7 +85,8 @@ class NavigationHandler:
             return [
                 {"label": "Browse Mubi films by category", "description": "Browse Mubi films by category", "action": "list_categories", "is_folder": True},
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
-                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": True},
+                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_films_locally", "is_folder": False},
+                {"label": "Sync all Mubi series locally", "description": "Sync Mubi series locally", "action": "sync_series_locally", "is_folder": False},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
             ]
         else:
@@ -261,33 +263,78 @@ class NavigationHandler:
     def play_video_ext(self, web_url: str):
         """
         Open a web URL using the appropriate system command.
-        
+
         :param web_url: Web URL of the video
         """
         try:
+            # Validate URL format to prevent command injection
+            if not self._is_safe_url(web_url):
+                xbmc.log(f"Invalid or unsafe URL rejected: {web_url}", xbmc.LOGERROR)
+                xbmcgui.Dialog().ok("MUBI", "Invalid URL format. Cannot open external video.")
+                return
+
             xbmc.log(f"Opening external video URL: {web_url}", xbmc.LOGDEBUG)
-            
+
             import subprocess
             import os
-            
+
             if xbmc.getCondVisibility('System.Platform.Windows'):
-                # Windows platform
+                # Windows platform - os.startfile is safer than subprocess for URLs
                 os.startfile(web_url)
             elif xbmc.getCondVisibility('System.Platform.OSX'):
-                # macOS platform
-                subprocess.Popen(['open', web_url])
+                # macOS platform - use list form to prevent shell injection
+                subprocess.Popen(['open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Linux'):
-                # Linux platform
-                subprocess.Popen(['xdg-open', web_url])
+                # Linux platform - use list form to prevent shell injection
+                subprocess.Popen(['xdg-open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Android'):
-                # Android platform
-                xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{web_url}")')
+                # Android platform - escape quotes to prevent injection
+                safe_url = web_url.replace('"', '\\"')
+                xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{safe_url}")')
             else:
                 # Unsupported platform
                 xbmcgui.Dialog().ok("MUBI", "Cannot open web browser on this platform.")
         except Exception as e:
             xbmc.log(f"Error opening external video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().ok("MUBI", f"Error opening external video: {e}")
+
+    def _is_safe_url(self, url: str) -> bool:
+        """
+        Validate that the URL is safe to open externally.
+
+        :param url: URL to validate
+        :return: True if URL is safe, False otherwise
+        """
+        import re
+        from urllib.parse import urlparse
+
+        try:
+            # Basic URL format validation
+            if not url or not isinstance(url, str):
+                return False
+
+            # Check for basic URL structure
+            if not re.match(r'^https?://', url):
+                return False
+
+            # Parse URL to validate structure
+            parsed = urlparse(url)
+            if not parsed.netloc:
+                return False
+
+            # Block dangerous characters that could be used for injection
+            dangerous_chars = ['`', '$', '(', ')', ';', '|', '&', '<', '>', '\n', '\r']
+            if any(char in url for char in dangerous_chars):
+                return False
+
+            # Limit URL length to prevent abuse
+            if len(url) > 2048:
+                return False
+
+            return True
+
+        except Exception:
+            return False
 
 
 
@@ -412,10 +459,11 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error during logout: {e}", xbmc.LOGERROR)
 
-    def sync_locally(self):
+    def _check_omdb_api_key(self):
         """
-        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
-        This allows the films to be imported into Kodi's standard media library.
+        Check OMDb API key and return it if available.
+
+        :return: OMDb API key if available, None if missing or user cancels
         """
         try:
             # Retrieve the OMDb API key from the settings
@@ -436,14 +484,29 @@ class NavigationHandler:
 
                 if ret:  # If the user clicks 'Go to Settings'
                     self.plugin.openSettings()  # Opens the settings for the user to add the OMDb API key
-                return  # Exit the function if the OMDb API key is missing or the user cancels
+                return None  # Return None if API key is missing or user cancels
+
+            # Return the API key if it exists
+            return omdb_api_key
+
+        except Exception as e:
+            xbmc.log(f"Error during OMDb API key: {e}", xbmc.LOGERROR)
+            return None
+
+    def sync_films_locally(self):
+        """
+        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        This allows the films to be imported into Kodi's standard media library.
+        """
+        try:
+            omdb_api_key = self._check_omdb_api_key()
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
             pDialog.create("Syncing with Mubi", "Fetching all categories...")
 
             categories = self.mubi.get_film_groups()
-            all_films_library = Library()
+            all_films_library = Film_Library()
             total_categories = len(categories)
 
             for idx, category in enumerate(categories):
@@ -482,7 +545,36 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
 
+    def sync_series_locally(self):
+        """
+        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        This allows the films to be imported into Kodi's standard media library.
+        """
+        try:
+            omdb_api_key = self._check_omdb_api_key()
 
+            # Proceed with the sync process if OMDb API key is provided
+            episodes = self.mubi.get_episodes_list()
+            total_episodes = len(episodes)
+            xbmc.log(f"Amount of episodes found during sync: {total_episodes}", xbmc.LOGINFO)
+
+            plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
+            xbmc.log(f"Starting actual sync", xbmc.LOGINFO)
+            episodes.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
+
+            # Create a monitor instance
+            monitor = LibraryMonitor()
+
+            # Trigger Kodi library clean first and wait for it to complete
+            self.clean_kodi_library(monitor)
+
+            # After clean is complete, trigger Kodi library update and wait for it to complete
+            self.update_kodi_library(monitor)
+
+        except Exception as e:
+            xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
+
+ 
     def update_kodi_library(self, monitor):
         """
         Triggers a Kodi library update to scan for new movies after the sync process.

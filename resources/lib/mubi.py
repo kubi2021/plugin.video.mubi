@@ -13,6 +13,7 @@ import dateutil.parser
 import requests
 import json
 import hashlib
+import re
 import base64
 from collections import namedtuple
 import xbmc
@@ -25,9 +26,12 @@ import threading
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from resources.lib.metadata import Metadata
+from resources.lib.film_metadata import FilmMetadata
+from resources.lib.episode_metadata import EpisodeMetadata
 from resources.lib.film import Film
-from resources.lib.library import Library
+from resources.lib.episode import Episode
+from resources.lib.film_library import Film_Library
+from resources.lib.serie_library import Serie_Library
 from resources.lib.playback import generate_drm_license_key
 
 
@@ -60,7 +64,8 @@ class Mubi:
         self.apiURL = 'https://api.mubi.com/v3/'
         self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
         self.session_manager = session_manager  # Use session manager for session-related data
-        self.library = Library()  # Initialize the Library
+        self.film_library = Film_Library()  # Initialize the Library
+        self.serie_library = Serie_Library()  # Initialize the Library
 
     def _make_api_call(self, method, endpoint=None, full_url=None, headers=None, params=None, data=None, json=None):
         url = full_url if full_url else f"{self.apiURL}{endpoint}"
@@ -70,17 +75,17 @@ class Mubi:
             headers = {}
         headers.setdefault('Accept-Encoding', 'gzip')
 
-        # Log API call details
+        # Log API call details (sanitized)
         xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
-        xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
-        
-        # Log parameters if they exist
+        xbmc.log(f"Headers: {self._sanitize_headers_for_logging(headers)}", xbmc.LOGDEBUG)
+
+        # Log parameters if they exist (sanitized)
         if params:
-            xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
-        
-        # Log JSON body if it exists
+            xbmc.log(f"Parameters: {self._sanitize_params_for_logging(params)}", xbmc.LOGDEBUG)
+
+        # Log JSON body if it exists (sanitized)
         if json:
-            xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
+            xbmc.log(f"JSON: {self._sanitize_json_for_logging(json)}", xbmc.LOGDEBUG)
 
         # Rate limiting: Max 60 calls per minute
         with self._lock:
@@ -150,6 +155,54 @@ class Mubi:
         finally:
             session.close()
             xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
+
+    def _sanitize_headers_for_logging(self, headers: dict) -> dict:
+        """Sanitize headers for safe logging by masking sensitive values."""
+        if not headers:
+            return {}
+
+        sanitized = {}
+        sensitive_keys = ['authorization', 'token', 'api-key', 'x-api-key', 'cookie']
+
+        for key, value in headers.items():
+            if key.lower() in sensitive_keys:
+                sanitized[key] = "***REDACTED***"
+            else:
+                sanitized[key] = value
+
+        return sanitized
+
+    def _sanitize_params_for_logging(self, params: dict) -> dict:
+        """Sanitize parameters for safe logging by masking sensitive values."""
+        if not params:
+            return {}
+
+        sanitized = {}
+        sensitive_keys = ['apikey', 'api_key', 'token', 'password', 'secret']
+
+        for key, value in params.items():
+            if key.lower() in sensitive_keys:
+                sanitized[key] = "***REDACTED***"
+            else:
+                sanitized[key] = value
+
+        return sanitized
+
+    def _sanitize_json_for_logging(self, json_data: dict) -> dict:
+        """Sanitize JSON data for safe logging by masking sensitive values."""
+        if not json_data:
+            return {}
+
+        sanitized = {}
+        sensitive_keys = ['token', 'password', 'secret', 'api_key', 'auth_token']
+
+        for key, value in json_data.items():
+            if key.lower() in sensitive_keys:
+                sanitized[key] = "***REDACTED***"
+            else:
+                sanitized[key] = value
+
+        return sanitized
 
 
 
@@ -362,13 +415,13 @@ class Mubi:
                 if consumable != None:
                     film = self.get_film_metadata(film_item, category_name)
                     if film:
-                        self.library.add_film(film)
+                        self.film_library.add_film(film)
 
-            xbmc.log(f"Fetched {len(self.library)} available films from the watchlist", xbmc.LOGINFO)
+            xbmc.log(f"Fetched {len(self.film_library)} available films from the watchlist", xbmc.LOGINFO)
         except Exception as e:
             xbmc.log(f"Error retrieving films from the watchlist: {e}", xbmc.LOGERROR)
 
-        return self.library
+        return self.film_library
 
 
 
@@ -436,13 +489,13 @@ class Mubi:
             for film_item in films_data:
                 film = self.get_film_metadata(film_item, category_name)
                 if film:
-                    self.library.add_film(film)
+                    self.film_library.add_film(film)
 
-            xbmc.log(f"Fetched {len(self.library)} films for category '{category_name}'", xbmc.LOGINFO)
+            xbmc.log(f"Fetched {len(self.film_library)} films for category '{category_name}'", xbmc.LOGINFO)
         except Exception as e:
             xbmc.log(f"Error fetching films for category '{category_name}': {e}", xbmc.LOGERROR)
 
-        return self.library
+        return self.film_library
 
 
 
@@ -486,7 +539,75 @@ class Mubi:
 
         return all_film_items
 
+    def get_episodes_list(self):
+        """
+        Retrieves and adds episodes to the library
 
+        :return: Library instance with episodes.
+        """
+        try:
+            # Retrieve episodes
+            episodes = self.get_episodes()
+
+            # Process and add each film to the library
+            for episode_item in episodes:
+                episode = self.get_episode_metadata(episode_item)
+                if episode:
+                    self.serie_library.add_episode(episode)
+
+            xbmc.log(f"Fetched {len(self.serie_library)} episodes", xbmc.LOGINFO)
+        except Exception as e:
+            xbmc.log(f"Error fetching episodes: {e}", xbmc.LOGERROR)
+
+        return self.serie_library
+
+
+    def get_episodes(self):
+        """
+        Retrieves all episodes of all series using the MUBI API V3.
+
+        :return: List of films of all series.
+        :rtype: list
+        """
+        all_episodes = []
+        page = 1
+        max_pages = 1000  # Prevent infinite loops
+
+        while page <= max_pages:
+            endpoint = f'/browse/films'
+            headers = self.hea_atv_auth()
+
+            # Validate and sanitize page parameter
+            if not isinstance(page, int) or page < 1:
+                xbmc.log(f"Invalid page number: {page}", xbmc.LOGERROR)
+                break
+
+            params = {
+                'genre': 'TV Series',
+                'playable': 'true',
+                'sort': 'title',
+                'page': min(page, 9999)  # Limit page number to reasonable range
+            }
+
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            if response:
+                data = response.json()
+                films = data.get('films', [])
+                for film in films:
+                    all_episodes.append(film)
+
+                meta = data.get('meta', {})
+                xbmc.log(f"Retrieved {len(all_episodes)} episodes from a total of {meta.get('total_count')}.", xbmc.LOGINFO)
+                next_page = meta.get('next_page')
+                if next_page:
+                    page = next_page
+                else:
+                    break
+            else:
+                xbmc.log(f"Failed to retrieve series", xbmc.LOGERROR)
+                break
+
+        return all_episodes
 
 
     def get_film_metadata(self, film_data: dict, category_name: str) -> Film:
@@ -500,7 +621,8 @@ class Mubi:
         try:
             film_info = film_data.get('film', {})
             if not film_info:
-                return None
+               xbmc.log(f"No film_info, nothing to do", xbmc.LOGINFO)
+               return None
 
             available_at = film_info.get('consumable', {}).get('available_at')
             expires_at = film_info.get('consumable', {}).get('expires_at')
@@ -511,8 +633,16 @@ class Mubi:
                 if available_at_dt > now or expires_at_dt < now:
                     return None
 
-            metadata = Metadata(
-                title=film_info.get('title', ''),
+            # Validate required fields before creating Film object
+            mubi_id = film_info.get('id')
+            title = film_info.get('title', '')
+
+            if not mubi_id or not title:
+                xbmc.log(f"Missing required film data: id={mubi_id}, title={title}", xbmc.LOGWARNING)
+                return None
+
+            metadata = FilmMetadata(
+                title=title,
                 director=[d['name'] for d in film_info.get('directors', [])],
                 year=film_info.get('year', ''),
                 duration=film_info.get('duration', 0),
@@ -529,8 +659,8 @@ class Mubi:
             )
 
             return Film(
-                mubi_id=film_info.get('id'),
-                title=film_info.get('title', ''),
+                mubi_id=str(mubi_id),  # Ensure it's a string
+                title=title,
                 artwork=film_info.get('still_url', ''),
                 web_url=film_info.get('web_url', ''),
                 category=category_name,
@@ -542,11 +672,88 @@ class Mubi:
 
 
 
+    def get_episode_metadata(self, film_info: dict) -> Episode:
+        """
+        Extracts and returns film metadata from the API data.
+
+        :param episode_data: Dictionary containing episode data
+        :return: Episode instance or None if not valid
+        """
+        try:
+            available_at = film_info.get('consumable', {}).get('available_at')
+            expires_at = film_info.get('consumable', {}).get('expires_at')
+            if available_at and expires_at:
+                available_at_dt = dateutil.parser.parse(available_at)
+                expires_at_dt = dateutil.parser.parse(expires_at)
+                now = datetime.datetime.now(tz=available_at_dt.tzinfo)
+                if available_at_dt > now or expires_at_dt < now:
+                    return None
+
+            metadata = EpisodeMetadata(
+                title=film_info.get('title', ''),
+                director=[d['name'] for d in film_info.get('directors', [])],
+                year=film_info.get('year', ''),
+                duration=film_info.get('duration', 0),
+                country=film_info.get('historic_countries', []),
+                genre=film_info.get('genres', []),
+                originaltitle=film_info.get('original_title', ''),
+                rating=film_info.get('average_rating', 0),
+                dateadded=datetime.date.today().strftime('%Y-%m-%d'),
+                image=film_info.get('still_url', '')
+            )
+
+            # Validate episode data before creating Episode object
+            mubi_id = film_info.get('id')
+            episode_data = film_info.get('episode', {})
+            season = episode_data.get('season_number')
+            episode_number = episode_data.get('number')
+            series_title = episode_data.get('series_title')
+            title = film_info.get('title', '')
+            artwork = film_info.get('still_url', '')
+            web_url = film_info.get('web_url', '')
+
+            # Validate required fields
+            if not mubi_id or not title or not series_title:
+                xbmc.log(f"Missing required episode data: id={mubi_id}, title={title}, series_title={series_title}", xbmc.LOGWARNING)
+                return None
+
+            # Validate season and episode numbers
+            if season is None or episode_number is None:
+                xbmc.log(f"Missing season or episode number for {title}", xbmc.LOGWARNING)
+                return None
+
+            return Episode(
+                mubi_id=str(mubi_id),
+                season=str(season),
+                episode_number=str(episode_number),
+                series_title=str(series_title),
+                title=str(title),
+                artwork=str(artwork) if artwork else '',
+                web_url=str(web_url) if web_url else '',
+                metadata=metadata
+            )
+        except Exception as e:
+            xbmc.log(f"Error parsing episode metadata: {e}", xbmc.LOGERROR)
+            return None
 
 
 
     def get_secure_stream_info(self, vid: str) -> dict:
         try:
+            # Validate video ID to prevent injection attacks
+            if not vid or not isinstance(vid, str):
+                return {'error': 'Invalid video ID'}
+
+            # Sanitize video ID - should only contain alphanumeric characters, hyphens, and underscores
+            if not re.match(r'^[a-zA-Z0-9_-]+$', vid):
+                xbmc.log(f"Invalid video ID format: {vid}", xbmc.LOGERROR)
+                return {'error': 'Invalid video ID format'}
+
+            # Limit video ID length to prevent abuse
+            if len(vid) > 50:
+                xbmc.log(f"Video ID too long: {vid}", xbmc.LOGERROR)
+                return {'error': 'Video ID too long'}
+
             # Step 1: Attempt to check film viewing availability with parental lock
             viewing_url = f"{self.apiURL}films/{vid}/viewing"
             params = {'parental_lock_enabled': 'true'}  # Add as query parameter

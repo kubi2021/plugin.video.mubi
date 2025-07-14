@@ -9,7 +9,7 @@ import shutil
 from typing import Set
 import re
 
-class Library:
+class Film_Library:
     def __init__(self):
         self.films: List[Film] = []
 
@@ -24,10 +24,10 @@ class Library:
 
     def sync_locally(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]):
         """
-        Synchronize the local library with fetched film data from MUBI.
+        Synchronize the local library with fetched film/serie data from MUBI.
 
         :param base_url: The base URL for creating STRM files.
-        :param plugin_userdata_path: The path where film folders are stored.
+        :param plugin_userdata_path: The path where object folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
         """
         # Filter film by genre
@@ -43,6 +43,11 @@ class Library:
         pDialog.create("Syncing with MUBI", "Starting the sync...")
 
         try:
+            # create basefolder if it doesn't exist
+            basefolder = plugin_userdata_path / "films"
+            if not os.path.isdir(basefolder):
+                os.makedirs(basefolder)                 
+
             # Process each film and update progress
             for idx, film in enumerate(self.films):
                 percent = int(((idx + 1) / total_films) * 100)  # Ensuring 100% on last film
@@ -140,7 +145,7 @@ class Library:
             - None if files already exist and were skipped.
         """
         film_folder_name = film.get_sanitized_folder_name()
-        film_path = plugin_userdata_path / film_folder_name
+        film_path = plugin_userdata_path / "films" / film_folder_name
 
         # Define file paths
         strm_file = film_path / f"{film_folder_name}.strm"
@@ -208,7 +213,8 @@ class Library:
         obsolete_folders_count = 0
 
         # Loop through each directory in plugin_userdata_path
-        for folder in plugin_userdata_path.iterdir():
+        films_dir = plugin_userdata_path / "films"
+        for folder in films_dir.iterdir():
             if folder.is_dir() and folder.name not in current_film_folders:
                 # Remove the folder if it's not in the current films
                 shutil.rmtree(folder)

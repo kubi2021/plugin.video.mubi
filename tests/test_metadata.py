@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from resources.lib.metadata import Metadata
+from resources.lib.film_metadata import FilmMetadata
 
 
 class TestMetadata:
@@ -8,7 +8,7 @@ class TestMetadata:
 
     def test_metadata_initialization_all_fields(self):
         """Test metadata initialization with all fields provided."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Director One", "Director Two"],
             year=2023,
@@ -44,7 +44,7 @@ class TestMetadata:
 
     def test_metadata_initialization_minimal_fields(self):
         """Test metadata initialization with only required fields."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Minimal Movie",
             director=[],
             year=None,
@@ -70,7 +70,7 @@ class TestMetadata:
 
     def test_metadata_initialization_none_values(self):
         """Test metadata initialization handles None values correctly."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=None,  # Should become empty list
             year=None,  # Should become "Unknown"
@@ -94,7 +94,7 @@ class TestMetadata:
 
     def test_metadata_initialization_optional_defaults(self):
         """Test metadata initialization with optional parameters using defaults."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Test Director"],
             year=2023,
@@ -116,7 +116,7 @@ class TestMetadata:
 
     def test_metadata_repr(self):
         """Test string representation of metadata."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Test Director"],
             year=2023,
@@ -141,7 +141,7 @@ class TestMetadata:
 
     def test_metadata_as_dict_complete(self):
         """Test converting metadata to dictionary with all fields."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Director One"],
             year=2023,
@@ -183,7 +183,7 @@ class TestMetadata:
 
     def test_metadata_as_dict_minimal(self):
         """Test converting minimal metadata to dictionary."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Minimal Movie",
             director=[],
             year=None,
@@ -215,7 +215,7 @@ class TestMetadata:
 
         # Test with data that could potentially cause issues
         try:
-            metadata = Metadata(
+            metadata = FilmMetadata(
                 title=None,  # This might cause issues in string operations
                 director=None,
                 year="invalid",  # Non-numeric year
@@ -234,7 +234,7 @@ class TestMetadata:
 
     def test_metadata_as_dict_normal_operation(self):
         """Test as_dict method normal operation."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="Test Movie",
             director=["Test Director"],
             year=2023,
@@ -257,7 +257,7 @@ class TestMetadata:
 
     def test_metadata_edge_cases(self):
         """Test metadata with edge case values."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="",  # Empty title
             director=[""],  # Empty director name
             year=0,  # Zero year
@@ -283,7 +283,7 @@ class TestMetadata:
 
     def test_metadata_large_values(self):
         """Test metadata with very large values."""
-        metadata = Metadata(
+        metadata = FilmMetadata(
             title="A" * 1000,  # Very long title
             director=["Director"] * 100,  # Many directors
             year=9999,  # Large year
@@ -306,3 +306,74 @@ class TestMetadata:
         assert len(metadata.genre) == 100
         assert metadata.rating == 999.99
         assert metadata.votes == 999999999
+
+    def test_metadata_complete_coverage(self):
+        """Test metadata with all fields to ensure complete coverage."""
+        metadata = FilmMetadata(
+            title="Test Movie",
+            director=["Test Director", "Co-Director"],
+            year=2023,
+            duration=120,
+            country=["USA", "Canada"],
+            plot="Test plot with detailed description",
+            plotoutline="Test outline summary",
+            genre=["Drama", "Thriller"],
+            originaltitle="Original Test Movie",
+            rating=8.5,
+            votes=1000,
+            castandrole="Actor 1 as Character 1",
+            dateadded="2023-01-01",
+            trailer="http://example.com/trailer",
+            image="http://example.com/image.jpg"
+        )
+
+        # Test all properties are accessible
+        assert metadata.title == "Test Movie"
+        assert len(metadata.director) == 2
+        assert metadata.year == 2023
+        assert metadata.duration == 120
+        assert len(metadata.country) == 2
+        assert metadata.plot == "Test plot with detailed description"
+        assert metadata.plotoutline == "Test outline summary"
+        assert len(metadata.genre) == 2
+        assert metadata.originaltitle == "Original Test Movie"
+        assert metadata.rating == 8.5
+        assert metadata.votes == 1000
+        assert metadata.castandrole == "Actor 1 as Character 1"
+        assert metadata.dateadded == "2023-01-01"
+        assert metadata.trailer == "http://example.com/trailer"
+        assert metadata.image == "http://example.com/image.jpg"
+
+    def test_metadata_string_representation(self):
+        """Test metadata string representation."""
+        metadata = FilmMetadata(
+            title="Test Movie",
+            director=["Test Director"],
+            year=2023,
+            duration=120,
+            country=["USA"],
+            plot="Test plot",
+            plotoutline="Test outline",
+            genre=["Drama"],
+            originaltitle="Test Movie"
+        )
+
+        str_repr = str(metadata)
+        assert "Test Movie" in str_repr
+
+    def test_metadata_repr_method(self):
+        """Test metadata repr method."""
+        metadata = FilmMetadata(
+            title="Test Movie",
+            director=["Test Director"],
+            year=2023,
+            duration=120,
+            country=["USA"],
+            plot="Test plot",
+            plotoutline="Test outline",
+            genre=["Drama"],
+            originaltitle="Test Movie"
+        )
+
+        repr_str = repr(metadata)
+        assert "FilmMetadata" in repr_str or "Test Movie" in repr_str

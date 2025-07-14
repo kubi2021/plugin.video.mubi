@@ -266,3 +266,5 @@ class TestSessionManager:
         
         session.set_client_language('')
         assert session.client_language == ''
+
+
