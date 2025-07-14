@@ -31,17 +31,6 @@ from resources.lib.library import Library
 from resources.lib.playback import generate_drm_license_key
 
 
-
-
-APP_VERSION_CODE = "6.06"
-ACCEPT_LANGUAGE = "en-US"
-CLIENT = "android"
-CLIENT_APP = "mubi"
-CLIENT_DEVICE_OS = "8.0"
-USER_AGENT = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G960F Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.84 Mobile Safari/537.36"
-
-
-
 class Mubi:
 
     # Class-level variables for rate limiting
@@ -167,8 +156,10 @@ class Mubi:
             resp_text = response.text
             country = re.findall(r'"Client-Country":"([^"]+?)"', resp_text)
             cli_country = country[0] if country else 'PL'
+            xbmc.log(f"Client country detected: {cli_country}", xbmc.LOGINFO)
             return cli_country
         else:
+            xbmc.log("Failed to detect client country, defaulting to: PL", xbmc.LOGINFO)
             return 'PL'
 
     def get_cli_language(self):
@@ -202,7 +193,7 @@ class Mubi:
             'Authorization': f'Bearer {self.session_manager.token}',  # Authorization token from session
             'Anonymous_user_id': self.session_manager.device_id,  # Use session manager for device ID
             'Client': 'web',
-            'Client-Accept-Audio-Codecs': 'aac',
+            'Client-Accept-Audio-Codecs': 'aac,eac3,ac3,dts',  # Added Enhanced AC-3 and other surround sound codecs
             'Client-Accept-Video-Codecs': 'h265,vp9,h264',  # Include support for video codecs
             'Client-Country': self.session_manager.client_country,  # Client country from session
             'accept-language' : self.session_manager.client_language,
@@ -576,12 +567,22 @@ class Mubi:
                 xbmc.log(f"Error retrieving secure stream info: {message}", xbmc.LOGERROR)
                 return {'error': message}
 
-            # Step 4: Extract stream URL and DRM info (keep all URLs)
+            # Log the complete raw response from Mubi for audio analysis
+            xbmc.log(f"=== RAW MUBI SECURE URL RESPONSE ===", xbmc.LOGINFO)
+            xbmc.log(f"Complete secure_data from Mubi API: {secure_data}", xbmc.LOGINFO)
+            xbmc.log(f"=== END RAW RESPONSE ===", xbmc.LOGINFO)
+
+            # Step 4: Extract stream URL and DRM info (keep all URLs and any additional metadata)
             stream_info = {
                 'stream_url': secure_data['url'],  # The primary stream URL
                 'urls': secure_data.get('urls', []),  # Additional URLs to select from
                 'license_key': generate_drm_license_key(self.session_manager.token, self.session_manager.user_id)
             }
+
+            # Preserve any additional metadata that might contain audio information
+            for key, value in secure_data.items():
+                if key not in ['url', 'urls']:
+                    stream_info[key] = value
 
             return stream_info
 
@@ -598,21 +599,40 @@ class Mubi:
         :return: Best stream URL or None
         """
         try:
-            # Log available streams
-            xbmc.log(f"Selecting best stream from secure_data: {stream_info}", xbmc.LOGDEBUG)
-            for stream in stream_info['urls']:
-                xbmc.log(f"Available stream: {stream['src']} - Content Type: {stream['content_type']}", xbmc.LOGDEBUG)
+            # Log the complete stream info for debugging
+            xbmc.log(f"=== MUBI STREAM ANALYSIS ===", xbmc.LOGINFO)
+            xbmc.log(f"Complete stream_info received: {stream_info}", xbmc.LOGINFO)
+
+            # Log available streams with detailed information
+            xbmc.log(f"Number of available streams: {len(stream_info.get('urls', []))}", xbmc.LOGINFO)
+
+            for i, stream in enumerate(stream_info.get('urls', [])):
+                xbmc.log(f"Stream {i+1}:", xbmc.LOGINFO)
+                xbmc.log(f"  - URL: {stream.get('src', 'N/A')}", xbmc.LOGINFO)
+                xbmc.log(f"  - Content Type: {stream.get('content_type', 'N/A')}", xbmc.LOGINFO)
+
+                # Log all available keys in the stream object
+                for key, value in stream.items():
+                    if key not in ['src', 'content_type']:
+                        xbmc.log(f"  - {key}: {value}", xbmc.LOGINFO)
+
+            # Also log any additional metadata that might contain audio info
+            for key, value in stream_info.items():
+                if key not in ['urls', 'stream_url', 'license_key']:
+                    xbmc.log(f"Additional stream metadata - {key}: {value}", xbmc.LOGINFO)
+
+            xbmc.log(f"=== END STREAM ANALYSIS ===", xbmc.LOGINFO)
 
             # Prefer MPEG-DASH over HLS
             for stream in stream_info['urls']:
                 if stream['content_type'] == 'application/dash+xml':
-                    xbmc.log(f"Selected DASH stream: {stream['src']}", xbmc.LOGDEBUG)
+                    xbmc.log(f"Selected DASH stream: {stream['src']}", xbmc.LOGINFO)
                     return stream['src']
 
             # If DASH not found, fall back to HLS
             for stream in stream_info['urls']:
                 if stream['content_type'] == 'application/x-mpegURL':
-                    xbmc.log(f"Selected HLS stream: {stream['src']}", xbmc.LOGDEBUG)
+                    xbmc.log(f"Selected HLS stream: {stream['src']}", xbmc.LOGINFO)
                     return stream['src']
 
             # No suitable stream found

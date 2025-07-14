@@ -54,6 +54,9 @@ Whenever you want to **update** the local database, run the **sync** process aga
 
 ## Changelog
 
+### Jul 14th, 2025
+- Enhanced Audio Support: Added support for 5.1 surround sound (Enhanced AC-3) by declaring support for additional audio codecs (eac3, ac3, dts) in API requests
+
 ### Nov 5th, 2024
 - added the action to clean the local library after the sync. It was already implemented that movies no longer available in Mubi would be removed from the local repositry, but they would still show up in the library. Now it's fixed.
 - fixed a bug that skipped movies with special character in the title.
