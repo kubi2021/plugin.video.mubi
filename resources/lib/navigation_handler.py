@@ -258,14 +258,61 @@ class NavigationHandler:
 
 
 
+    def _is_safe_url(self, url: str) -> bool:
+        """
+        Validate if a URL is safe to open externally.
+
+        :param url: URL to validate
+        :return: True if URL is safe, False otherwise
+        """
+        try:
+            from urllib.parse import urlparse
+
+            # Parse the URL
+            parsed = urlparse(url)
+
+            # Check for valid scheme (http/https only)
+            if parsed.scheme not in ['http', 'https']:
+                xbmc.log(f"Unsafe URL scheme: {parsed.scheme}", xbmc.LOGWARNING)
+                return False
+
+            # Check for valid hostname
+            if not parsed.netloc:
+                xbmc.log("URL missing hostname", xbmc.LOGWARNING)
+                return False
+
+            # Block localhost and private IP ranges for security
+            hostname = parsed.hostname
+            if hostname:
+                hostname = hostname.lower()
+                if hostname in ['localhost', '127.0.0.1', '::1']:
+                    xbmc.log(f"Blocked localhost URL: {hostname}", xbmc.LOGWARNING)
+                    return False
+
+                # Block private IP ranges (basic check)
+                if hostname.startswith('192.168.') or hostname.startswith('10.') or hostname.startswith('172.'):
+                    xbmc.log(f"Blocked private IP URL: {hostname}", xbmc.LOGWARNING)
+                    return False
+
+            return True
+
+        except Exception as e:
+            xbmc.log(f"Error validating URL safety: {e}", xbmc.LOGERROR)
+            return False
+
     def play_video_ext(self, web_url: str):
         """
         Open a web URL using the appropriate system command.
-        
+
         :param web_url: Web URL of the video
         """
         try:
             xbmc.log(f"Opening external video URL: {web_url}", xbmc.LOGDEBUG)
+
+            # Validate URL safety
+            if not self._is_safe_url(web_url):
+                xbmcgui.Dialog().ok("MUBI", "Invalid or unsafe URL provided.")
+                return
             
             import subprocess
             import os

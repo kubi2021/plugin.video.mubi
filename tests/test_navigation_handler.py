@@ -697,3 +697,60 @@ class TestNavigationHandler:
         mock_log.assert_called()
         error_calls = [call for call in mock_log.call_args_list if "Error during logout" in str(call)]
         assert len(error_calls) > 0
+
+    def test_is_safe_url_valid_urls(self, navigation_handler):
+        """Test URL safety validation with valid URLs."""
+        valid_urls = [
+            "http://example.com/movie",
+            "https://mubi.com/films/123",
+            "https://www.youtube.com/watch?v=abc123",
+            "http://subdomain.example.org/path/to/video"
+        ]
+
+        for url in valid_urls:
+            assert navigation_handler._is_safe_url(url), f"URL should be safe: {url}"
+
+    def test_is_safe_url_invalid_urls(self, navigation_handler):
+        """Test URL safety validation with invalid URLs."""
+        invalid_urls = [
+            "ftp://example.com/file",  # Invalid scheme
+            "javascript:alert('xss')",  # Invalid scheme
+            "file:///etc/passwd",  # Invalid scheme
+            "http://",  # Missing hostname
+            "https://",  # Missing hostname
+            "not-a-url",  # Not a URL
+            "http://localhost/test",  # Localhost blocked
+            "https://127.0.0.1/test",  # Localhost IP blocked
+            "http://192.168.1.1/test",  # Private IP blocked
+            "https://10.0.0.1/test",  # Private IP blocked
+            "http://172.16.0.1/test"  # Private IP blocked
+        ]
+
+        for url in invalid_urls:
+            assert not navigation_handler._is_safe_url(url), f"URL should be unsafe: {url}"
+
+    def test_is_safe_url_exception_handling(self, navigation_handler):
+        """Test URL safety validation with malformed URLs."""
+        malformed_urls = [
+            None,  # None value
+            "",  # Empty string
+            "http://[invalid-ipv6",  # Malformed IPv6
+        ]
+
+        for url in malformed_urls:
+            # Should return False for any malformed URL without crashing
+            result = navigation_handler._is_safe_url(url)
+            assert result is False, f"Malformed URL should be unsafe: {url}"
+
+    @patch('xbmcgui.Dialog')
+    def test_play_video_ext_unsafe_url(self, mock_dialog, navigation_handler):
+        """Test play video externally with unsafe URL."""
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        # Try to play an unsafe URL
+        navigation_handler.play_video_ext("javascript:alert('xss')")
+
+        # Should show error dialog and not proceed
+        mock_dialog.assert_called_once()
+        mock_dialog_instance.ok.assert_called_once_with("MUBI", "Invalid or unsafe URL provided.")
