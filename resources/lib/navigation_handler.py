@@ -275,10 +275,10 @@ class NavigationHandler:
                 os.startfile(web_url)
             elif xbmc.getCondVisibility('System.Platform.OSX'):
                 # macOS platform
-                subprocess.Popen(['open', web_url])
+                subprocess.Popen(['open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Linux'):
                 # Linux platform
-                subprocess.Popen(['xdg-open', web_url])
+                subprocess.Popen(['xdg-open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Android'):
                 # Android platform
                 xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{web_url}")')
@@ -412,10 +412,11 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error during logout: {e}", xbmc.LOGERROR)
 
-    def sync_locally(self):
+    def _check_omdb_api_key(self):
         """
-        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
-        This allows the films to be imported into Kodi's standard media library.
+        Check if OMDb API key is configured and handle missing key scenario.
+
+        :return: OMDb API key if present, None if missing or user cancels
         """
         try:
             # Retrieve the OMDb API key from the settings
@@ -436,7 +437,23 @@ class NavigationHandler:
 
                 if ret:  # If the user clicks 'Go to Settings'
                     self.plugin.openSettings()  # Opens the settings for the user to add the OMDb API key
-                return  # Exit the function if the OMDb API key is missing or the user cancels
+                return None  # Return None if the OMDb API key is missing or the user cancels
+
+            return omdb_api_key
+        except Exception as e:
+            xbmc.log(f"Error during OMDb API key check: {e}", xbmc.LOGERROR)
+            return None
+
+    def sync_locally(self):
+        """
+        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        This allows the films to be imported into Kodi's standard media library.
+        """
+        try:
+            # Check OMDb API key
+            omdb_api_key = self._check_omdb_api_key()
+            if not omdb_api_key:
+                return  # Exit if no API key
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
