@@ -43,3 +43,10 @@ ENV/
 .env/
 venv*/
 env*/
+
+# Testing and coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
