@@ -10,6 +10,7 @@ from resources.lib.session_manager import SessionManager
 from resources.lib.navigation_handler import NavigationHandler
 from resources.lib.mubi import Mubi
 import xbmcaddon
+import xbmcplugin
 from urllib.parse import parse_qsl
 import sys
 import xbmc
@@ -60,10 +61,20 @@ if __name__ == "__main__":
         navigation.list_categories()
     elif action == "log_in":
         xbmc.log(f"Calling log_in with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.log_in()
+        try:
+            navigation.log_in()
+            xbmcplugin.endOfDirectory(handle, succeeded=True)
+        except Exception as e:
+            xbmc.log(f"Error in log_in action: {e}", xbmc.LOGERROR)
+            xbmcplugin.endOfDirectory(handle, succeeded=False)
     elif action == "log_out":
         xbmc.log(f"Calling log_out with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.log_out()
+        try:
+            navigation.log_out()
+            xbmcplugin.endOfDirectory(handle, succeeded=True)
+        except Exception as e:
+            xbmc.log(f"Error in log_out action: {e}", xbmc.LOGERROR)
+            xbmcplugin.endOfDirectory(handle, succeeded=False)
     elif action == "watchlist":
         xbmc.log(f"Calling list_watchlist with handle: {handle}", xbmc.LOGDEBUG)
         navigation.list_watchlist()
@@ -72,20 +83,42 @@ if __name__ == "__main__":
         navigation.list_videos(params['id'], params['category_name'])
     elif action == "play_ext":
         xbmc.log(f"Calling play_ext with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.play_video_ext(params['web_url'])
+        try:
+            navigation.play_video_ext(params['web_url'])
+            xbmcplugin.endOfDirectory(handle, succeeded=True)
+        except Exception as e:
+            xbmc.log(f"Error in play_ext action: {e}", xbmc.LOGERROR)
+            xbmcplugin.endOfDirectory(handle, succeeded=False)
     elif action == "play_trailer":
         xbmc.log(f"Calling play_trailer with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.play_trailer(params['url'])
+        try:
+            navigation.play_trailer(params['url'])
+            xbmcplugin.endOfDirectory(handle, succeeded=True)
+        except Exception as e:
+            xbmc.log(f"Error in play_trailer action: {e}", xbmc.LOGERROR)
+            xbmcplugin.endOfDirectory(handle, succeeded=False)
     elif action == "sync_locally":
         xbmc.log(f"Calling sync_locally with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.sync_locally()
+        try:
+            navigation.sync_locally()
+            # End directory listing for Kodi
+            xbmcplugin.endOfDirectory(handle, succeeded=True)
+        except Exception as e:
+            xbmc.log(f"Error in sync_locally action: {e}", xbmc.LOGERROR)
+            xbmcplugin.endOfDirectory(handle, succeeded=False)
     elif action == "play_mubi_video":
+        xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)
         film_id = params.get('film_id')
         web_url = params.get('web_url')
         if web_url:
             web_url = unquote_plus(web_url)
-        navigation.play_mubi_video(film_id, web_url)
-        xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)
+        try:
+            navigation.play_mubi_video(film_id, web_url)
+            # Note: play_mubi_video handles its own response via setResolvedUrl()
+        except Exception as e:
+            xbmc.log(f"Error in play_mubi_video action: {e}", xbmc.LOGERROR)
+            # If playback fails, we need to signal failure to Kodi
+            xbmcplugin.setResolvedUrl(handle, False, xbmcgui.ListItem())
     else:
         navigation.main_navigation()
 

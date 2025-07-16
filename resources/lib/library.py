@@ -33,6 +33,11 @@ class Library:
         # Filter film by genre
         self.filter_films_by_genre()
 
+        # Log films that contain problematic characters for debugging
+        for film in self.films:
+            if '#' in film.title or any(char in film.title for char in '<>:"/\\|?*^%$&{}@!;`~'):
+                xbmc.log(f"Processing film with special characters: '{film.title}' -> sanitized: '{film.get_sanitized_folder_name()}'", xbmc.LOGINFO)
+
         # Initialize counters
         newly_added = 0
         failed_to_add = 0

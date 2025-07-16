@@ -61,15 +61,18 @@ class Mubi:
         if not headers:
             return headers
 
-        # List of sensitive header names (case-insensitive)
-        sensitive_headers = {
-            'authorization', 'x-api-key', 'x-auth-token', 'cookie',
-            'set-cookie', 'x-csrf-token', 'x-access-token', 'token'
-        }
+        # List of sensitive header patterns (case-insensitive)
+        sensitive_patterns = [
+            'authorization', 'api-key', 'api_key', 'x-api-key', 'auth-token', 'x-auth-token',
+            'cookie', 'set-cookie', 'csrf-token', 'x-csrf-token', 'access-token', 'x-access-token',
+            'token', 'bearer', 'basic', 'digest'
+        ]
 
         sanitized = {}
         for key, value in headers.items():
-            if key.lower() in sensitive_headers:
+            key_lower = key.lower()
+            is_sensitive = any(pattern in key_lower for pattern in sensitive_patterns)
+            if is_sensitive:
                 sanitized[key] = '***REDACTED***'
             else:
                 sanitized[key] = value
