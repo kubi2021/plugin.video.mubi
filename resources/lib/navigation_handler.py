@@ -283,16 +283,47 @@ class NavigationHandler:
 
             # Block localhost and private IP ranges for security
             hostname = parsed.hostname
+            netloc = parsed.netloc.lower() if parsed.netloc else ""
+
+            # Check for dangerous characters in netloc (hostname:port)
+            dangerous_chars = [';', '|', '&', '`', '$']
+            # Note: Parentheses might appear in some valid URLs
+            for char in dangerous_chars:
+                if char in netloc:
+                    xbmc.log(f"Blocked URL with dangerous character '{char}' in netloc", xbmc.LOGWARNING)
+                    return False
+
             if hostname:
                 hostname = hostname.lower()
-                if hostname in ['localhost', '127.0.0.1', '::1']:
+                if hostname in ['localhost', '127.0.0.1', '::1', '0.0.0.0', '[::]']:
                     xbmc.log(f"Blocked localhost URL: {hostname}", xbmc.LOGWARNING)
                     return False
 
-                # Block private IP ranges (basic check)
-                if hostname.startswith('192.168.') or hostname.startswith('10.') or hostname.startswith('172.'):
-                    xbmc.log(f"Blocked private IP URL: {hostname}", xbmc.LOGWARNING)
-                    return False
+                # Block private IP ranges and cloud metadata services
+                blocked_prefixes = [
+                    '192.168.',  # Private Class C
+                    '10.',       # Private Class A
+                    '172.16.', '172.17.', '172.18.', '172.19.',  # Private Class B
+                    '172.20.', '172.21.', '172.22.', '172.23.',
+                    '172.24.', '172.25.', '172.26.', '172.27.',
+                    '172.28.', '172.29.', '172.30.', '172.31.',
+                    '169.254.',  # Link-local (AWS/Azure metadata)
+                    '100.64.',   # Carrier-grade NAT
+                ]
+
+                for prefix in blocked_prefixes:
+                    if hostname.startswith(prefix):
+                        xbmc.log(f"Blocked private/metadata IP URL: {hostname}", xbmc.LOGWARNING)
+                        return False
+
+            # Check for dangerous characters in URL path that could indicate injection
+            if parsed.path:
+                dangerous_chars = [';', '|', '&', '`', '$']
+                # Note: Parentheses are common in URLs and generally safe
+                for char in dangerous_chars:
+                    if char in parsed.path:
+                        xbmc.log(f"Blocked URL with dangerous character '{char}' in path", xbmc.LOGWARNING)
+                        return False
 
             return True
 

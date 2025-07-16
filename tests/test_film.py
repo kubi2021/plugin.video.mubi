@@ -371,16 +371,20 @@ class TestFilm:
         """Test NFO file creation when IMDB lookup fails."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
         mock_get_imdb.return_value = None  # Simulate API error
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
             base_url = "plugin://plugin.video.mubi/"
-            
-            # Should not create NFO file when IMDB lookup fails
+
+            # Should still create NFO file even when IMDB lookup fails (without IMDb URL)
             film.create_nfo_file(film_path, base_url, "fake_api_key")
-            
+
             nfo_file = film_path / f"{film.get_sanitized_folder_name()}.nfo"
-            assert not nfo_file.exists()
+            assert nfo_file.exists()
+
+            # Verify the NFO content doesn't contain IMDb URL
+            content = nfo_file.read_text()
+            assert "<imdb>" not in content or "<imdb></imdb>" in content
 
     @patch('resources.lib.film.requests.get')
     def test_get_imdb_url_401_error_with_retry(self, mock_get, mock_metadata):

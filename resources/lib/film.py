@@ -50,8 +50,9 @@ class Film:
         :param replacement: Character to replace invalid characters with.
         :return: A sanitized file name.
         """
-        # Replace reserved characters
-        sanitized = re.sub(r'[<>:"/\\|?*^%$&\'{}@!]', replacement, filename)
+        # Replace reserved characters and command injection characters
+        # Note: Parentheses () and apostrophes ' are safe in filenames and commonly used
+        sanitized = re.sub(r'[<>:"/\\|?*^%$&{}@!;`~#]', replacement, filename)
 
         # Handle reserved Windows names (e.g., CON, PRN, AUX, NUL, COM1, LPT1, etc.)
         reserved_names = {
@@ -76,11 +77,13 @@ class Film:
     def get_sanitized_folder_name(self) -> str:
         """
         Generate a consistent, sanitized folder name for the film, using the title and year.
-        
+
         :return: A sanitized folder name in the format "Title (Year)".
         """
+        # First sanitize the title to remove problematic characters including trailing periods
+        sanitized_title = self._sanitize_filename(self.title)
         year = self.metadata.year if self.metadata.year else "Unknown"
-        return self._sanitize_filename(f"{self.title} ({year})")
+        return f"{sanitized_title} ({year})"
 
 
     def create_strm_file(self, film_path: Path, base_url: str):
@@ -122,8 +125,9 @@ class Film:
                 imdb_url = self._get_imdb_url(self.metadata.originaltitle, self.title, self.metadata.year, omdb_api_key)
 
                 if imdb_url is None:
-                    xbmc.log(f"Skipping creation of NFO file for '{self.title}' due to repeated API errors.", xbmc.LOGWARNING)
-                    return
+                    xbmc.log(f"Creating NFO file for '{self.title}' without IMDb URL due to API errors.", xbmc.LOGWARNING)
+                    # Still create NFO file without IMDb URL rather than failing completely
+                    imdb_url = ""
 
             nfo_tree = self._get_nfo_tree(self.metadata, self.categories, kodi_trailer_url, imdb_url)
             with open(nfo_file, "wb") as f:
