@@ -258,14 +258,92 @@ class NavigationHandler:
 
 
 
+    def _is_safe_url(self, url: str) -> bool:
+        """
+        Validate if a URL is safe to open externally.
+
+        :param url: URL to validate
+        :return: True if URL is safe, False otherwise
+        """
+        try:
+            from urllib.parse import urlparse
+
+            # Parse the URL
+            parsed = urlparse(url)
+
+            # Check for valid scheme (http/https only)
+            if parsed.scheme not in ['http', 'https']:
+                xbmc.log(f"Unsafe URL scheme: {parsed.scheme}", xbmc.LOGWARNING)
+                return False
+
+            # Check for valid hostname
+            if not parsed.netloc:
+                xbmc.log("URL missing hostname", xbmc.LOGWARNING)
+                return False
+
+            # Block localhost and private IP ranges for security
+            hostname = parsed.hostname
+            netloc = parsed.netloc.lower() if parsed.netloc else ""
+
+            # Check for dangerous characters in netloc (hostname:port)
+            dangerous_chars = [';', '|', '&', '`', '$']
+            # Note: Parentheses might appear in some valid URLs
+            for char in dangerous_chars:
+                if char in netloc:
+                    xbmc.log(f"Blocked URL with dangerous character '{char}' in netloc", xbmc.LOGWARNING)
+                    return False
+
+            if hostname:
+                hostname = hostname.lower()
+                if hostname in ['localhost', '127.0.0.1', '::1', '0.0.0.0', '[::]']:
+                    xbmc.log(f"Blocked localhost URL: {hostname}", xbmc.LOGWARNING)
+                    return False
+
+                # Block private IP ranges and cloud metadata services
+                blocked_prefixes = [
+                    '192.168.',  # Private Class C
+                    '10.',       # Private Class A
+                    '172.16.', '172.17.', '172.18.', '172.19.',  # Private Class B
+                    '172.20.', '172.21.', '172.22.', '172.23.',
+                    '172.24.', '172.25.', '172.26.', '172.27.',
+                    '172.28.', '172.29.', '172.30.', '172.31.',
+                    '169.254.',  # Link-local (AWS/Azure metadata)
+                    '100.64.',   # Carrier-grade NAT
+                ]
+
+                for prefix in blocked_prefixes:
+                    if hostname.startswith(prefix):
+                        xbmc.log(f"Blocked private/metadata IP URL: {hostname}", xbmc.LOGWARNING)
+                        return False
+
+            # Check for dangerous characters in URL path that could indicate injection
+            if parsed.path:
+                dangerous_chars = [';', '|', '&', '`', '$']
+                # Note: Parentheses are common in URLs and generally safe
+                for char in dangerous_chars:
+                    if char in parsed.path:
+                        xbmc.log(f"Blocked URL with dangerous character '{char}' in path", xbmc.LOGWARNING)
+                        return False
+
+            return True
+
+        except Exception as e:
+            xbmc.log(f"Error validating URL safety: {e}", xbmc.LOGERROR)
+            return False
+
     def play_video_ext(self, web_url: str):
         """
         Open a web URL using the appropriate system command.
-        
+
         :param web_url: Web URL of the video
         """
         try:
             xbmc.log(f"Opening external video URL: {web_url}", xbmc.LOGDEBUG)
+
+            # Validate URL safety
+            if not self._is_safe_url(web_url):
+                xbmcgui.Dialog().ok("MUBI", "Invalid or unsafe URL provided.")
+                return
             
             import subprocess
             import os
@@ -275,10 +353,10 @@ class NavigationHandler:
                 os.startfile(web_url)
             elif xbmc.getCondVisibility('System.Platform.OSX'):
                 # macOS platform
-                subprocess.Popen(['open', web_url])
+                subprocess.Popen(['open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Linux'):
                 # Linux platform
-                subprocess.Popen(['xdg-open', web_url])
+                subprocess.Popen(['xdg-open', web_url], shell=False)
             elif xbmc.getCondVisibility('System.Platform.Android'):
                 # Android platform
                 xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{web_url}")')
@@ -412,10 +490,11 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error during logout: {e}", xbmc.LOGERROR)
 
-    def sync_locally(self):
+    def _check_omdb_api_key(self):
         """
-        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
-        This allows the films to be imported into Kodi's standard media library.
+        Check if OMDb API key is configured and handle missing key scenario.
+
+        :return: OMDb API key if present, None if missing or user cancels
         """
         try:
             # Retrieve the OMDb API key from the settings
@@ -436,7 +515,23 @@ class NavigationHandler:
 
                 if ret:  # If the user clicks 'Go to Settings'
                     self.plugin.openSettings()  # Opens the settings for the user to add the OMDb API key
-                return  # Exit the function if the OMDb API key is missing or the user cancels
+                return None  # Return None if the OMDb API key is missing or the user cancels
+
+            return omdb_api_key
+        except Exception as e:
+            xbmc.log(f"Error during OMDb API key check: {e}", xbmc.LOGERROR)
+            return None
+
+    def sync_locally(self):
+        """
+        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        This allows the films to be imported into Kodi's standard media library.
+        """
+        try:
+            # Check OMDb API key
+            omdb_api_key = self._check_omdb_api_key()
+            if not omdb_api_key:
+                return  # Exit if no API key
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()

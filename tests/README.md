@@ -21,8 +21,8 @@ This directory contains comprehensive tests for the MUBI Kodi plugin. The test s
 - `conftest.py` - Pytest configuration with fixtures and mocks for Kodi environment
 - `pytest.ini` - Pytest configuration settings
 - `requirements-test.txt` - Test dependencies
-- `run_tests.py` - Test runner script with various options
-- `Makefile` - Convenient make targets for testing
+
+
 
 ## Running Tests
 
@@ -33,10 +33,7 @@ Install test dependencies:
 pip install -r requirements-dev.txt
 ```
 
-Or use the make target:
-```bash
-make install
-```
+
 
 ### Basic Test Execution
 
@@ -45,39 +42,28 @@ Run all tests:
 pytest tests/
 ```
 
-Or use make:
-```bash
-make test
-```
+
 
 ### Test Options
 
 #### Verbose Output
 ```bash
 pytest tests/ -v
-# or
-make test-verbose
 ```
 
 #### Coverage Report
 ```bash
-pytest tests/ --cov=resources --cov=addon --cov-report=html --cov-report=term-missing
-# or
-make test-coverage
+pytest tests/ --cov=resources --cov-report=term-missing --cov-fail-under=65
 ```
 
 #### Parallel Execution
 ```bash
 pytest tests/ -n auto
-# or
-make test-parallel
 ```
 
 #### Specific Test File
 ```bash
 pytest tests/test_film.py -v
-# or
-make test-film
 ```
 
 #### Specific Test Function
@@ -85,25 +71,26 @@ make test-film
 pytest tests/ -k "test_film_initialization" -v
 ```
 
-### Using the Test Runner Script
+### Additional Testing Options
 
-The `run_tests.py` script provides additional options:
-
+#### Code Formatting
 ```bash
-# Install dependencies and run tests with coverage
-python run_tests.py --install-deps --coverage
+python -m black resources/ tests/ addon.py
+python -m isort resources/ tests/ addon.py
+```
 
-# Run tests with linting
-python run_tests.py --lint --test
+#### Linting
+```bash
+python -m flake8 resources/ tests/ addon.py
+```
 
-# Format code and run tests
-python run_tests.py --format --test
-
-# Run specific test file
-python run_tests.py --test-file test_film.py
-
-# Run tests in parallel
-python run_tests.py --parallel 4
+#### Combined Workflow
+```bash
+# Format, lint, and test with coverage
+python -m black resources/ tests/ addon.py && \
+python -m isort resources/ tests/ addon.py && \
+python -m flake8 resources/ tests/ addon.py && \
+python -m pytest tests/ --cov=resources --cov-report=term-missing --cov-fail-under=65
 ```
 
 ## Test Coverage
@@ -183,8 +170,7 @@ The repository includes `.github/workflows/test.yml` which automatically:
 - **Triggers on**: Pull requests and pushes to main/master branches
 - **Tests multiple Python versions**: 3.8, 3.9, 3.10, 3.11
 - **Runs full test suite** with verbose output
-- **Generates coverage reports** in XML and HTML formats
-- **Uploads coverage to Codecov** for tracking
+- **Validates coverage** with minimum 65% requirement
 
 ### Workflow Features
 
@@ -201,8 +187,8 @@ strategy:
   matrix:
     python-version: [3.8, 3.9, '3.10', '3.11']
 
-# Coverage reporting
-pytest tests/ --cov=resources --cov-report=xml --cov-report=html
+# Coverage validation
+pytest tests/ --cov=resources --cov-report=term-missing --cov-fail-under=65
 ```
 
 ### Local CI Simulation
@@ -214,7 +200,7 @@ To run the same tests locally as CI:
 pip install -r requirements-dev.txt
 
 # Run tests with coverage (same as CI)
-pytest tests/ -v --tb=short --cov=resources --cov-report=xml --cov-report=html
+pytest tests/ -v --tb=short --cov=resources --cov-report=term-missing --cov-fail-under=65
 ```
 
 ## Troubleshooting
