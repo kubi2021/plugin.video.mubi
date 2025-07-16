@@ -83,7 +83,22 @@ class Film:
         # First sanitize the title to remove problematic characters including trailing periods
         sanitized_title = self._sanitize_filename(self.title)
         year = self.metadata.year if self.metadata.year else "Unknown"
-        return f"{sanitized_title} ({year})"
+        folder_name = f"{sanitized_title} ({year})"
+
+        # Enforce length limit on the final folder name
+        max_length = 255
+        if len(folder_name) > max_length:
+            # Calculate how much space we need for " (year)"
+            year_suffix = f" ({year})"
+            available_length = max_length - len(year_suffix)
+            if available_length > 0:
+                sanitized_title = sanitized_title[:available_length].rstrip()
+                folder_name = f"{sanitized_title} ({year})"
+            else:
+                # If even the year suffix is too long, just truncate everything
+                folder_name = folder_name[:max_length]
+
+        return folder_name
 
 
     def create_strm_file(self, film_path: Path, base_url: str):
