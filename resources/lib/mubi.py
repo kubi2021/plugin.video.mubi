@@ -51,6 +51,81 @@ class Mubi:
         self.session_manager = session_manager  # Use session manager for session-related data
         self.library = Library()  # Initialize the Library
 
+    def _sanitize_headers_for_logging(self, headers):
+        """
+        Sanitize headers for safe logging by masking sensitive information.
+
+        :param headers: Dictionary of headers to sanitize
+        :return: Dictionary with sensitive headers masked
+        """
+        if not headers:
+            return headers
+
+        # List of sensitive header names (case-insensitive)
+        sensitive_headers = {
+            'authorization', 'x-api-key', 'x-auth-token', 'cookie',
+            'set-cookie', 'x-csrf-token', 'x-access-token', 'token'
+        }
+
+        sanitized = {}
+        for key, value in headers.items():
+            if key.lower() in sensitive_headers:
+                sanitized[key] = '***REDACTED***'
+            else:
+                sanitized[key] = value
+
+        return sanitized
+
+    def _sanitize_params_for_logging(self, params):
+        """
+        Sanitize URL parameters for safe logging by masking sensitive information.
+
+        :param params: Dictionary of parameters to sanitize
+        :return: Dictionary with sensitive parameters masked
+        """
+        if not params:
+            return params
+
+        # List of sensitive parameter names (case-insensitive)
+        sensitive_params = {
+            'api_key', 'token', 'password', 'secret', 'auth', 'authorization',
+            'access_token', 'refresh_token', 'session_id', 'csrf_token'
+        }
+
+        sanitized = {}
+        for key, value in params.items():
+            if key.lower() in sensitive_params:
+                sanitized[key] = '***REDACTED***'
+            else:
+                sanitized[key] = value
+
+        return sanitized
+
+    def _sanitize_json_for_logging(self, json_data):
+        """
+        Sanitize JSON data for safe logging by masking sensitive information.
+
+        :param json_data: Dictionary of JSON data to sanitize
+        :return: Dictionary with sensitive fields masked
+        """
+        if not json_data:
+            return json_data
+
+        # List of sensitive field names (case-insensitive)
+        sensitive_fields = {
+            'password', 'api_key', 'token', 'secret', 'auth', 'authorization',
+            'access_token', 'refresh_token', 'session_id', 'csrf_token'
+        }
+
+        sanitized = {}
+        for key, value in json_data.items():
+            if key.lower() in sensitive_fields:
+                sanitized[key] = '***REDACTED***'
+            else:
+                sanitized[key] = value
+
+        return sanitized
+
     def _make_api_call(self, method, endpoint=None, full_url=None, headers=None, params=None, data=None, json=None):
         url = full_url if full_url else f"{self.apiURL}{endpoint}"
 
