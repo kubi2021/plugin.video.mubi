@@ -50,3 +50,6 @@ env*/
 htmlcov/
 .pytest_cache/
 .tox/
+
+# Augment AI assistant files
+.augment/

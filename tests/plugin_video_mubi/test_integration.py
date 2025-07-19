@@ -11,12 +11,12 @@ import json
 
 
 # Import real components (not mocked)
-from resources.lib.session_manager import SessionManager
-from resources.lib.library import Library
-from resources.lib.film import Film
-from resources.lib.metadata import Metadata
-from resources.lib.navigation_handler import NavigationHandler
-from resources.lib.mubi import Mubi
+from plugin_video_mubi.resources.lib.session_manager import SessionManager
+from plugin_video_mubi.resources.lib.library import Library
+from plugin_video_mubi.resources.lib.film import Film
+from plugin_video_mubi.resources.lib.metadata import Metadata
+from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+from plugin_video_mubi.resources.lib.mubi import Mubi
 
 
 @pytest.mark.integration
@@ -293,7 +293,7 @@ class TestWorkflowIntegration:
         setup['addon'].getSettingBool.return_value = False  # first_run_completed = false
 
         # Test first run detection
-        from resources.lib.migrations import is_first_run
+        from plugin_video_mubi.resources.lib.migrations import is_first_run
         assert is_first_run(setup['addon']) is True
         
         # Test device ID generation during first run

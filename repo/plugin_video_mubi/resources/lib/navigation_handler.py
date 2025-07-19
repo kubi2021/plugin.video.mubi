@@ -6,8 +6,8 @@ import webbrowser
 from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
-from resources.lib.library import Library
-from resources.lib.playback import play_with_inputstream_adaptive
+from .library import Library
+from .playback import play_with_inputstream_adaptive
 
 class LibraryMonitor(xbmc.Monitor):
     def __init__(self):

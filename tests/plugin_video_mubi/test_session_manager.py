@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from resources.lib.session_manager import SessionManager
+from plugin_video_mubi.resources.lib.session_manager import SessionManager
 
 
 class TestSessionManager:

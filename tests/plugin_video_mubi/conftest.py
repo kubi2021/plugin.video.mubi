@@ -3,6 +3,10 @@ import pytest
 from unittest.mock import MagicMock, Mock
 from pathlib import Path
 
+# Add the repo directory to Python path so we can import from repo.plugin.video.mubi
+repo_path = Path(__file__).parent.parent.parent / "repo"
+sys.path.insert(0, str(repo_path))
+
 # Mock external dependencies before any imports
 requests_mock = MagicMock()
 

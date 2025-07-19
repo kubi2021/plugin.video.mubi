@@ -4,8 +4,8 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 import xml.etree.ElementTree as ET
 import requests
-from resources.lib.film import Film
-from resources.lib.metadata import Metadata
+from plugin_video_mubi.resources.lib.film import Film
+from plugin_video_mubi.resources.lib.metadata import Metadata
 
 
 class TestFilm:
@@ -96,7 +96,7 @@ class TestFilm:
         sanitized2 = film2.get_sanitized_folder_name()
         assert sanitized2 == "Normal Movie (2023)"
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_success(self, mock_get, mock_metadata):
         """Test successful IMDB URL retrieval."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
@@ -118,7 +118,7 @@ class TestFilm:
         call_args = mock_get.call_args
         assert "fake_api_key" in call_args[1]['params']['apikey']
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_not_found(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval when movie not found."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
@@ -132,7 +132,7 @@ class TestFilm:
         imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
         assert imdb_url == ""
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_api_error(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with API error."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
@@ -146,7 +146,7 @@ class TestFilm:
         imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
         assert imdb_url == ""
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_http_errors(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with various HTTP errors."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
@@ -176,7 +176,7 @@ class TestFilm:
         imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
         assert imdb_url == ""
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_alternative_titles(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with alternative title generation."""
         film = Film("123", "Test Movie and Friends", "", "", "Drama", mock_metadata)
@@ -258,7 +258,7 @@ class TestFilm:
         mock_response.status_code = 200
         assert film._is_unauthorized_request(mock_response) == False
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_make_omdb_request_success(self, mock_get, mock_metadata):
         """Test successful OMDB request."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
@@ -273,7 +273,7 @@ class TestFilm:
         assert result == {'Response': 'True', 'imdbID': 'tt123'}
         mock_get.assert_called_once()
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_make_omdb_request_error(self, mock_get, mock_metadata):
         """Test OMDB request with error."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
@@ -328,7 +328,7 @@ class TestFilm:
             assert base_url in content
             assert film.mubi_id in content
 
-    @patch('resources.lib.film.time.sleep')
+    @patch('plugin_video_mubi.resources.lib.film.time.sleep')
     @patch.object(Film, '_get_imdb_url')
     def test_create_nfo_file_success(self, mock_get_imdb, mock_sleep, mock_metadata):
         """Test successful NFO file creation."""
@@ -386,7 +386,7 @@ class TestFilm:
             content = nfo_file.read_text()
             assert "<imdb>" not in content or "<imdb></imdb>" in content
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_401_error_with_retry(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with 401 error and retry logic."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
@@ -404,7 +404,7 @@ class TestFilm:
             result = film._get_imdb_url("Test Movie", "Test Movie", 2023, "test_api_key")
             assert result == ""
 
-    @patch('resources.lib.film.requests.get')
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_request_exception(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with request exception."""
         film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)

@@ -1,8 +1,8 @@
 import tempfile
 from unittest.mock import Mock, patch, call
 from pathlib import Path
-from resources.lib.film import Film
-from resources.lib.library import Library
+from plugin_video_mubi.resources.lib.film import Film
+from plugin_video_mubi.resources.lib.library import Library
 import pytest
 import os
 

@@ -22,13 +22,13 @@ class TestAddon:
     @pytest.fixture
     def mock_dependencies(self):
         """Fixture to mock all addon dependencies."""
-        with patch('resources.lib.session_manager.SessionManager') as mock_session_manager, \
-             patch('resources.lib.navigation_handler.NavigationHandler') as mock_nav_handler, \
-             patch('resources.lib.mubi.Mubi') as mock_mubi, \
+        with patch('plugin_video_mubi.resources.lib.session_manager.SessionManager') as mock_session_manager, \
+             patch('plugin_video_mubi.resources.lib.navigation_handler.NavigationHandler') as mock_nav_handler, \
+             patch('plugin_video_mubi.resources.lib.mubi.Mubi') as mock_mubi, \
              patch('xbmcaddon.Addon') as mock_addon, \
-             patch('resources.lib.migrations.is_first_run') as mock_is_first_run, \
-             patch('resources.lib.migrations.add_mubi_source') as mock_add_source, \
-             patch('resources.lib.migrations.mark_first_run') as mock_mark_first_run, \
+             patch('plugin_video_mubi.resources.lib.migrations.is_first_run') as mock_is_first_run, \
+             patch('plugin_video_mubi.resources.lib.migrations.add_mubi_source') as mock_add_source, \
+             patch('plugin_video_mubi.resources.lib.migrations.mark_first_run') as mock_mark_first_run, \
              patch('xbmc.log') as mock_log:
             
             # Setup mock returns

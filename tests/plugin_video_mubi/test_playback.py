@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 import base64
 import json
-from resources.lib.playback import generate_drm_license_key, play_with_inputstream_adaptive
+from plugin_video_mubi.resources.lib.playback import generate_drm_license_key, play_with_inputstream_adaptive
 
 
 class TestPlayback:

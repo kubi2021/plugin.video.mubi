@@ -2,8 +2,8 @@ import pytest
 import requests
 from unittest.mock import Mock, patch, MagicMock
 import json
-from resources.lib.mubi import Mubi
-from resources.lib.library import Library
+from plugin_video_mubi.resources.lib.mubi import Mubi
+from plugin_video_mubi.resources.lib.library import Library
 
 
 class TestMubi:
@@ -223,8 +223,8 @@ class TestMubi:
         ]
 
         # Mock film metadata with proper Film objects
-        from resources.lib.film import Film
-        from resources.lib.metadata import Metadata
+        from plugin_video_mubi.resources.lib.film import Film
+        from plugin_video_mubi.resources.lib.metadata import Metadata
 
         metadata1 = Metadata(
             title="Movie 1",
@@ -494,7 +494,7 @@ class TestMubi:
         }
 
         with patch.object(mubi_instance, '_make_api_call', side_effect=[viewing_response, preroll_response, secure_response]):
-            with patch('resources.lib.mubi.generate_drm_license_key', return_value="license-key"):
+            with patch('plugin_video_mubi.resources.lib.mubi.generate_drm_license_key', return_value="license-key"):
                 result = mubi_instance.get_secure_stream_info("12345")
 
                 assert "stream_url" in result

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import xml.etree.ElementTree as ET
-from resources.lib.migrations import (
+from plugin_video_mubi.resources.lib.migrations import (
     add_mubi_source, read_xml, write_xml, show_source_added_message,
     is_first_run, mark_first_run
 )
@@ -24,7 +24,7 @@ class TestMigrations:
 
     @patch('xbmcvfs.translatePath')
     @patch('xbmcvfs.exists')
-    @patch('resources.lib.migrations.read_xml')
+    @patch('plugin_video_mubi.resources.lib.migrations.read_xml')
     @patch('xbmc.log')
     def test_add_mubi_source_existing_source(self, mock_log, mock_read_xml, 
                                            mock_exists, mock_translate_path):
@@ -61,7 +61,7 @@ class TestMigrations:
         mock_log.assert_called()
 
     @patch('xbmcvfs.translatePath')
-    @patch('resources.lib.migrations.read_xml')
+    @patch('plugin_video_mubi.resources.lib.migrations.read_xml')
     @patch('xbmc.log')
     def test_add_mubi_source_read_xml_failure(self, mock_log, mock_read_xml, mock_translate_path):
         """Test adding MUBI source when XML reading fails."""
@@ -276,8 +276,8 @@ class TestMigrations:
 
     # Additional tests for better coverage
     @patch('xbmcvfs.translatePath')
-    @patch('resources.lib.migrations.read_xml')
-    @patch('resources.lib.migrations.write_xml')
+    @patch('plugin_video_mubi.resources.lib.migrations.read_xml')
+    @patch('plugin_video_mubi.resources.lib.migrations.write_xml')
     def test_add_mubi_source_xml_write_failure(self, mock_write_xml, mock_read_xml, mock_translate_path):
         """Test adding MUBI source when XML writing fails."""
         mock_translate_path.return_value = '/fake/path/sources.xml'

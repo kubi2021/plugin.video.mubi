@@ -80,9 +80,9 @@ class TestAddonEntryPoint:
             ]
 
             # Create real components
-            from resources.lib.session_manager import SessionManager
-            from resources.lib.navigation_handler import NavigationHandler
-            from resources.lib.mubi import Mubi
+            from plugin_video_mubi.resources.lib.session_manager import SessionManager
+            from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+            from plugin_video_mubi.resources.lib.mubi import Mubi
 
             session = SessionManager(mocks['addon'])
             mubi = Mubi(session)
@@ -101,9 +101,9 @@ class TestAddonEntryPoint:
             mocks['set_content'].assert_called_with(123, "videos")
             mocks['end_dir'].assert_called_with(123)
 
-    @patch('resources.lib.migrations.is_first_run')
-    @patch('resources.lib.migrations.add_mubi_source')
-    @patch('resources.lib.migrations.mark_first_run')
+    @patch('plugin_video_mubi.resources.lib.migrations.is_first_run')
+    @patch('plugin_video_mubi.resources.lib.migrations.add_mubi_source')
+    @patch('plugin_video_mubi.resources.lib.migrations.mark_first_run')
     def test_addon_first_run_e2e(self, mock_mark_first_run, mock_add_source,
                                  mock_is_first_run, mock_kodi_environment):
         """Test complete first run flow simulation."""
@@ -113,7 +113,7 @@ class TestAddonEntryPoint:
         mock_is_first_run.return_value = True
 
         # Simulate first run workflow
-        from resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
 
         session = SessionManager(mocks['addon'])
 
@@ -142,9 +142,9 @@ class TestAddonEntryPoint:
         assert request_info['handle'] == 123
 
         # Test that we can create the navigation handler and call list_categories
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         session = SessionManager(mocks['addon'])
         mubi = Mubi(session)
@@ -180,9 +180,9 @@ class TestAddonEntryPoint:
         assert request_info['params']['web_url'] == 'http://example.com/movie'
 
         # Test play video functionality
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         session = SessionManager(mocks['addon'])
         mubi = Mubi(session)
@@ -236,9 +236,9 @@ class TestAddonEntryPoint:
         assert request_info['action'] == 'sync_locally'
 
         # Test sync functionality
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         session = SessionManager(mocks['addon'])
         mubi = Mubi(session)
@@ -290,23 +290,23 @@ class TestCompleteUserJourneys:
             mock_translate.return_value = str(paths['films_path'])
             
             # Step 1: First Run Detection
-            from resources.lib.migrations import is_first_run
+            from plugin_video_mubi.resources.lib.migrations import is_first_run
             assert is_first_run(mock_addon) is True
             
             # Step 2: Session Manager Creation
-            from resources.lib.session_manager import SessionManager
+            from plugin_video_mubi.resources.lib.session_manager import SessionManager
             session = SessionManager(mock_addon)
             device_id = session.get_or_generate_device_id()
             assert device_id is not None
             
             # Step 3: Mubi API Initialization
-            from resources.lib.mubi import Mubi
+            from plugin_video_mubi.resources.lib.mubi import Mubi
             mubi = Mubi(session)
             assert len(mubi.library) == 0
             
             # Step 4: Add Sample Film
-            from resources.lib.film import Film
-            from resources.lib.metadata import Metadata
+            from plugin_video_mubi.resources.lib.film import Film
+            from plugin_video_mubi.resources.lib.metadata import Metadata
 
             metadata = Metadata(
                 title="Journey Test Movie",
@@ -357,7 +357,7 @@ class TestCompleteUserJourneys:
                 assert expected_folder.exists()
                 
             # Step 6: Mark First Run Complete
-            from resources.lib.migrations import mark_first_run
+            from plugin_video_mubi.resources.lib.migrations import mark_first_run
             mark_first_run(mock_addon)
             mock_addon.setSettingBool.assert_called_with('first_run_completed', True)
 
@@ -373,22 +373,22 @@ class TestCompleteUserJourneys:
             mock_addon_class.return_value = mock_addon
             
             # Session should have existing data
-            from resources.lib.session_manager import SessionManager
+            from plugin_video_mubi.resources.lib.session_manager import SessionManager
             session = SessionManager(mock_addon)
             session.token = "existing_token"
             session.is_logged_in = True
             
             # Verify returning user state
-            from resources.lib.migrations import is_first_run
+            from plugin_video_mubi.resources.lib.migrations import is_first_run
             assert is_first_run(mock_addon) is False
             
             # Library operations should work normally
-            from resources.lib.mubi import Mubi
+            from plugin_video_mubi.resources.lib.mubi import Mubi
             mubi = Mubi(session)
             
             # Should be able to add films to existing library
-            from resources.lib.film import Film
-            from resources.lib.metadata import Metadata
+            from plugin_video_mubi.resources.lib.film import Film
+            from plugin_video_mubi.resources.lib.metadata import Metadata
 
             metadata = Metadata(
                 title="Returning User Movie",
@@ -419,7 +419,7 @@ class TestCompleteUserJourneys:
             # Test session manager with addon errors
             mock_addon.getSetting.side_effect = Exception("Addon error")
             
-            from resources.lib.session_manager import SessionManager
+            from plugin_video_mubi.resources.lib.session_manager import SessionManager
             session = SessionManager(mock_addon)
             
             # Should handle errors gracefully
@@ -428,7 +428,7 @@ class TestCompleteUserJourneys:
             assert device_id is not None or mock_log.called
             
             # Test library operations with filesystem errors
-            from resources.lib.library import Library
+            from plugin_video_mubi.resources.lib.library import Library
             library = Library()
             
             # Should handle missing directories gracefully
