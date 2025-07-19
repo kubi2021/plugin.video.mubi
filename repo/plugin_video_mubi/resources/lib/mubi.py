@@ -25,10 +25,10 @@ import threading
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from resources.lib.metadata import Metadata
-from resources.lib.film import Film
-from resources.lib.library import Library
-from resources.lib.playback import generate_drm_license_key
+from .metadata import Metadata
+from .film import Film
+from .library import Library
+from .playback import generate_drm_license_key
 
 
 class Mubi:

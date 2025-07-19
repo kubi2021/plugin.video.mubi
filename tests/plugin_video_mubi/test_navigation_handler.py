@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
-from resources.lib.navigation_handler import NavigationHandler
+from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
 
 
 class TestNavigationHandler:
@@ -386,12 +386,12 @@ class TestNavigationHandler:
         
         with patch('xbmcvfs.translatePath', return_value="/fake/path"):
             with patch('xbmcgui.Dialog') as mock_notification:
-                with patch('resources.lib.navigation_handler.Library') as mock_library_class:
+                with patch('plugin_video_mubi.resources.lib.navigation_handler.Library') as mock_library_class:
                     mock_library_instance = Mock()
                     mock_library_class.return_value = mock_library_instance
                     with patch.object(navigation_handler, 'clean_kodi_library'):
                         with patch.object(navigation_handler, 'update_kodi_library'):
-                            with patch('resources.lib.navigation_handler.LibraryMonitor'):
+                            with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
                                 navigation_handler.sync_locally()
         
         mock_mubi.get_film_groups.assert_called_once()

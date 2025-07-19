@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.mubi" name="MUBI Repository" version="1.0.0" provider-name="tbd">
+    <extension point="xbmc.addon.repository" name="MUBI Repository">
+        <dir>
+            <info compressed="false">https://raw.githubusercontent.com/YOUR_USERNAME_HERE/plugin.video.mubi/main/repo/zips/addons.xml</info>
+            <checksum>https://raw.githubusercontent.com/YOUR_USERNAME_HERE/plugin.video.mubi/main/repo/zips/addons.xml.md5</checksum>
+            <datadir zip="true">https://raw.githubusercontent.com/YOUR_USERNAME_HERE/plugin.video.mubi/main/repo/zips/</datadir>
+        </dir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>MUBI Repository</summary>
+        <description>Repository for MUBI Kodi add-on</description>
+        <disclaimer></disclaimer>
+        <platform>all</platform>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon>

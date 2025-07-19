@@ -78,9 +78,9 @@ class TestKodiPluginResponses:
         action_param = parsed_params.get("action")
 
         # Import the required modules
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         # Create mocked instances
         with patch('xbmcaddon.Addon') as mock_addon_class:
@@ -143,9 +143,9 @@ class TestKodiPluginResponses:
     def test_sync_locally_action_response(self, mock_kodi_environment):
         """Test that sync_locally action executes successfully."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -175,9 +175,9 @@ class TestKodiPluginResponses:
     def test_sync_locally_action_error_response(self, mock_kodi_environment):
         """Test that sync_locally action handles errors properly."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -208,9 +208,9 @@ class TestKodiPluginResponses:
     def test_log_in_action_response(self, mock_kodi_environment):
         """Test that log_in action executes successfully."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -240,9 +240,9 @@ class TestKodiPluginResponses:
     def test_log_out_action_response(self, mock_kodi_environment):
         """Test that log_out action executes successfully."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -272,9 +272,9 @@ class TestKodiPluginResponses:
     def test_play_ext_action_response(self, mock_kodi_environment):
         """Test that play_ext action executes successfully."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -304,9 +304,9 @@ class TestKodiPluginResponses:
     def test_play_trailer_action_response(self, mock_kodi_environment):
         """Test that play_trailer action executes successfully."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -337,7 +337,7 @@ class TestKodiPluginResponses:
         """Test that play_mubi_video action doesn't call endOfDirectory on success."""
         mocks = mock_kodi_environment
         
-        with patch('resources.lib.navigation_handler.NavigationHandler') as mock_nav_class:
+        with patch('plugin_video_mubi.resources.lib.navigation_handler.NavigationHandler') as mock_nav_class:
             mock_nav = Mock()
             mock_nav_class.return_value = mock_nav
             mock_nav.play_mubi_video.return_value = None  # Success
@@ -356,9 +356,9 @@ class TestKodiPluginResponses:
     def test_play_mubi_video_error_response(self, mock_kodi_environment):
         """Test that play_mubi_video action handles errors properly."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -397,7 +397,7 @@ class TestKodiPluginResponses:
         ]
         
         for action, params in directory_actions:
-            with patch('resources.lib.navigation_handler.NavigationHandler') as mock_nav_class:
+            with patch('plugin_video_mubi.resources.lib.navigation_handler.NavigationHandler') as mock_nav_class:
                 mock_nav = Mock()
                 mock_nav_class.return_value = mock_nav
                 
@@ -434,7 +434,7 @@ class TestDirectoryHandling:
 
     def test_folder_name_consistency(self, mock_metadata):
         """Test that folder names are consistent between creation and access."""
-        from resources.lib.film import Film
+        from plugin_video_mubi.resources.lib.film import Film
 
         # Test various titles that could cause issues
         test_cases = [
@@ -498,7 +498,7 @@ class TestDirectoryHandling:
 
     def test_folder_creation_and_access_consistency(self, mock_metadata):
         """Test that created folders can be accessed with the same path."""
-        from resources.lib.film import Film
+        from plugin_video_mubi.resources.lib.film import Film
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -531,7 +531,7 @@ class TestDirectoryHandling:
 
     def test_nfo_and_strm_file_naming_consistency(self, mock_metadata):
         """Test that NFO and STRM files use consistent naming."""
-        from resources.lib.film import Film
+        from plugin_video_mubi.resources.lib.film import Film
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -567,7 +567,7 @@ class TestDirectoryHandling:
 
     def test_dangerous_characters_are_sanitized(self, mock_metadata):
         """Test that dangerous characters are properly sanitized from folder names."""
-        from resources.lib.film import Film
+        from plugin_video_mubi.resources.lib.film import Film
 
         dangerous_titles = [
             "Movie; rm -rf /",  # Command injection
@@ -603,7 +603,7 @@ class TestDirectoryHandling:
 
     def test_windows_reserved_filenames_handled(self, mock_metadata):
         """Test that Windows reserved filenames are properly handled."""
-        from resources.lib.film import Film
+        from plugin_video_mubi.resources.lib.film import Film
 
         # Windows reserved names that should be modified
         reserved_names_tests = [
@@ -640,9 +640,9 @@ class TestPluginErrorHandling:
     def test_all_actions_handle_exceptions_gracefully(self):
         """Test that all plugin actions handle exceptions gracefully."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         # Actions that should handle errors gracefully
         action_error_tests = [
@@ -700,9 +700,9 @@ class TestPluginErrorHandling:
 
     def test_play_mubi_video_error_handling(self):
         """Test that play_mubi_video handles errors gracefully."""
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -733,9 +733,9 @@ class TestPluginErrorHandling:
     def test_missing_parameters_handled_gracefully(self):
         """Test that actions handle missing required parameters gracefully."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         # Test actions with missing required parameters
         missing_param_tests = [
@@ -786,9 +786,9 @@ class TestKodiPluginCompliance:
     def test_all_actions_execute_without_crashing(self):
         """Test that every plugin action executes without crashing."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         # List all possible actions from the addon
         actions_to_test = [
@@ -858,9 +858,9 @@ class TestParameterHandling:
     def test_url_parameter_decoding(self):
         """Test that URL parameters are properly decoded."""
         from urllib.parse import parse_qsl, unquote_plus
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         with patch('xbmcaddon.Addon') as mock_addon_class:
             mock_plugin = Mock()
@@ -894,9 +894,9 @@ class TestParameterHandling:
     def test_missing_parameters_handled_gracefully(self):
         """Test that missing parameters don't cause crashes."""
         from urllib.parse import parse_qsl
-        from resources.lib.session_manager import SessionManager
-        from resources.lib.navigation_handler import NavigationHandler
-        from resources.lib.mubi import Mubi
+        from plugin_video_mubi.resources.lib.session_manager import SessionManager
+        from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+        from plugin_video_mubi.resources.lib.mubi import Mubi
 
         actions_with_params = [
             ("listing", "list_videos"),

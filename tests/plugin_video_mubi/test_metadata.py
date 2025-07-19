@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from resources.lib.metadata import Metadata
+from plugin_video_mubi.resources.lib.metadata import Metadata
 
 
 class TestMetadata:

@@ -20,13 +20,13 @@ from unittest.mock import Mock, patch, MagicMock
 from urllib.parse import quote, unquote_plus
 
 # Import the modules we want to test
-from resources.lib.navigation_handler import NavigationHandler
-from resources.lib.mubi import Mubi
-from resources.lib.session_manager import SessionManager
-from resources.lib.film import Film
-from resources.lib.metadata import Metadata
-from resources.lib.library import Library
-from resources.lib.migrations import read_xml, write_xml
+from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+from plugin_video_mubi.resources.lib.mubi import Mubi
+from plugin_video_mubi.resources.lib.session_manager import SessionManager
+from plugin_video_mubi.resources.lib.film import Film
+from plugin_video_mubi.resources.lib.metadata import Metadata
+from plugin_video_mubi.resources.lib.library import Library
+from plugin_video_mubi.resources.lib.migrations import read_xml, write_xml
 
 
 class SecurityTestFixtures:

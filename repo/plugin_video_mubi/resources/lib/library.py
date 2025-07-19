@@ -2,7 +2,7 @@ from pathlib import Path
 import xbmc
 import xbmcgui
 import xbmcaddon
-from resources.lib.film import Film
+from .film import Film
 from typing import List, Optional, Tuple
 import os
 import shutil
