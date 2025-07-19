@@ -1,9 +1,10 @@
 [run]
-source = resources
-omit = 
+source = repo/plugin_video_mubi
+omit =
     */tests/*
     */test_*
     */__init__.py
+    */repo/repository_kubi2021/*
 
 [report]
 # Regexes for lines to exclude from consideration
