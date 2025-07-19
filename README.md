@@ -37,7 +37,7 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 
 ### Option 2: Download Repository Zip 📦
 
-1. **Download the repository**: Get the latest `repository.kubi2021-*.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases) or [directly here](https://kubi2021.github.io/plugin.video.mubi/repository.kubi2021-2.zip)
+1. **Download the repository**: Get the latest `repository.kubi2021-*.zip` from [here](https://kubi2021.github.io/plugin.video.mubi/repository.kubi2021-2.zip)
 2. **Install the repository**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded repository zip file
 3. **Install the MUBI add-on**: Go to **Add-ons > Install from repository > MUBI Repository > Video add-ons > MUBI** and click Install
 4. **Automatic updates**: Future updates will be automatically available through the repository
