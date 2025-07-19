@@ -52,7 +52,8 @@ jobs:
     - name: Update plugin addon.xml with new version
       run: |
         NEW_VERSION=${{ steps.new_version.outputs.new_version }}
-        sed -i "s/version=\"[^\"]*\"/version=\"$NEW_VERSION\"/" repo/plugin_video_mubi/addon.xml
+        # Only update the addon version, not dependency versions
+        sed -i "s/<addon id=\"plugin.video.mubi\" name=\"MUBI\" version=\"[^\"]*\"/<addon id=\"plugin.video.mubi\" name=\"MUBI\" version=\"$NEW_VERSION\"/" repo/plugin_video_mubi/addon.xml
         echo "Updated plugin version to $NEW_VERSION"
 
     - name: Update news section with PR title
