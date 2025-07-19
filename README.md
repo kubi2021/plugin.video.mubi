@@ -1,6 +1,6 @@
 # MUBI Addon for Kodi 🎥🚀
 
-![Tests](https://github.com/YOUR_USERNAME/plugin.video.mubi/workflows/Run%20Tests/badge.svg)
+![Tests](https://github.com/kubi2021/plugin.video.mubi/workflows/Run%20Tests/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-70%25-yellow)
 ![GitHub branch protection](https://img.shields.io/badge/branch%20protection-enabled-green)
 
@@ -29,15 +29,15 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 
 ### Option 1: Install from Repository (Recommended) 📦
 
-1. **Download the repository**: Get the latest `repository.kubi2021-2.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases) or directly from [here](https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/main/repository.kubi2021-2.zip)
-2. **Install the repository**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded `repository.kubi2021-2.zip`
+1. **Download the repository**: Get the latest `repository.kubi2021-*.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases)
+2. **Install the repository**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded repository zip file
 3. **Install the MUBI add-on**: Go to **Add-ons > Install from repository > MUBI Repository > Video add-ons > MUBI** and click Install
 4. **Automatic updates**: Future updates will be automatically available through the repository
 
 ### Option 2: Manual Installation 🔧
 
-1. **Download the add-on**: Get the latest `plugin.video.mubi-2.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases) or directly from [here](https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/main/repo/zips/plugin.video.mubi/plugin.video.mubi-2.zip)
-2. **Install from zip**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded `plugin.video.mubi-2.zip`
+1. **Download the add-on**: Get the latest `plugin.video.mubi-*.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases)
+2. **Install from zip**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded add-on zip file
 3. **Manual updates**: You'll need to manually download and install new versions
 
 ### Requirements ⚙️
@@ -66,6 +66,9 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 Whenever you want to **update** the local database, run the **sync** process again. The Kodi library will be automatically updated and cleaned (movies that are no longer available in Mubi will be removed from Kodi)
 
 ## Changelog
+
+### Version 2 - Jan 19th, 2025
+- Converted project to proper Kodi repository with automated zip generation
 
 ### Jul 14th, 2025
 - Enhanced Audio Support: Added support for 5.1 surround sound (Enhanced AC-3) by declaring support for additional audio codecs (eac3, ac3, dts) in API requests
