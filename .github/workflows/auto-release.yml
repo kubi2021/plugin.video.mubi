@@ -1,6 +1,7 @@
 name: Auto Release Plugin Update
 
 on:
+  workflow_dispatch:  # Manual trigger for testing
   pull_request:
     types: [closed]
     branches: [main]
@@ -25,7 +26,18 @@ jobs:
     - name: Get current plugin version
       id: current_version
       run: |
-        CURRENT_VERSION=$(grep -o 'version="[^"]*"' repo/plugin_video_mubi/addon.xml | cut -d'"' -f2)
+        echo "Extracting version from addon.xml..."
+        ADDON_LINE=$(grep '^<addon' repo/plugin_video_mubi/addon.xml)
+        echo "Addon line: $ADDON_LINE"
+        CURRENT_VERSION=$(echo "$ADDON_LINE" | grep -o 'version="[^"]*"' | cut -d'"' -f2)
+        echo "Extracted version: $CURRENT_VERSION"
+
+        # Validate version is a number
+        if ! [[ "$CURRENT_VERSION" =~ ^[0-9]+$ ]]; then
+          echo "Error: Version '$CURRENT_VERSION' is not a valid integer"
+          exit 1
+        fi
+
         echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
         echo "Current version: $CURRENT_VERSION"
 
