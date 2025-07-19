@@ -1,0 +1,126 @@
+name: Auto Release Plugin Update
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  auto-release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Get current plugin version
+      id: current_version
+      run: |
+        CURRENT_VERSION=$(grep -o 'version="[^"]*"' repo/plugin_video_mubi/addon.xml | cut -d'"' -f2)
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $CURRENT_VERSION"
+
+    - name: Increment plugin version
+      id: new_version
+      run: |
+        CURRENT_VERSION=${{ steps.current_version.outputs.current_version }}
+        NEW_VERSION=$((CURRENT_VERSION + 1))
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "New version: $NEW_VERSION"
+
+    - name: Update plugin addon.xml with new version
+      run: |
+        NEW_VERSION=${{ steps.new_version.outputs.new_version }}
+        sed -i "s/version=\"[^\"]*\"/version=\"$NEW_VERSION\"/" repo/plugin_video_mubi/addon.xml
+        echo "Updated plugin version to $NEW_VERSION"
+
+    - name: Update news section with PR title
+      run: |
+        NEW_VERSION=${{ steps.new_version.outputs.new_version }}
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        # Escape special characters for XML
+        ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
+        sed -i "s|<news>.*</news>|<news>v$NEW_VERSION - $ESCAPED_TITLE</news>|" repo/plugin_video_mubi/addon.xml
+        echo "Updated news section with: v$NEW_VERSION - $PR_TITLE"
+
+    - name: Generate repository files
+      run: |
+        python3 _repo_generator.py
+        echo "Repository files generated successfully"
+
+    - name: Copy repository zip to root
+      run: |
+        cp repo/zips/repository.kubi2021/repository.kubi2021-*.zip .
+        echo "Repository zip copied to root"
+
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Commit generated files
+      run: |
+        NEW_VERSION=${{ steps.new_version.outputs.new_version }}
+        git add repo/plugin_video_mubi/addon.xml
+        git add repo/zips/
+        git add repository.kubi2021-*.zip
+        git commit -m "Auto-release: Update plugin to v$NEW_VERSION" || echo "No changes to commit"
+        git push origin main
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.new_version.outputs.new_version }}
+        release_name: MUBI Plugin v${{ steps.new_version.outputs.new_version }}
+        body: |
+          ## MUBI Plugin v${{ steps.new_version.outputs.new_version }}
+          
+          **Changes:** ${{ github.event.pull_request.title }}
+          
+          **Installation:**
+          - Repository: Download `repository.kubi2021-2.zip` and install in Kodi
+          - Direct: Download `plugin.video.mubi-${{ steps.new_version.outputs.new_version }}.zip` and install in Kodi
+          
+          **PR:** ${{ github.event.pull_request.html_url }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Repository Zip to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./repository.kubi2021-2.zip
+        asset_name: repository.kubi2021-2.zip
+        asset_content_type: application/zip
+
+    - name: Upload Plugin Zip to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./repo/zips/plugin.video.mubi/plugin.video.mubi-${{ steps.new_version.outputs.new_version }}.zip
+        asset_name: plugin.video.mubi-${{ steps.new_version.outputs.new_version }}.zip
+        asset_content_type: application/zip
+
+    - name: Workflow Summary
+      run: |
+        NEW_VERSION=${{ steps.new_version.outputs.new_version }}
+        echo "🎉 Successfully released MUBI Plugin v$NEW_VERSION"
+        echo "📦 Repository and plugin zips uploaded to release"
+        echo "🔄 Repository files updated and committed"
+        echo "📋 Release: https://github.com/${{ github.repository }}/releases/tag/v$NEW_VERSION"
