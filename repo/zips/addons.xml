@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <addons><addon id="plugin.video.mubi" name="MUBI" version="4" provider-name="kubi2021">
   <requires>
-    <import addon="xbmc.python" version="4" />
-    <import addon="script.module.inputstreamhelper" version="4" />
-    <import addon="script.module.requests" version="4" />
-    <import addon="script.module.dateutil" version="4" />
+    <import addon="xbmc.python" version="3.0.0" />
+    <import addon="script.module.inputstreamhelper" version="0.5.0+matrix.1" />
+    <import addon="script.module.requests" version="2.12.4" />
+    <import addon="script.module.dateutil" version="2.5.3" />
   </requires>
   <extension point="xbmc.python.pluginsource" library="addon.py">
     <provides>video</provides>
