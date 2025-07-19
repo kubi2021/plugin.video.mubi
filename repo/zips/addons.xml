@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<addons><addon id="plugin.video.mubi" name="MUBI" version="2" provider-name="kubi2021">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0" />
+    <import addon="script.module.inputstreamhelper" version="0.5.0+matrix.1" />
+    <import addon="script.module.requests" version="2.12.4" />
+    <import addon="script.module.dateutil" version="2.5.3" />
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="addon.py">
+    <provides>video</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">Kodi player for MUBI</summary>
+    <description lang="en_GB">Browse and stream curated arthouse films from MUBI. Access daily film programming, collections, and your watchlist with local library integration and metadata support.</description>
+    <platform>all</platform>
+    <license>GPL-2.0-or-later</license>
+    <source>https://github.com/kubi2021/plugin.video.mubi</source>
+    <disclaimer>Unofficial add-on</disclaimer>
+    <website>https://mubi.com</website>
+    <news>v2 - Repository structure improvements and enhanced testing</news>
+    <assets>
+        <icon>resources/icon.png</icon>
+        <fanart>resources/fanart.jpg</fanart>
+    </assets>
+  </extension>
+</addon><addon id="repository.kubi2021" name="MUBI Repository" version="2" provider-name="kubi2021">
+    <extension point="xbmc.addon.repository" name="MUBI Repository">
+        <dir>
+            <info compressed="false">https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/main/repo/zips/addons.xml</info>
+            <checksum>https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/main/repo/zips/addons.xml.md5</checksum>
+            <datadir zip="true">https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/main/repo/zips/</datadir>
+        </dir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>MUBI Repository</summary>
+        <description>Personal Kodi repository containing the MUBI add-on for browsing and streaming curated arthouse films. Access MUBI's daily film programming, collections, and watchlist directly from Kodi with local library integration and metadata support.</description>
+        <disclaimer>Unofficial add-on</disclaimer>
+        <platform>all</platform>
+        <license>GPL-2.0-or-later</license>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon></addons>

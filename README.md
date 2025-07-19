@@ -27,9 +27,23 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 
 ## Installation
 
-0. Make sure you have the latest Kodi version (I tried with v20 and playback didn't work)
-1. **Download** this repository.
-2. From the **Kodi interface**, install the addon from the Zip file.
+### Option 1: Install from Repository (Recommended) 📦
+
+1. **Download the repository**: Get the latest `repository.kubi2021-2.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases) or directly from [here](https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/main/repository.kubi2021-2.zip)
+2. **Install the repository**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded `repository.kubi2021-2.zip`
+3. **Install the MUBI add-on**: Go to **Add-ons > Install from repository > MUBI Repository > Video add-ons > MUBI** and click Install
+4. **Automatic updates**: Future updates will be automatically available through the repository
+
+### Option 2: Manual Installation 🔧
+
+1. **Download the add-on**: Get the latest `plugin.video.mubi-2.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases) or directly from [here](https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/main/repo/zips/plugin.video.mubi/plugin.video.mubi-2.zip)
+2. **Install from zip**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded `plugin.video.mubi-2.zip`
+3. **Manual updates**: You'll need to manually download and install new versions
+
+### Requirements ⚙️
+
+- **Kodi 19+ (Matrix/Nexus)**: This add-on requires Python 3 support
+- **Internet connection**: For streaming and metadata fetching
 
 ## First run & Populating the Library
 
