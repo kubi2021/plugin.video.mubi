@@ -73,6 +73,94 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 
 Whenever you want to **update** the local database, run the **sync** process again. The Kodi library will be automatically updated and cleaned (movies that are no longer available in Mubi will be removed from Kodi)
 
+## Contributing
+
+### Repository Structure
+
+This project uses a **Kodi repository structure** with automated release management:
+
+```
+├── repo/                           # Kodi repository files
+│   ├── plugin_video_mubi/         # Main MUBI add-on source code
+│   │   ├── addon.xml              # Add-on definition (version managed here)
+│   │   ├── addon.py               # Main entry point
+│   │   └── resources/             # Add-on resources and Python modules
+│   │       ├── settings.xml
+│   │       └── lib/               # Core Python modules
+│   ├── repository_kubi2021/       # Repository add-on definition
+│   └── zips/                      # Generated zip files (auto-created)
+├── tests/                         # Test suite
+│   ├── plugin_video_mubi/         # Tests for MUBI add-on
+│   └── repository_kubi2021/       # Tests for repository (future)
+├── docs/                          # Documentation
+├── _repo_generator.py             # Repository build script
+└── .github/workflows/             # CI/CD automation
+```
+
+### Development Workflow
+
+1. **Make Changes**: Edit files in `repo/plugin_video_mubi/`
+2. **Run Tests**: `pytest tests/` (274+ tests must pass)
+3. **Create PR**: Submit pull request to `main` branch
+4. **Auto-Release**: On merge, GitHub Actions automatically:
+   - Increments version number (simple: 5 → 6)
+   - Updates `addon.xml` news section with PR title
+   - Generates repository zip files
+   - Creates GitHub release with assets
+   - Updates repository metadata
+
+### Key Files for Contributors
+
+- **Main Add-on Code**: `repo/plugin_video_mubi/`
+- **Version Management**: `repo/plugin_video_mubi/addon.xml` (line 2)
+- **Tests**: `tests/plugin_video_mubi/`
+- **CI Configuration**: `.github/workflows/`
+
+### Testing
+
+```bash
+# Run all tests
+pytest tests/
+
+# Run specific test file
+pytest tests/plugin_video_mubi/test_library.py
+
+# Run with coverage
+pytest tests/ --cov=repo/plugin_video_mubi --cov-report=term-missing
+```
+
+### Manual Repository Generation
+
+```bash
+# Generate repository files manually
+python3 _repo_generator.py
+
+# Files created in repo/zips/:
+# - plugin.video.mubi-X.zip (add-on)
+# - repository.kubi2021-2.zip (repository)
+# - addons.xml (metadata)
+# - addons.xml.md5 (checksum)
+```
+
+### Versioning Policy
+
+- **Simple incremental**: 1, 2, 3, 4, 5... (no semantic versioning)
+- **Auto-managed**: Version increments automatically on PR merge
+- **Repository stable**: Repository version stays at 2, only add-on versions increment
+
+### Release Process
+
+**Automatic** (recommended):
+1. Merge PR → Auto-release triggers
+2. New version appears in GitHub releases
+3. Users get update notifications in Kodi
+
+**Manual** (if needed):
+1. Run workflow manually from GitHub Actions
+2. Creates test release for validation
+
+---
+
 ## Changelog
 
 ### Version 2 - Jan 19th, 2025
@@ -159,15 +247,6 @@ If for some reason the Mubi Movies folder isn't automatically added as a video s
 4. Complete the process, and the Mubi Movies folder will be available in your Kodi library.
 
 After adding the source manually, follow the normal steps to configure it for movies and set up the scraper.
-
-### 3. Cleaning up the Addon 🧹
-
-Before upgrading the addon, it's best to do a full cleanup to avoid potential issues. To clean up the addon:
-
-1. Navigate to **userdata/addon_data/plugin.video.mubi** and remove all the files and folders.
-2. It's also suggested to **clean your media library**.
-3. Install the new version of the addon.
-4. You'll need to **log in again** and perform the **first sync**.
 
 ---
 
