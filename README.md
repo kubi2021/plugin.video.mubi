@@ -27,14 +27,22 @@ The goal of this addon is to harness Kodi's excellent browsing and metadata scra
 
 ## Installation
 
-### Option 1: Install from Repository (Recommended) 📦
+### Option 1: File Manager Source (Easiest) 🌐
 
-1. **Download the repository**: Get the latest `repository.kubi2021-*.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases)
+1. **Add file manager source**: In Kodi, go to **File Manager > Add source**
+2. **Enter URL**: `https://kubi2021.github.io/plugin.video.mubi/`
+3. **Install repository**: Go to **Add-ons > Install from zip file** and select the repository from your new source
+4. **Install MUBI add-on**: Go to **Add-ons > Install from repository > MUBI Repository > Video add-ons > MUBI**
+5. **Automatic updates**: Future updates will be automatically available
+
+### Option 2: Download Repository Zip 📦
+
+1. **Download the repository**: Get the latest `repository.kubi2021-*.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases) or [directly here](https://kubi2021.github.io/plugin.video.mubi/repository.kubi2021-2.zip)
 2. **Install the repository**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded repository zip file
 3. **Install the MUBI add-on**: Go to **Add-ons > Install from repository > MUBI Repository > Video add-ons > MUBI** and click Install
 4. **Automatic updates**: Future updates will be automatically available through the repository
 
-### Option 2: Manual Installation 🔧
+### Option 3: Direct Add-on Installation (No Repository) 🔧
 
 1. **Download the add-on**: Get the latest `plugin.video.mubi-*.zip` from the [releases page](https://github.com/kubi2021/plugin.video.mubi/releases)
 2. **Install from zip**: In Kodi, go to **Add-ons > Install from zip file** and select the downloaded add-on zip file
