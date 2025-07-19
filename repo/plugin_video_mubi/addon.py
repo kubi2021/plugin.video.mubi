@@ -6,9 +6,9 @@
 
 
 
-from .resources.lib.session_manager import SessionManager
-from .resources.lib.navigation_handler import NavigationHandler
-from .resources.lib.mubi import Mubi
+from resources.lib.session_manager import SessionManager
+from resources.lib.navigation_handler import NavigationHandler
+from resources.lib.mubi import Mubi
 import xbmcaddon
 import xbmcplugin
 from urllib.parse import parse_qsl
@@ -16,7 +16,7 @@ import sys
 import xbmc
 from urllib.parse import parse_qsl, unquote_plus
 import xbmcgui
-from .resources.lib.migrations import add_mubi_source, is_first_run, mark_first_run
+from resources.lib.migrations import add_mubi_source, is_first_run, mark_first_run
 
 if __name__ == "__main__":
     plugin = xbmcaddon.Addon()
