@@ -372,29 +372,26 @@ class TestNavigationHandler:
 
     @patch('xbmcgui.DialogProgress')
     def test_sync_locally(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
-        """Test local sync process."""
+        """Test local sync process using new direct film fetching approach."""
         mock_addon.getSetting.return_value = "fake-api-key"
-        
-        # Mock categories and films
-        mock_mubi.get_film_groups.return_value = [{"id": 1, "title": "Drama"}]
+
+        # Mock the new get_all_films method
         mock_library = Mock()
         mock_library.films = []
-        mock_mubi.get_film_list.return_value = mock_library
-        
+        mock_mubi.get_all_films.return_value = mock_library
+
         mock_dialog = mock_dialog_progress.return_value
         mock_dialog.iscanceled.return_value = False
-        
+
         with patch('xbmcvfs.translatePath', return_value="/fake/path"):
             with patch('xbmcgui.Dialog') as mock_notification:
-                with patch('plugin_video_mubi.resources.lib.navigation_handler.Library') as mock_library_class:
-                    mock_library_instance = Mock()
-                    mock_library_class.return_value = mock_library_instance
-                    with patch.object(navigation_handler, 'clean_kodi_library'):
-                        with patch.object(navigation_handler, 'update_kodi_library'):
-                            with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
-                                navigation_handler.sync_locally()
-        
-        mock_mubi.get_film_groups.assert_called_once()
+                with patch.object(navigation_handler, 'clean_kodi_library'):
+                    with patch.object(navigation_handler, 'update_kodi_library'):
+                        with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
+                            navigation_handler.sync_locally()
+
+        # Verify the new direct approach is used
+        mock_mubi.get_all_films.assert_called_once()
         mock_dialog.create.assert_called()
         mock_dialog.close.assert_called()
         # The notification should be called, but due to complex mocking it might not be captured
@@ -403,10 +400,10 @@ class TestNavigationHandler:
     @patch('xbmc.log')
     def test_sync_locally_exception(self, mock_log, navigation_handler, mock_mubi):
         """Test sync locally handles exceptions."""
-        mock_mubi.get_film_groups.side_effect = Exception("API Error")
-        
+        mock_mubi.get_all_films.side_effect = Exception("API Error")
+
         navigation_handler.sync_locally()
-        
+
         mock_log.assert_called()
 
     # Additional tests for better coverage

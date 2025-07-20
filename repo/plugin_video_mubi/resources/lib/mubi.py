@@ -296,6 +296,32 @@ class Mubi:
         headers['Authorization'] = f'Bearer {token}'
         return headers
 
+    def hea_gen(self):
+        """
+        Generates web headers required for API requests with authorization (similar to heaGen() in inspiration code).
+        This is used for endpoints that expect web client headers rather than Android TV headers.
+
+        :return: Headers dictionary with web client headers and Authorization token.
+        :rtype: dict
+        """
+        base_url = 'https://mubi.com'
+        token = self.session_manager.token
+        if not token:
+            xbmc.log("No token found for web headers", xbmc.LOGERROR)
+
+        return {
+            'Referer': base_url,
+            'Origin': base_url,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+            'Authorization': f'Bearer {token}',
+            'Anonymous_user_id': self.session_manager.device_id,
+            'Client': 'web',
+            'Client-Accept-Audio-Codecs': 'eac3,aac',
+            'Client-Accept-Video-Codecs': 'h265,vp9,h264',
+            'Client-Country': self.session_manager.client_country,
+            'accept-language': self.get_cli_language()
+        }
+
     def get_link_code(self):
         """
         Calls the Mubi API to generate a link code and an authentication token for the login process.
@@ -413,6 +439,175 @@ class Mubi:
         return categories
 
 
+    def get_all_films(self, playable_only=True):
+        """
+        Retrieves all films directly from the MUBI API V4 /browse/films endpoint, handling pagination.
+        This is more efficient than fetching films category by category.
+
+        :param playable_only: If True, only fetch currently playable films. If False, fetch entire catalog.
+        :return: Library instance with all films.
+        :rtype: Library
+        """
+        try:
+            endpoint = 'v4/browse/films'
+            headers = self.hea_gen()  # Use web headers for best results
+            all_films_library = Library()
+            page = 1
+            total_films_fetched = 0
+            total_series_skipped = 0
+            total_pages_fetched = 0
+
+            xbmc.log(f"Starting to fetch all films from {endpoint} using sort=title (filtering out series)", xbmc.LOGINFO)
+
+            while True:
+                # Use sort=title to get the full catalog
+                params = {
+                    'page': page,
+                    'sort': 'title',  # Sort parameter is required to get full catalog
+                }
+
+                if playable_only:
+                    params['playable'] = 'true'
+                    xbmc.log(f"Fetching page {page} with playable filter and sort=title", xbmc.LOGINFO)
+                else:
+                    xbmc.log(f"Fetching page {page} without playable filter, sort=title", xbmc.LOGDEBUG)
+
+                xbmc.log(f"Fetching page {page} with params: {params}", xbmc.LOGDEBUG)
+                response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+
+                if response:
+                    # Check response status
+                    xbmc.log(f"Page {page}: Response status code: {response.status_code}", xbmc.LOGDEBUG)
+
+                    try:
+                        data = response.json()
+                    except Exception as e:
+                        xbmc.log(f"Page {page}: Failed to parse JSON response: {e}", xbmc.LOGERROR)
+                        break
+
+                    films = data.get('films', [])
+                    meta = data.get('meta', {})
+                    total_pages_fetched += 1
+
+                    # Log the complete API response for the first few pages to understand structure
+                    if total_pages_fetched <= 2:  # Only log first 2 pages to avoid spam
+                        xbmc.log(f"DEBUG - Page {page} COMPLETE API RESPONSE: {data}", xbmc.LOGDEBUG)
+
+                    # Detailed logging for debugging pagination
+                    xbmc.log(f"Page {page}: Received {len(films)} films", xbmc.LOGINFO)
+                    xbmc.log(f"Page {page}: Complete meta object: {meta}", xbmc.LOGINFO)
+                    xbmc.log(f"Page {page}: Complete response keys: {list(data.keys())}", xbmc.LOGINFO)
+
+                    # Check if there are any other pagination-related fields
+                    for key, value in data.items():
+                        if 'page' in key.lower() or 'total' in key.lower() or 'count' in key.lower():
+                            xbmc.log(f"Page {page}: Found pagination field {key}: {value}", xbmc.LOGINFO)
+
+                    # Check if there are any error messages in the response
+                    if 'error' in data or 'message' in data:
+                        xbmc.log(f"Page {page}: API returned error: {data}", xbmc.LOGERROR)
+
+                    # Process each film and add debug logging
+                    for idx, film_data in enumerate(films):
+                        # Debug log: Show the complete film response structure for documentation
+                        if total_films_fetched < 5:  # Log first 5 films for comprehensive documentation
+                            xbmc.log(f"=== FILM {total_films_fetched + 1} COMPLETE RESPONSE ===", xbmc.LOGDEBUG)
+                            xbmc.log(f"Film ID: {film_data.get('id', 'N/A')}", xbmc.LOGDEBUG)
+                            xbmc.log(f"Film Title: {film_data.get('title', 'N/A')}", xbmc.LOGDEBUG)
+                            xbmc.log(f"Complete Film Object: {film_data}", xbmc.LOGDEBUG)
+                            xbmc.log(f"=== END FILM {total_films_fetched + 1} ===", xbmc.LOGDEBUG)
+
+                            # Also log the top-level keys for structure analysis
+                            film_keys = list(film_data.keys()) if isinstance(film_data, dict) else []
+                            xbmc.log(f"Film {total_films_fetched + 1} top-level keys: {film_keys}", xbmc.LOGDEBUG)
+
+                            # Log specific nested objects that might be important
+                            if 'consumable' in film_data:
+                                xbmc.log(f"Film {total_films_fetched + 1} consumable object: {film_data['consumable']}", xbmc.LOGDEBUG)
+                            if 'directors' in film_data:
+                                xbmc.log(f"Film {total_films_fetched + 1} directors: {film_data['directors']}", xbmc.LOGDEBUG)
+                            if 'genres' in film_data:
+                                xbmc.log(f"Film {total_films_fetched + 1} genres: {film_data['genres']}", xbmc.LOGDEBUG)
+                            if 'cast' in film_data:
+                                xbmc.log(f"Film {total_films_fetched + 1} cast: {film_data['cast']}", xbmc.LOGDEBUG)
+                            if 'countries' in film_data or 'historic_countries' in film_data:
+                                countries = film_data.get('countries', film_data.get('historic_countries', []))
+                                xbmc.log(f"Film {total_films_fetched + 1} countries: {countries}", xbmc.LOGDEBUG)
+
+                        # Create a wrapper structure similar to category-based approach
+                        # The direct films endpoint returns films directly, not wrapped in 'film' key
+                        film_wrapper = {'film': film_data}
+
+                        # Use "All Films" as the primary category since we don't have collection info
+                        # The direct API doesn't provide collection/category information
+                        category_name = "All Films"
+
+                        film = self.get_film_metadata(film_wrapper, category_name)
+                        if film:
+                            # Debug: Log what fields we're using vs what's available
+                            if total_films_fetched < 3:
+                                used_fields = ['id', 'title', 'original_title', 'year', 'duration', 'short_synopsis',
+                                             'directors', 'genres', 'historic_countries', 'average_rating',
+                                             'number_of_ratings', 'still_url', 'trailer_url', 'web_url', 'consumable']
+                                available_fields = list(film_data.keys())
+                                unused_fields = [field for field in available_fields if field not in used_fields]
+                                xbmc.log(f"Film {total_films_fetched + 1} - Fields we use: {used_fields}", xbmc.LOGDEBUG)
+                                xbmc.log(f"Film {total_films_fetched + 1} - Available but unused fields: {unused_fields}", xbmc.LOGDEBUG)
+
+                            # Check if there are any collection-related fields in the response
+                            # and add them as additional categories (stored as Kodi tags)
+                            collections = film_data.get('collections', [])
+                            film_groups = film_data.get('film_groups', [])
+
+                            # Debug: Log collection information if found
+                            if total_films_fetched < 3 and (collections or film_groups):
+                                xbmc.log(f"Film {total_films_fetched + 1} - Collections found: {collections}", xbmc.LOGDEBUG)
+                                xbmc.log(f"Film {total_films_fetched + 1} - Film groups found: {film_groups}", xbmc.LOGDEBUG)
+
+                            # Add any collection information we find as additional categories
+                            for collection in collections:
+                                if isinstance(collection, dict):
+                                    collection_name = collection.get('title') or collection.get('name')
+                                    if collection_name:
+                                        film.add_category(collection_name)
+                                elif isinstance(collection, str):
+                                    film.add_category(collection)
+
+                            for film_group in film_groups:
+                                if isinstance(film_group, dict):
+                                    group_name = film_group.get('title') or film_group.get('name')
+                                    if group_name:
+                                        film.add_category(group_name)
+                                elif isinstance(film_group, str):
+                                    film.add_category(film_group)
+
+                            all_films_library.add_film(film)
+                            total_films_fetched += 1
+
+                    # Check if there's a next page
+                    next_page = meta.get('next_page')
+                    xbmc.log(f"Page {page} processed. Next page: {next_page}. Total films so far: {total_films_fetched}", xbmc.LOGINFO)
+
+                    if next_page:
+                        page = next_page
+                    else:
+                        xbmc.log(f"No more pages. Finished fetching all films.", xbmc.LOGINFO)
+                        break  # No more pages to fetch
+                else:
+                    xbmc.log(f"Failed to retrieve films on page {page}", xbmc.LOGERROR)
+                    break  # Exit the loop on failure
+
+                # Safety check to prevent infinite loops
+                if total_pages_fetched > 100:  # Reasonable upper limit
+                    xbmc.log(f"Safety limit reached: fetched {total_pages_fetched} pages. Stopping.", xbmc.LOGWARNING)
+                    break
+
+            xbmc.log(f"Successfully fetched {total_films_fetched} films from {total_pages_fetched} pages using direct API approach", xbmc.LOGINFO)
+            return all_films_library
+
+        except Exception as e:
+            xbmc.log(f"Error retrieving all films directly: {e}", xbmc.LOGERROR)
+            return Library()  # Return empty library on error
 
 
     def get_watch_list(self):
@@ -563,15 +758,24 @@ class Mubi:
     def get_film_metadata(self, film_data: dict, category_name: str) -> Film:
         """
         Extracts and returns film metadata from the API data.
+        Filters out series content to only process actual films.
 
         :param film_data: Dictionary containing film data
         :param category_name: Name of the category
-        :return: Film instance or None if not valid
+        :return: Film instance or None if not valid or is a series
         """
         try:
             film_info = film_data.get('film', {})
             if not film_info:
                 return None
+
+            # Check if this is a series (like inspiration code does)
+            is_series = False
+            if 'series' in film_info:
+                if film_info['series'] is not None:
+                    is_series = True
+                    xbmc.log(f"Skipping series content: {film_info.get('title', 'Unknown')}", xbmc.LOGDEBUG)
+                    return None  # Skip series content for film sync
 
             available_at = film_info.get('consumable', {}).get('available_at')
             expires_at = film_info.get('consumable', {}).get('expires_at')

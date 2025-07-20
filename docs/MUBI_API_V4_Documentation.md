@@ -12,21 +12,37 @@ The API uses Bearer token authentication. Tokens are obtained through the device
 
 ### Headers
 
-**Standard Web Headers (`heaGen()`)**:
+**Standard Web Headers (`hea_gen()` / `heaGen()`)**:
 - `Authorization`: Bearer token
 - `Client`: web
 - `Client-Country`: User's country code
 - `Client-Accept-Audio-Codecs`: eac3,aac
 - `Client-Accept-Video-Codecs`: h265,vp9,h264
-- `User-Agent`: Browser user agent
+- `User-Agent`: Browser user agent (Mozilla/Firefox)
 - `accept-language`: User's language preference
+- `Referer`: https://mubi.com
+- `Origin`: https://mubi.com
+- `Anonymous_user_id`: Device ID
 
-**Android TV Headers (`heaATVGen()`)**:
+**Android TV Headers (`hea_atv_auth()` / `heaATVGen()`)**:
 - `client`: android_tv
 - `client-version`: 36.1
 - `client-device-identifier`: Device ID
 - `client-country`: User's country code
 - `User-Agent`: okhttp/4.10.1
+- `Authorization`: Bearer token (when authenticated)
+
+## Header Usage Guidelines
+
+**Use Web Headers for**:
+- `/browse/films` - **Critical**: Web headers return full catalog (568 films vs 45 with Android TV headers)
+- `/browse/film_groups` - Collections browsing
+- Most browsing endpoints
+
+**Use Android TV Headers for**:
+- `/film_groups/{id}/film_group_items` - Category-specific film listings
+- `/authenticate` and `/link_code` - Authentication flows
+- Playback-related endpoints
 
 ## Authentication Endpoints
 
@@ -68,14 +84,38 @@ The API uses Bearer token authentication. Tokens are obtained through the device
 
 ## Content Discovery
 
+### Important Discovery: Sort Parameter Requirement
+
+**Critical Finding**: The `/browse/films` endpoint behavior varies significantly based on parameters:
+
+| Parameters | Result | Use Case |
+|------------|--------|----------|
+| No parameters | ~124 films total | Basic catalog browsing |
+| `playable=true` only | ~45 films | Limited playable set |
+| `playable=true` + `sort=popularity` | **~568 films** | **Full playable catalog** |
+| `sort=popularity` only | ~568 films | Full catalog (all films) |
+
+**Key Insights**:
+- **Always include a `sort` parameter** when fetching films to get the complete catalog
+- Without `sort`, the API returns only a limited default subset
+- All sort options (`popularity`, `release_date`, `title`, `rating`) return the same total count
+- This explains why category-based sync was getting 400+ films while direct API was getting only 45
+
 ### Browse Films
-**Endpoint**: `GET /browse/films`  
-**Headers**: Standard web headers  
+**Endpoint**: `GET /browse/films`
+**Headers**: Standard web headers (see header section below)
 **Parameters**:
-- `sort`: Sorting method
+- `sort`: **REQUIRED** - Sorting method (e.g., "popularity", "release_date", "title", "rating")
 - `playable`: "true" to show only playable content
 - `page`: Page number for pagination
+- `per_page`: Items per page (optional, defaults to API default)
 - Additional filter parameters
+
+**Important Notes**:
+- **The `sort` parameter is crucial** - without it, the API returns only a limited subset (~45 films)
+- **With `sort` parameter**: Returns the full catalog (~568 playable films when `playable=true`)
+- **Recommended sort options**: "popularity", "release_date", "title", "rating" all return the same total count
+- **Use web headers** (`hea_gen()`) rather than Android TV headers for best results
 
 **Returns**:
 ```json
@@ -83,20 +123,175 @@ The API uses Bearer token authentication. Tokens are obtained through the device
   "films": [
     {
       "id": "integer",
+      "slug": "string",
       "title": "string",
+      "title_locale": "string",
+      "original_title": "string",
       "year": "integer",
-      "duration": "integer",
-      "rating": "float",
-      "plot": "string",
-      "image_url": "string",
-      "trailer_url": "string"
+      "duration": "integer (minutes)",
+      "stills": {
+        "small": "string (URL)",
+        "medium": "string (URL)",
+        "standard": "string (URL)",
+        "retina": "string (URL)",
+        "small_overlaid": "string (URL)",
+        "large_overlaid": "string (URL)",
+        "standard_push": "string (URL)"
+      },
+      "still_focal_point": {
+        "x": "float",
+        "y": "float"
+      },
+      "hd": "boolean",
+      "average_colour_hex": "string",
+      "trailer_url": "string (URL)",
+      "trailer_id": "integer",
+      "popularity": "integer",
+      "web_url": "string (URL)",
+      "genres": ["string"],
+      "average_rating": "float (out of 5)",
+      "average_rating_out_of_ten": "float (out of 10)",
+      "number_of_ratings": "integer",
+      "mubi_release": "boolean",
+      "should_use_safe_still": "boolean",
+      "still_url": "string (URL)",
+      "title_upcase": "string",
+      "critic_review_rating": "float",
+      "content_rating": {
+        "label": "string",
+        "rating_code": "string",
+        "description": "string",
+        "icon_url": "string|null",
+        "label_hex_color": "string"
+      },
+      "episode": "object|null",
+      "short_synopsis": "string",
+      "short_synopsis_html": "string",
+      "historic_countries": ["string"],
+      "portrait_image": "string|null",
+      "title_treatment_url": "string|null",
+      "experiment_stills": "object|null",
+      "experiment_stills_multi": "object|null",
+      "default_editorial": "string",
+      "default_editorial_html": "string",
+      "cast_members_count": "integer",
+      "industry_events_count": "integer",
+      "comments_count": "integer",
+      "mubi_go_highlighted": "boolean",
+      "optimised_trailers": [
+        {
+          "url": "string (URL)",
+          "profile": "string (240p|720p|1080p)"
+        }
+      ],
+      "directors": [
+        {
+          "name": "string",
+          "name_upcase": "string",
+          "slug": "string"
+        }
+      ],
+      "consumable": {
+        "film_id": "integer",
+        "available_at": "string (ISO datetime)",
+        "availability": "string (live|upcoming|expired)",
+        "availability_ends_at": "string (ISO datetime)",
+        "expires_at": "string (ISO datetime)",
+        "film_date_message": "string|null",
+        "offered": [
+          {
+            "type": "string (catalogue|rental)",
+            "download_availability": "object|null"
+          }
+        ],
+        "exclusive": "boolean",
+        "permit_download": "boolean",
+        "playback_languages": {
+          "audio_options": ["string"],
+          "subtitle_options": ["string"],
+          "media_options": {
+            "duration": "integer (seconds)",
+            "hd": "boolean"
+          },
+          "media_features": ["string (4K|stereo|5.1|etc)"],
+          "extended_audio_options": ["string"]
+        }
+      },
+      "press_quote": "string|null",
+      "star_rating": "object|null",
+      "award": "object|null",
+      "series": "object|null",
+      "content_warnings": ["string"],
+      "artworks": [
+        {
+          "format": "string",
+          "locale": "string|null",
+          "image_url": "string (URL)",
+          "focal_point": {
+            "x": "float",
+            "y": "float"
+          }
+        }
+      ],
+      "highlighted_industry_event_entry": "object|null"
     }
   ],
   "meta": {
-    "next_page": "integer|null"
+    "current_page": "integer",
+    "next_page": "integer|null",
+    "previous_page": "integer|null",
+    "total_pages": "integer",
+    "total_count": "integer",
+    "per_page": "integer"
   }
 }
 ```
+
+**Example Usage**:
+```bash
+GET /v4/browse/films?sort=title&playable=true&page=1
+```
+
+### Key Film Object Fields
+
+**Essential Metadata**:
+- `id`: Unique film identifier
+- `title`: Display title
+- `original_title`: Original language title
+- `year`: Release year
+- `duration`: Runtime in minutes
+- `short_synopsis`: Plot description
+- `genres`: Array of genre strings
+- `historic_countries`: Production countries
+- `directors`: Array of director objects with name and slug
+
+**Ratings & Popularity**:
+- `average_rating`: User rating out of 5
+- `average_rating_out_of_ten`: User rating out of 10
+- `number_of_ratings`: Total user ratings count
+- `critic_review_rating`: Professional critic rating
+- `popularity`: Popularity ranking number
+
+**Media Assets**:
+- `stills`: Multiple image sizes and formats
+- `still_url`: Primary still image URL
+- `trailer_url`: Main trailer URL
+- `optimised_trailers`: Multiple trailer quality options
+- `artworks`: Various artwork formats for different UI contexts
+
+**Availability**:
+- `consumable`: Complete availability and playback information
+  - `available_at`: When film becomes available
+  - `expires_at`: When film expires
+  - `availability`: Current status (live/upcoming/expired)
+  - `playback_languages`: Audio/subtitle options and media features
+  - `permit_download`: Download availability
+
+**Content Information**:
+- `content_rating`: Age rating and content warnings
+- `content_warnings`: Array of specific content warnings
+- `hd`: HD availability flag
+- `mubi_release`: Whether it's a MUBI original/exclusive
 
 ### Browse Collections
 **Endpoint**: `GET /browse/film_groups`  
