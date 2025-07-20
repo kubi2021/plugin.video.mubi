@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 import base64
 import json
-from plugin_video_mubi.resources.lib.playback import generate_drm_license_key, play_with_inputstream_adaptive
+from plugin_video_mubi.resources.lib.playback import generate_drm_license_key, generate_drm_config, play_with_inputstream_adaptive
 
 
 class TestPlayback:
@@ -46,6 +46,24 @@ class TestPlayback:
         assert custom_data["userId"] == user_id
         assert custom_data["sessionId"] == token
         assert custom_data["merchant"] == "mubi"
+
+    def test_generate_drm_config(self):
+        """Test DRM configuration generation for Kodi 22+."""
+        token = "test-session-token"
+        user_id = "test-user-123"
+
+        drm_config = generate_drm_config(token, user_id)
+
+        # Verify the structure
+        assert "com.widevine.alpha" in drm_config
+        widevine_config = drm_config["com.widevine.alpha"]
+        assert "license" in widevine_config
+
+        license_config = widevine_config["license"]
+        assert license_config["server_url"] == "https://lic.drmtoday.com/license-proxy-widevine/cenc/"
+        assert "dt-custom-data=" in license_config["req_headers"]
+        assert license_config["unwrapper"] == "json,base64"
+        assert license_config["unwrapper_params"]["path_data"] == "license"
 
     def test_generate_drm_license_key_empty_values(self):
         """Test DRM license key generation with empty values."""
@@ -141,6 +159,119 @@ class TestPlayback:
         mock_list_item_instance.setMimeType.assert_called_with('application/vnd.apple.mpegurl')
         
         mock_log.assert_called()
+
+    @patch('xbmc.getInfoLabel')
+    @patch('inputstreamhelper.Helper')
+    @patch('xbmcgui.ListItem')
+    @patch('xbmcplugin.setResolvedUrl')
+    @patch('xbmc.log')
+    def test_play_with_inputstream_adaptive_kodi_21_legacy_drm(self, mock_log, mock_set_resolved,
+                                                             mock_list_item, mock_helper, mock_get_info):
+        """Test playback with Kodi 21 uses legacy DRM configuration."""
+        # Setup mocks
+        mock_get_info.return_value = "21.0.0"  # Kodi 21
+        mock_helper_instance = Mock()
+        mock_helper_instance.check_inputstream.return_value = True
+        mock_helper_instance.inputstream_addon = "inputstream.adaptive"
+        mock_helper.return_value = mock_helper_instance
+
+        mock_list_item_instance = Mock()
+        mock_list_item.return_value = mock_list_item_instance
+
+        # Test data
+        handle = 123
+        stream_url = "https://example.com/stream.mpd"
+        license_key = "test-license-key"
+        subtitles = []
+        token = "test-token"
+        user_id = "test-user-id"
+
+        play_with_inputstream_adaptive(handle, stream_url, license_key, subtitles, token, user_id)
+
+        # Verify legacy DRM properties were set
+        mock_list_item_instance.setProperty.assert_any_call('inputstream.adaptive.license_type', 'com.widevine.alpha')
+        mock_list_item_instance.setProperty.assert_any_call('inputstream.adaptive.license_key', license_key)
+
+        # Verify new DRM property was NOT set
+        drm_calls = [call for call in mock_list_item_instance.setProperty.call_args_list
+                    if 'inputstream.adaptive.drm' in str(call)]
+        assert len(drm_calls) == 0
+
+    @patch('xbmc.getInfoLabel')
+    @patch('inputstreamhelper.Helper')
+    @patch('xbmcgui.ListItem')
+    @patch('xbmcplugin.setResolvedUrl')
+    @patch('xbmc.log')
+    def test_play_with_inputstream_adaptive_kodi_22_new_drm(self, mock_log, mock_set_resolved,
+                                                          mock_list_item, mock_helper, mock_get_info):
+        """Test playback with Kodi 22+ uses new DRM configuration."""
+        # Setup mocks
+        mock_get_info.return_value = "22.0.0"  # Kodi 22
+        mock_helper_instance = Mock()
+        mock_helper_instance.check_inputstream.return_value = True
+        mock_helper_instance.inputstream_addon = "inputstream.adaptive"
+        mock_helper.return_value = mock_helper_instance
+
+        mock_list_item_instance = Mock()
+        mock_list_item.return_value = mock_list_item_instance
+
+        # Test data
+        handle = 123
+        stream_url = "https://example.com/stream.mpd"
+        license_key = "test-license-key"
+        subtitles = []
+        token = "test-token"
+        user_id = "test-user-id"
+
+        play_with_inputstream_adaptive(handle, stream_url, license_key, subtitles, token, user_id)
+
+        # Verify new DRM property was set with JSON config
+        drm_calls = [call for call in mock_list_item_instance.setProperty.call_args_list
+                    if 'inputstream.adaptive.drm' in str(call)]
+        assert len(drm_calls) == 1
+
+        # Verify legacy DRM properties were NOT set
+        license_type_calls = [call for call in mock_list_item_instance.setProperty.call_args_list
+                             if 'inputstream.adaptive.license_type' in str(call)]
+        license_key_calls = [call for call in mock_list_item_instance.setProperty.call_args_list
+                            if 'inputstream.adaptive.license_key' in str(call)]
+        assert len(license_type_calls) == 0
+        assert len(license_key_calls) == 0
+
+    @patch('xbmc.getInfoLabel')
+    @patch('inputstreamhelper.Helper')
+    @patch('xbmcgui.ListItem')
+    @patch('xbmcplugin.setResolvedUrl')
+    @patch('xbmc.log')
+    def test_play_with_inputstream_adaptive_kodi_22_fallback_to_legacy(self, mock_log, mock_set_resolved,
+                                                                     mock_list_item, mock_helper, mock_get_info):
+        """Test playback with Kodi 22+ falls back to legacy when token/user_id missing."""
+        # Setup mocks
+        mock_get_info.return_value = "22.0.0"  # Kodi 22
+        mock_helper_instance = Mock()
+        mock_helper_instance.check_inputstream.return_value = True
+        mock_helper_instance.inputstream_addon = "inputstream.adaptive"
+        mock_helper.return_value = mock_helper_instance
+
+        mock_list_item_instance = Mock()
+        mock_list_item.return_value = mock_list_item_instance
+
+        # Test data - no token/user_id provided
+        handle = 123
+        stream_url = "https://example.com/stream.mpd"
+        license_key = "test-license-key"
+        subtitles = []
+
+        play_with_inputstream_adaptive(handle, stream_url, license_key, subtitles)
+
+        # Verify fallback to legacy DRM properties
+        mock_list_item_instance.setProperty.assert_any_call('inputstream.adaptive.license_type', 'com.widevine.alpha')
+        mock_list_item_instance.setProperty.assert_any_call('inputstream.adaptive.license_key', license_key)
+
+        # Verify warning was logged
+        warning_calls = [call for call in mock_log.call_args_list
+                        if 'falling back to legacy DRM' in str(call)]
+        assert len(warning_calls) > 0
 
     @patch('inputstreamhelper.Helper')
     @patch('xbmc.Player')

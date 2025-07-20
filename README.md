@@ -181,7 +181,11 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
-### Version 2 - Jan 19th, 2025
+### Jan 20th, 2025
+- Migrated to API V4
+- Added modern DRM configuration support for Kodi 22+ with backward compatibility for older versions
+
+### Jan 19th, 2025
 - Converted project to proper Kodi repository with automated zip generation
 
 ### Jul 14th, 2025
