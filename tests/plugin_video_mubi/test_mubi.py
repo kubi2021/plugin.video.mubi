@@ -32,7 +32,7 @@ class TestMubi:
 
         assert mubi.session_manager == mock_session
         assert isinstance(mubi.library, Library)
-        assert mubi.apiURL == "https://api.mubi.com/v3/"
+        assert mubi.apiURL == "https://api.mubi.com/"
 
     def test_get_cli_country_success(self, mubi_instance):
         """Test successful client country retrieval."""
@@ -355,9 +355,9 @@ class TestMubi:
         assert "Authorization" in headers
         assert headers["Authorization"] == "Bearer test-token"
 
-    def test_api_url_property(self, mubi_instance):
-        """Test API URL property."""
-        assert mubi_instance.apiURL == "https://api.mubi.com/v3/"
+    def test_api_url_property_updated(self, mubi_instance):
+        """Test API URL property after V4 migration."""
+        assert mubi_instance.apiURL == "https://api.mubi.com/"
 
     # Additional tests for better coverage
     @patch('requests.Session')
@@ -898,3 +898,149 @@ class TestMubi:
                 # Should have slept due to rate limiting
                 mock_sleep.assert_called_once()
                 assert result == mock_response
+
+    # Additional tests for V4 API migration and missing coverage
+    def test_get_films_in_watchlist_success(self, mubi_instance):
+        """Test successful films in watchlist retrieval."""
+        # Mock the _call_wishlist_api method
+        mock_response_count = Mock()
+        mock_response_count.json.return_value = {
+            'meta': {'total_count': 2}
+        }
+
+        mock_response_data = Mock()
+        mock_response_data.json.return_value = {
+            'wishes': [
+                {'film': {'id': 1, 'title': 'Wishlist Movie 1'}},
+                {'film': {'id': 2, 'title': 'Wishlist Movie 2'}}
+            ]
+        }
+
+        with patch.object(mubi_instance, '_call_wishlist_api',
+                          side_effect=[mock_response_count, mock_response_data]):
+            result = mubi_instance.get_films_in_watchlist()
+
+            assert len(result) == 2
+            assert result[0]['film']['title'] == 'Wishlist Movie 1'
+            assert result[1]['film']['title'] == 'Wishlist Movie 2'
+
+    def test_get_films_in_watchlist_empty(self, mubi_instance):
+        """Test films in watchlist retrieval with empty result."""
+        mock_response_count = Mock()
+        mock_response_count.json.return_value = {
+            'meta': {'total_count': 0}
+        }
+
+        mock_response_data = Mock()
+        mock_response_data.json.return_value = {
+            'wishes': []
+        }
+
+        with patch.object(mubi_instance, '_call_wishlist_api',
+                          side_effect=[mock_response_count, mock_response_data]):
+            result = mubi_instance.get_films_in_watchlist()
+
+            assert result == []
+
+    def test_call_wishlist_api_success(self, mubi_instance):
+        """Test successful wishlist API call."""
+        mock_response = Mock()
+        mock_response.json.return_value = {'wishes': []}
+
+        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response) as mock_api:
+            result = mubi_instance._call_wishlist_api(10)
+
+            # Verify V4 endpoint is called
+            mock_api.assert_called_once()
+            call_args = mock_api.call_args
+            assert call_args[1]['endpoint'] == 'v4/wishes'
+            assert call_args[1]['params']['per_page'] == 10
+            assert result == mock_response
+
+    def test_call_wishlist_api_failure(self, mubi_instance):
+        """Test wishlist API call failure."""
+        with patch.object(mubi_instance, '_make_api_call', return_value=None) as mock_api:
+            result = mubi_instance._call_wishlist_api(10)
+
+            # Should still return the None response
+            assert result is None
+            mock_api.assert_called_once()
+
+    @patch('time.time')
+    def test_v4_endpoints_called_correctly(self, mock_time, mubi_instance):
+        """Test that V4 endpoints are called correctly after migration."""
+        mock_time.return_value = 1000.0
+
+        # Test authentication endpoints use V4
+        with patch.object(mubi_instance, '_make_api_call') as mock_api:
+            mubi_instance.get_link_code()
+            mock_api.assert_called_with('GET', 'v4/link_code', headers=mubi_instance.hea_atv_gen())
+
+        with patch.object(mubi_instance, '_make_api_call') as mock_api:
+            mubi_instance.authenticate('test-token')
+            call_args = mock_api.call_args
+            assert call_args[0][1] == 'v4/authenticate'
+
+        with patch.object(mubi_instance, '_make_api_call') as mock_api:
+            mubi_instance.log_out()
+            mock_api.assert_called_with('DELETE', 'v4/sessions',
+                                        headers=mubi_instance.hea_atv_auth())
+
+    @patch('time.time')
+    def test_v4_content_endpoints_called_correctly(self, mock_time, mubi_instance):
+        """Test that V4 content discovery endpoints are called correctly."""
+        mock_time.return_value = 1000.0
+
+        # Mock response to avoid infinite pagination loop
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            'film_groups': [],
+            'meta': {'next_page': None}
+        }
+
+        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response) as mock_api:
+            mubi_instance.get_film_groups()
+            # Check that V4 endpoint was called
+            call_args = mock_api.call_args
+            assert call_args[1]['endpoint'] == 'v4/browse/film_groups'
+
+    @patch('time.time')
+    def test_v4_playback_endpoints_called_correctly(self, mock_time, mubi_instance):
+        """Test that V4 playback endpoints are called correctly."""
+        mock_time.return_value = 1000.0
+
+        # Mock responses for the playback flow
+        viewing_response = Mock()
+        viewing_response.status_code = 200
+
+        preroll_response = Mock()
+        preroll_response.status_code = 200
+
+        secure_response = Mock()
+        secure_response.status_code = 200
+        secure_response.json.return_value = {
+            'url': 'https://example.com/stream.m3u8',
+            'urls': []
+        }
+
+        with patch.object(mubi_instance, '_make_api_call',
+                          side_effect=[viewing_response, preroll_response,
+                                       secure_response]) as mock_api:
+            result = mubi_instance.get_secure_stream_info('12345')
+
+            # Verify all three V4 endpoints were called
+            assert mock_api.call_count == 3
+
+            # Check viewing endpoint
+            first_call = mock_api.call_args_list[0]
+            assert 'v4/films/12345/viewing' in first_call[1]['full_url']
+
+            # Check preroll endpoint
+            second_call = mock_api.call_args_list[1]
+            assert 'v4/prerolls/viewings' in second_call[1]['full_url']
+
+            # Check secure URL endpoint
+            third_call = mock_api.call_args_list[2]
+            assert 'v4/films/12345/viewing/secure_url' in third_call[1]['full_url']
+
+            assert 'stream_url' in result

@@ -28,16 +28,16 @@ rm -rf ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
 
 ### 4. Create a Symlink to Your Development Folder 🔗
 
-Now, create a **symbolic link (symlink)** from your development folder to the Kodi addons directory. Replace `<path_to_your_dev_folder>` with the actual path to your local development folder:
+Now, create a **symbolic link (symlink)** from your development folder to the Kodi addons directory. Note that since the repository was restructured into a Kodi repository format, the actual plugin is now located in the `repo/plugin_video_mubi/` subfolder:
 
 ```bash
-ln -s <path_to_your_dev_folder> ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
+ln -s <path_to_your_dev_folder>/repo/plugin_video_mubi ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
 ```
 
 For example:
 
 ```bash
-ln -s /Users/youruser/Documents/GitHub/plugin.video.mubi ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
+ln -s /Users/kubi/Documents/GitHub/plugin.video.mubi/repo/plugin_video_mubi ~/Library/Application\ Support/Kodi/addons/plugin.video.mubi
 ```
 
 ### 5. Restart Kodi 🔄
