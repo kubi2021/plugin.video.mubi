@@ -525,7 +525,7 @@ class NavigationHandler:
 
     def sync_locally(self):
         """
-        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        Sync all Mubi films locally by fetching all films directly and creating STRM and NFO files for each film.
         This allows the films to be imported into Kodi's standard media library.
         """
         try:
@@ -536,35 +536,28 @@ class NavigationHandler:
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
-            pDialog.create("Syncing with Mubi", "Fetching all categories...")
+            pDialog.create("Syncing with Mubi", "Fetching all films directly...")
 
-            categories = self.mubi.get_film_groups()
-            all_films_library = Library()
-            total_categories = len(categories)
+            # Use the new direct approach to fetch all films
+            xbmc.log("Starting direct film sync using /browse/films endpoint", xbmc.LOGINFO)
+            # For sync, we want only playable films (streamable content)
+            all_films_library = self.mubi.get_all_films(playable_only=True)
 
-            for idx, category in enumerate(categories):
-                percent = int((idx / total_categories) * 100)
-                pDialog.update(percent, f"Fetching {category['title']}")
+            # Update progress dialog
+            total_films = len(all_films_library.films)
+            pDialog.update(50, f"Fetched {total_films} films, creating local files...")
+            xbmc.log(f"Successfully fetched {total_films} films using direct API approach", xbmc.LOGINFO)
 
-                try:
-                    films_in_category = self.mubi.get_film_list(category["id"], category["title"])
-                    for film in films_in_category.films:
-                        all_films_library.add_film(film)
-
-                except Exception as e:
-                    xbmc.log(f"Error fetching films for category '{category['title']}': {e}", xbmc.LOGERROR)
-                    continue
-
-                if pDialog.iscanceled():
-                    pDialog.close()
-                    xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
-                    return None
+            if pDialog.iscanceled():
+                pDialog.close()
+                xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
+                return None
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
             all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
 
             pDialog.close()
-            xbmcgui.Dialog().notification("MUBI", "Sync completed successfully!", xbmcgui.NOTIFICATION_INFO)
+            xbmcgui.Dialog().notification("MUBI", f"Sync completed successfully! {total_films} films synced.", xbmcgui.NOTIFICATION_INFO)
 
             # Create a monitor instance
             monitor = LibraryMonitor()
