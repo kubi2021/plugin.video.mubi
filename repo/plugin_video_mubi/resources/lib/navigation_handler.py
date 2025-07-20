@@ -409,7 +409,8 @@ class NavigationHandler:
 
             # Play video using InputStream Adaptive
             xbmc.log(f"Calling play_with_inputstream_adaptive with handle: {self.handle}, stream URL: {best_stream_url}", xbmc.LOGDEBUG)
-            play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'], subtitles)
+            play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'], subtitles,
+                                         self.session.token, self.session.user_id)
 
         except Exception as e:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
