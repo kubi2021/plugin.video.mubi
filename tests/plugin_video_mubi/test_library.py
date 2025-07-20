@@ -1,3 +1,14 @@
+"""
+Test suite for Library class following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
+"""
+
 import tempfile
 from unittest.mock import Mock, patch, call
 from pathlib import Path
@@ -29,20 +40,55 @@ class MockMetadata:
         self.image = image
 
 def test_add_valid_film():
+    """Test adding a valid film to the library."""
+    # Arrange
     library = Library()
     metadata = MockMetadata(year=2023)
-    film = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg", web_url="http://example.com", category="Drama", metadata=metadata)
+    film = Film(
+        mubi_id="123456",
+        title="Sample Movie",
+        artwork="http://example.com/art.jpg",
+        web_url="http://example.com",
+        category="Drama",
+        metadata=metadata
+    )
+
+    # Act
     library.add_film(film)
-    assert len(library.films) == 1, "Film should have been added to the library."
+
+    # Assert
+    assert len(library.films) == 1
 
 def test_library_len():
+    """Test library length calculation."""
+    # Arrange
     library = Library()
-    assert len(library) == 0, "Expected library length to be 0 when empty."
-    film1 = Film(mubi_id="123", title="Film One", artwork="http://example.com/art1.jpg", web_url="http://example.com/film1", category="Drama", metadata=MockMetadata(2021))
-    film2 = Film(mubi_id="456", title="Film Two", artwork="http://example.com/art2.jpg", web_url="http://example.com/film2", category="Comedy", metadata=MockMetadata(2022))
+    film1 = Film(
+        mubi_id="123",
+        title="Film One",
+        artwork="http://example.com/art1.jpg",
+        web_url="http://example.com/film1",
+        category="Drama",
+        metadata=MockMetadata(2021)
+    )
+    film2 = Film(
+        mubi_id="456",
+        title="Film Two",
+        artwork="http://example.com/art2.jpg",
+        web_url="http://example.com/film2",
+        category="Comedy",
+        metadata=MockMetadata(2022)
+    )
+
+    # Act
+    initial_length = len(library)
     library.add_film(film1)
     library.add_film(film2)
-    assert len(library) == 2, "Expected library length to be 2 after adding two films."
+    final_length = len(library)
+
+    # Assert
+    assert initial_length == 0
+    assert final_length == 2
 
 @patch.object(Film, "create_nfo_file")
 @patch.object(Film, "create_strm_file")

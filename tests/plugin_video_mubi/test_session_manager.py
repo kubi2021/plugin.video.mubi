@@ -1,3 +1,14 @@
+"""
+Test suite for SessionManager class following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
+"""
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from plugin_video_mubi.resources.lib.session_manager import SessionManager
@@ -8,7 +19,7 @@ class TestSessionManager:
 
     def test_session_manager_initialization(self, mock_addon):
         """Test SessionManager initialization with existing settings."""
-        # Setup mock addon with existing settings
+        # Arrange
         mock_addon.getSetting.side_effect = lambda key: {
             'deviceID': 'existing-device-id',
             'client_country': 'US',
@@ -16,25 +27,29 @@ class TestSessionManager:
             'token': 'existing-token',
             'userID': 'user123'
         }.get(key, '')
-        
+
+        # Act
         session = SessionManager(mock_addon)
-        
+
+        # Assert
         assert session.plugin == mock_addon
         assert session.device_id == 'existing-device-id'
         assert session.client_country == 'US'
         assert session.client_language == 'en'
         assert session.token == 'existing-token'
         assert session.user_id == 'user123'
-        assert session.is_logged_in is True  # Should be True because token exists
+        assert session.is_logged_in is True
 
     def test_session_manager_initialization_no_existing_settings(self, mock_addon):
         """Test SessionManager initialization without existing settings."""
-        # Setup mock addon with no existing settings
+        # Arrange
         mock_addon.getSetting.return_value = ''
-        
+
+        # Act
         with patch.object(SessionManager, 'generate_device_id', return_value='new-device-id'):
             session = SessionManager(mock_addon)
-        
+
+        # Assert
         assert session.device_id == 'new-device-id'
         assert session.client_country == ''
         assert session.client_language == ''
