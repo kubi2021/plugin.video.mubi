@@ -31,14 +31,52 @@ def generate_drm_license_key(token, user_id):
     return license_key
 
 
-def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, subtitles: list):
+def generate_drm_config(token, user_id):
+    """
+    Generates a DRM configuration object for Kodi 22+ (ISA v22.1.5+).
+
+    :param token: The session token for the Mubi user.
+    :param user_id: The Mubi user ID.
+    :return: A dictionary containing the DRM configuration for the new format.
+    """
+    drm_license_url = "https://lic.drmtoday.com/license-proxy-widevine/cenc/"
+    dcd = json.dumps({"userId": user_id, "sessionId": token, "merchant": "mubi"})
+    dcd_enc = base64.b64encode(dcd.encode()).decode()
+
+    drm_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+        'dt-custom-data': dcd_enc,
+        'Referer': 'https://mubi.com/',
+        'Origin': 'https://mubi.com',
+        'Content-Type': ''
+    }
+
+    drm_config = {
+        "com.widevine.alpha": {
+            "license": {
+                "server_url": drm_license_url,
+                "req_headers": urlencode(drm_headers),
+                "unwrapper": "json,base64",
+                "unwrapper_params": {"path_data": "license"},
+            }
+        }
+    }
+
+    return drm_config
+
+
+def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, subtitles: list,
+                                   token: str = None, user_id: str = None):
     """
     Plays a video using InputStream Adaptive (ISA) with DRM protection and subtitles.
+    Supports both legacy (Kodi < 22) and new (Kodi >= 22) DRM configuration formats.
 
     :param handle: Kodi plugin handle
     :param stream_url: The secure stream URL
-    :param license_key: DRM license key for Widevine content
+    :param license_key: DRM license key for Widevine content (legacy format)
     :param subtitles: List of subtitle tracks
+    :param token: Session token for new DRM format (optional)
+    :param user_id: User ID for new DRM format (optional)
     """
     try:
         # Determine the streaming protocol from the URL
@@ -54,7 +92,8 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, su
         drm_type = "com.widevine.alpha"  # Widevine DRM
 
         # Log the protocol and stream details for debugging
-        xbmc.log(f"Selected protocol: {protocol}, MIME type: {mime_type}, Stream URL: {stream_url}", xbmc.LOGDEBUG)
+        xbmc.log(f"Selected protocol: {protocol}, MIME type: {mime_type}, Stream URL: {stream_url}",
+                 xbmc.LOGDEBUG)
 
         is_helper = inputstreamhelper.Helper(protocol, drm=drm_type)
 
@@ -73,10 +112,33 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, su
             play_item.setContentLookup(False)
             play_item.setProperty('inputstream', is_helper.inputstream_addon)
             play_item.setProperty("IsPlayable", "true")
-            play_item.setProperty('inputstream.adaptive.license_type', drm_type)
-            play_item.setProperty('inputstream.adaptive.license_key', license_key)
             play_item.setProperty('inputstream.adaptive.stream_headers', headers_str)
             play_item.setProperty('inputstream.adaptive.manifest_headers', headers_str)
+            play_item.setProperty('inputstream.adaptive.manifest_type', protocol)
+
+            # Kodi version detection for DRM configuration
+            kodi_version = xbmc.getInfoLabel('System.BuildVersion')
+            kodi_major_version = int(kodi_version.split('.')[0])
+
+            xbmc.log(f"Detected Kodi version: {kodi_version}, major version: {kodi_major_version}",
+                     xbmc.LOGDEBUG)
+
+            if kodi_major_version < 22:
+                # Legacy DRM configuration for Kodi < 22
+                xbmc.log("Using legacy DRM configuration for Kodi < 22", xbmc.LOGDEBUG)
+                play_item.setProperty('inputstream.adaptive.license_type', drm_type)
+                play_item.setProperty('inputstream.adaptive.license_key', license_key)
+            else:
+                # New DRM configuration for Kodi >= 22 (ISA v22.1.5+)
+                xbmc.log("Using new DRM configuration for Kodi >= 22", xbmc.LOGDEBUG)
+                if token and user_id:
+                    drm_config = generate_drm_config(token, user_id)
+                    play_item.setProperty('inputstream.adaptive.drm', json.dumps(drm_config))
+                else:
+                    # Fallback to legacy if token/user_id not provided
+                    xbmc.log("Token/user_id not provided, falling back to legacy DRM", xbmc.LOGWARNING)
+                    play_item.setProperty('inputstream.adaptive.license_type', drm_type)
+                    play_item.setProperty('inputstream.adaptive.license_key', license_key)
 
             # Add subtitles to the ListItem
             subtitle_urls = [subtitle['url'] for subtitle in subtitles]
