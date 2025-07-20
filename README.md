@@ -102,19 +102,23 @@ This project uses a **Kodi repository structure** with automated release managem
 1. **Make Changes**: Edit files in `repo/plugin_video_mubi/`
 2. **Run Tests**: `pytest tests/` (274+ tests must pass)
 3. **Create PR**: Submit pull request to `main` branch
-4. **Auto-Release**: On merge, GitHub Actions automatically:
-   - Increments version number (simple: 5 → 6)
-   - Updates `addon.xml` news section with PR title
-   - Generates repository zip files
-   - Creates GitHub release with assets
-   - Updates repository metadata
+4. **Merge PR**: Normal merge
+5. **Manual Release** (when ready): Go to Actions → "Release Plugin Update" → Run workflow:
+   - Enter release notes (user-facing description)
+   - GitHub Actions automatically:
+     - Increments version number (simple: 5 → 6)
+     - Updates `addon.xml` news section with release notes
+     - Generates repository zip files
+     - Creates GitHub release with assets
+     - Updates repository metadata
 
 ### Key Files for Contributors
 
 - **Main Add-on Code**: `repo/plugin_video_mubi/`
-- **Version Management**: `repo/plugin_video_mubi/addon.xml` (line 2)
+- **Version Management**: `repo/plugin_video_mubi/addon.xml` (line 2) - auto-updated on release
 - **Tests**: `tests/plugin_video_mubi/`
-- **CI Configuration**: `.github/workflows/`
+- **Release Workflow**: `.github/workflows/auto-release.yml` - manual trigger only
+- **Release Guide**: `docs/RELEASE_MANAGEMENT.md` - detailed release process
 
 ### Testing
 
@@ -150,14 +154,28 @@ python3 _repo_generator.py
 
 ### Release Process
 
-**Automatic** (recommended):
-1. Merge PR → Auto-release triggers
-2. New version appears in GitHub releases
-3. Users get update notifications in Kodi
+**Manual Release Control**:
+1. **Regular Development**: Merge PRs normally (tests, docs, refactoring) - no automatic releases
+2. **When Ready to Release**:
+   - Go to **Actions** → **"Release Plugin Update"** → **"Run workflow"**
+   - Enter **release notes**: "Fixed audio detection and improved error handling"
+   - Click **"Run workflow"**
+3. **Result**: New version appears in GitHub releases, users get update notifications in Kodi
 
-**Manual** (if needed):
-1. Run workflow manually from GitHub Actions
-2. Creates test release for validation
+**When to Release**:
+- ✅ New features for users
+- ✅ Bug fixes affecting functionality
+- ✅ Security updates
+- ❌ Test improvements, documentation, refactoring
+
+**Example Workflow**:
+```
+Week 1: Merge "Improve test coverage" → No release
+Week 1: Merge "Update README" → No release
+Week 2: Merge "Add 5.1 audio support" → Manual release v6
+Week 2: Merge "Fix login timeout" → Include in next release
+Week 3: Manual release v7 → "Audio improvements and login fixes"
+```
 
 ---
 
