@@ -37,7 +37,6 @@ class TestFilm:
             title=title,
             artwork=artwork,
             web_url=web_url,
-            category=category,
             metadata=mock_metadata
         )
 
@@ -46,25 +45,24 @@ class TestFilm:
         assert film.title == "Test Movie"
         assert film.artwork == "http://example.com/art.jpg"
         assert film.web_url == "http://example.com/movie"
-        assert film.categories == ["Drama"]
         assert film.metadata == mock_metadata
 
     def test_film_initialization_missing_required_fields(self):
         """Test film initialization fails with missing required fields."""
         with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
-            Film(mubi_id="", title="Test", artwork="", web_url="", category="", metadata=None)
-        
+            Film(mubi_id="", title="Test", artwork="", web_url="", metadata=None)
+
         with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
-            Film(mubi_id="123", title="", artwork="", web_url="", category="", metadata=Mock())
-        
+            Film(mubi_id="123", title="", artwork="", web_url="", metadata=Mock())
+
         with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
-            Film(mubi_id="123", title="Test", artwork="", web_url="", category="", metadata=None)
+            Film(mubi_id="123", title="Test", artwork="", web_url="", metadata=None)
 
     def test_film_equality(self, mock_metadata):
         """Test film equality based on mubi_id."""
-        film1 = Film("123", "Movie 1", "", "", "Drama", mock_metadata)
-        film2 = Film("123", "Movie 2", "", "", "Comedy", mock_metadata)  # Different title, same ID
-        film3 = Film("456", "Movie 1", "", "", "Drama", mock_metadata)  # Same title, different ID
+        film1 = Film("123", "Movie 1", "", "", mock_metadata)
+        film2 = Film("123", "Movie 2", "", "", mock_metadata)  # Different title, same ID
+        film3 = Film("456", "Movie 1", "", "", mock_metadata)  # Same title, different ID
         
         assert film1 == film2  # Same mubi_id
         assert film1 != film3  # Different mubi_id
@@ -72,8 +70,8 @@ class TestFilm:
 
     def test_film_hash(self, mock_metadata):
         """Test film hash is based on mubi_id."""
-        film1 = Film("123", "Movie 1", "", "", "Drama", mock_metadata)
-        film2 = Film("123", "Movie 2", "", "", "Comedy", mock_metadata)
+        film1 = Film("123", "Movie 1", "", "", mock_metadata)
+        film2 = Film("123", "Movie 2", "", "", mock_metadata)
         
         assert hash(film1) == hash(film2)
         
@@ -81,22 +79,7 @@ class TestFilm:
         film_set = {film1, film2}
         assert len(film_set) == 1  # Should only contain one film due to same mubi_id
 
-    def test_add_category(self, mock_metadata):
-        """Test adding categories to a film."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
-        
-        # Add new category
-        film.add_category("Comedy")
-        assert "Comedy" in film.categories
-        assert len(film.categories) == 2
-        
-        # Try to add duplicate category
-        film.add_category("Drama")
-        assert film.categories.count("Drama") == 1  # Should not duplicate
-        
-        # Try to add empty category
-        film.add_category("")
-        assert "" not in film.categories
+
 
     def test_get_sanitized_folder_name(self, mock_metadata):
         """Test folder name sanitization."""
@@ -435,25 +418,7 @@ class TestFilm:
         result = film._get_imdb_url("Test Movie", "Test Movie", 2023, "test_api_key")
         assert result == ""
 
-    def test_film_categories_management(self, mock_metadata):
-        """Test film categories management."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
 
-        # Test initial category
-        assert "Drama" in film.categories
-
-        # Test adding multiple categories
-        film.add_category("Action")
-        film.add_category("Thriller")
-
-        assert "Drama" in film.categories
-        assert "Action" in film.categories
-        assert "Thriller" in film.categories
-
-        # Test adding duplicate category
-        initial_count = len(film.categories)
-        film.add_category("Drama")  # Should not add duplicate
-        assert len(film.categories) == initial_count
 
     def test_sanitized_folder_name_edge_cases(self, mock_metadata):
         """Test folder name sanitization with edge cases."""
