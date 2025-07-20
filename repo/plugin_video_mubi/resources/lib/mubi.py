@@ -46,7 +46,7 @@ class Mubi:
         :param session_manager: Instance of SessionManager to handle session data
         :type session_manager: SessionManager
         """
-        self.apiURL = 'https://api.mubi.com/v3/'
+        self.apiURL = 'https://api.mubi.com/'
         self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
         self.session_manager = session_manager  # Use session manager for session-related data
         self.library = Library()  # Initialize the Library
@@ -303,7 +303,7 @@ class Mubi:
         :return: Dictionary with 'auth_token' and 'link_code'.
         :rtype: dict
         """
-        response = self._make_api_call('GET', 'link_code', headers=self.hea_atv_gen())
+        response = self._make_api_call('GET', 'v3/link_code', headers=self.hea_atv_gen())
         if response:
             return response.json()
         else:
@@ -319,7 +319,9 @@ class Mubi:
         :rtype: dict or None
         """
         data = {'auth_token': auth_token}
-        response = self._make_api_call('POST', 'authenticate', headers=self.hea_atv_gen(), json=data)
+        response = self._make_api_call(
+            'POST', 'v3/authenticate', headers=self.hea_atv_gen(), json=data
+        )
 
         if response:
             response_data = response.json()
@@ -350,7 +352,7 @@ class Mubi:
         :return: True if logout was successful, False otherwise.
         :rtype: bool
         """
-        response = self._make_api_call('DELETE', 'sessions', headers=self.hea_atv_auth())
+        response = self._make_api_call('DELETE', 'v3/sessions', headers=self.hea_atv_auth())
         if response and response.status_code == 200:
             return True
         else:
@@ -365,7 +367,7 @@ class Mubi:
         :return: A list of all film group categories across all pages.
         :rtype: list
         """
-        endpoint = 'browse/film_groups'
+        endpoint = 'v3/browse/film_groups'
         headers = self.hea_atv_gen()  # Use headers without authorization
         categories = []
         page = 1  # Start from the first page
@@ -475,7 +477,7 @@ class Mubi:
         :return: result
         :rtype: json
         """
-        endpoint = f'wishes'
+        endpoint = 'v3/wishes'
         headers = self.hea_atv_auth()
         params = {
             'user_id': self.session_manager.user_id,
@@ -529,7 +531,7 @@ class Mubi:
         per_page = 20
 
         while True:
-            endpoint = f'film_groups/{category_id}/film_group_items'
+            endpoint = f'v3/film_groups/{category_id}/film_group_items'
             headers = self.hea_atv_auth()
             params = {
                 'page': page,
@@ -617,7 +619,7 @@ class Mubi:
     def get_secure_stream_info(self, vid: str) -> dict:
         try:
             # Step 1: Attempt to check film viewing availability with parental lock
-            viewing_url = f"{self.apiURL}films/{vid}/viewing"
+            viewing_url = f"{self.apiURL}v3/films/{vid}/viewing"
             params = {'parental_lock_enabled': 'true'}  # Add as query parameter
             viewing_response = self._make_api_call("POST", full_url=viewing_url, headers=self.hea_atv_auth(), params=params)
 
@@ -626,7 +628,7 @@ class Mubi:
                 xbmc.log(f"Parental lock check failed, ignoring. Error: {viewing_response.text if viewing_response else 'No response'}", xbmc.LOGWARNING)
 
             # Step 2: Handle Pre-roll (if any)
-            preroll_url = f"{self.apiURL}prerolls/viewings"
+            preroll_url = f"{self.apiURL}v3/prerolls/viewings"
             preroll_data = {'viewing_film_id': int(vid)}
             preroll_response = self._make_api_call("POST", full_url=preroll_url, headers=self.hea_atv_auth(), json=preroll_data)
 
@@ -635,7 +637,7 @@ class Mubi:
                 xbmc.log(f"Pre-roll processing failed: {preroll_response.text}", xbmc.LOGDEBUG)
 
             # Step 3: Fetch the secure video URL
-            secure_url = f"https://api.mubi.com/v3/films/{vid}/viewing/secure_url"
+            secure_url = f"{self.apiURL}v3/films/{vid}/viewing/secure_url"
             secure_response = self._make_api_call("GET", full_url=secure_url, headers=self.hea_atv_auth())
 
             # Ensure we keep the entire secure response data intact
