@@ -1,3 +1,14 @@
+"""
+Test suite for Film class following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
+"""
+
 import pytest
 import tempfile
 from unittest.mock import Mock, patch, MagicMock
@@ -13,15 +24,24 @@ class TestFilm:
 
     def test_film_initialization_valid(self, mock_metadata):
         """Test successful film initialization with valid data."""
+        # Arrange
+        mubi_id = "12345"
+        title = "Test Movie"
+        artwork = "http://example.com/art.jpg"
+        web_url = "http://example.com/movie"
+        category = "Drama"
+
+        # Act
         film = Film(
-            mubi_id="12345",
-            title="Test Movie",
-            artwork="http://example.com/art.jpg",
-            web_url="http://example.com/movie",
-            category="Drama",
+            mubi_id=mubi_id,
+            title=title,
+            artwork=artwork,
+            web_url=web_url,
+            category=category,
             metadata=mock_metadata
         )
-        
+
+        # Assert
         assert film.mubi_id == "12345"
         assert film.title == "Test Movie"
         assert film.artwork == "http://example.com/art.jpg"

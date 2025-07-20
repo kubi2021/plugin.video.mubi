@@ -1,14 +1,16 @@
-name: Auto Release Plugin Update
+name: Release Plugin Update
 
 on:
-  workflow_dispatch:  # Manual trigger for testing
-  pull_request:
-    types: [closed]
-    branches: [main]
+  workflow_dispatch:  # Manual trigger - click button to release
+    inputs:
+      release_notes:
+        description: 'Release notes for this version'
+        required: true
+        default: 'Bug fixes and improvements'
 
 jobs:
-  auto-release:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+  release:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     
     steps:
@@ -56,18 +58,14 @@ jobs:
         sed -i "s/<addon id=\"plugin.video.mubi\" name=\"MUBI\" version=\"[^\"]*\"/<addon id=\"plugin.video.mubi\" name=\"MUBI\" version=\"$NEW_VERSION\"/" repo/plugin_video_mubi/addon.xml
         echo "Updated plugin version to $NEW_VERSION"
 
-    - name: Update news section with PR title
+    - name: Update news section with release notes
       run: |
         NEW_VERSION=${{ steps.new_version.outputs.new_version }}
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          PR_TITLE="Manual release for testing"
-        else
-          PR_TITLE="${{ github.event.pull_request.title }}"
-        fi
+        RELEASE_NOTES="${{ github.event.inputs.release_notes }}"
         # Escape special characters for XML
-        ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
-        sed -i "s|<news>.*</news>|<news>v$NEW_VERSION - $ESCAPED_TITLE</news>|" repo/plugin_video_mubi/addon.xml
-        echo "Updated news section with: v$NEW_VERSION - $PR_TITLE"
+        ESCAPED_NOTES=$(echo "$RELEASE_NOTES" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
+        sed -i "s|<news>.*</news>|<news>v$NEW_VERSION - $ESCAPED_NOTES</news>|" repo/plugin_video_mubi/addon.xml
+        echo "Updated news section with: v$NEW_VERSION - $RELEASE_NOTES"
 
     - name: Generate repository files
       run: |
@@ -104,13 +102,13 @@ jobs:
         body: |
           ## MUBI Plugin v${{ steps.new_version.outputs.new_version }}
 
-          **Changes:** ${{ github.event_name == 'workflow_dispatch' && 'Manual release for testing' || github.event.pull_request.title }}
+          **Changes:** ${{ github.event.inputs.release_notes }}
 
           **Installation:**
           - Repository: Download `repository.kubi2021-2.zip` and install in Kodi
           - Direct: Download `plugin.video.mubi-${{ steps.new_version.outputs.new_version }}.zip` and install in Kodi
 
-          ${{ github.event_name != 'workflow_dispatch' && format('**PR:** {0}', github.event.pull_request.html_url) || '**Trigger:** Manual workflow dispatch' }}
+          **Trigger:** Manual release
         draft: false
         prerelease: false
 

@@ -1,10 +1,17 @@
 """
-Security Test Suite for MUBI Kodi Plugin
+Security Test Suite for MUBI Kodi Plugin following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
 
 This module contains comprehensive security tests to ensure the plugin
 is protected against common vulnerabilities including:
 - Input validation attacks
-- Path traversal attacks  
+- Path traversal attacks
 - Command injection
 - Authentication bypass
 - Information disclosure
