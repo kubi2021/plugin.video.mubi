@@ -542,7 +542,7 @@ class Mubi:
                         # The direct API doesn't provide collection/category information
                         category_name = "All Films"
 
-                        film = self.get_film_metadata(film_wrapper, category_name)
+                        film = self.get_film_metadata(film_wrapper)
                         if film:
                             # Debug: Log what fields we're using vs what's available
                             if total_films_fetched < 3:
@@ -553,33 +553,6 @@ class Mubi:
                                 unused_fields = [field for field in available_fields if field not in used_fields]
                                 xbmc.log(f"Film {total_films_fetched + 1} - Fields we use: {used_fields}", xbmc.LOGDEBUG)
                                 xbmc.log(f"Film {total_films_fetched + 1} - Available but unused fields: {unused_fields}", xbmc.LOGDEBUG)
-
-                            # Check if there are any collection-related fields in the response
-                            # and add them as additional categories (stored as Kodi tags)
-                            collections = film_data.get('collections', [])
-                            film_groups = film_data.get('film_groups', [])
-
-                            # Debug: Log collection information if found
-                            if total_films_fetched < 3 and (collections or film_groups):
-                                xbmc.log(f"Film {total_films_fetched + 1} - Collections found: {collections}", xbmc.LOGDEBUG)
-                                xbmc.log(f"Film {total_films_fetched + 1} - Film groups found: {film_groups}", xbmc.LOGDEBUG)
-
-                            # Add any collection information we find as additional categories
-                            for collection in collections:
-                                if isinstance(collection, dict):
-                                    collection_name = collection.get('title') or collection.get('name')
-                                    if collection_name:
-                                        film.add_category(collection_name)
-                                elif isinstance(collection, str):
-                                    film.add_category(collection)
-
-                            for film_group in film_groups:
-                                if isinstance(film_group, dict):
-                                    group_name = film_group.get('title') or film_group.get('name')
-                                    if group_name:
-                                        film.add_category(group_name)
-                                elif isinstance(film_group, str):
-                                    film.add_category(film_group)
 
                             all_films_library.add_film(film)
                             total_films_fetched += 1
@@ -621,12 +594,11 @@ class Mubi:
             films_data = self.get_films_in_watchlist()
 
             # Process and add each film to the library
-            category_name = "watchlist"
             for film_item in films_data:
                 this_film = film_item.get('film')
                 consumable = this_film.get('consumable')
                 if consumable != None:
-                    film = self.get_film_metadata(film_item, category_name)
+                    film = self.get_film_metadata(film_item)
                     if film:
                         self.library.add_film(film)
 
@@ -689,9 +661,10 @@ class Mubi:
     def get_film_list(self, id: int, category_name: str):
         """
         Retrieves and adds films to the library based on the category id.
+        Note: category_name is kept for compatibility but no longer used for tagging.
 
         :param id: ID of the film group (category).
-        :param category_name: Name of the category.
+        :param category_name: Name of the category (for logging only).
         :return: Library instance with films.
         """
         try:
@@ -700,7 +673,7 @@ class Mubi:
 
             # Process and add each film to the library
             for film_item in films_data:
-                film = self.get_film_metadata(film_item, category_name)
+                film = self.get_film_metadata(film_item)
                 if film:
                     self.library.add_film(film)
 
@@ -755,13 +728,12 @@ class Mubi:
 
 
 
-    def get_film_metadata(self, film_data: dict, category_name: str) -> Film:
+    def get_film_metadata(self, film_data: dict) -> Film:
         """
         Extracts and returns film metadata from the API data.
         Filters out series content to only process actual films.
 
         :param film_data: Dictionary containing film data
-        :param category_name: Name of the category
         :return: Film instance or None if not valid or is a series
         """
         try:
@@ -808,7 +780,6 @@ class Mubi:
                 title=film_info.get('title', ''),
                 artwork=film_info.get('still_url', ''),
                 web_url=film_info.get('web_url', ''),
-                category=category_name,
                 metadata=metadata
             )
         except Exception as e:

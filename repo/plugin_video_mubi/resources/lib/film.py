@@ -16,15 +16,14 @@ from pathlib import Path
 
 
 class Film:
-    def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, category: str, metadata):
+    def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata):
         if not mubi_id or not title or not metadata:
             raise ValueError("Film must have a mubi_id, title, and metadata")
-        
+
         self.mubi_id = mubi_id
         self.title = title
         self.artwork = artwork
         self.web_url = web_url
-        self.categories = [category]  # Store categories as a list to handle multiple categories
         self.metadata = metadata
 
     def __eq__(self, other):
@@ -36,10 +35,7 @@ class Film:
         return hash(self.mubi_id)
 
 
-    def add_category(self, category: str):
-        """Add a category to the film, ensuring no duplicates."""
-        if category and category not in self.categories:
-            self.categories.append(category)
+
 
     def _sanitize_filename(self, filename: str, replacement: str = " ") -> str:
         """
@@ -144,7 +140,7 @@ class Film:
                     # Still create NFO file without IMDb URL rather than failing completely
                     imdb_url = ""
 
-            nfo_tree = self._get_nfo_tree(self.metadata, self.categories, kodi_trailer_url, imdb_url)
+            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url)
             with open(nfo_file, "wb") as f:
                 if isinstance(nfo_tree, str):
                     nfo_tree = nfo_tree.encode("utf-8")
@@ -160,7 +156,7 @@ class Film:
 
 
 
-    def _get_nfo_tree(self, metadata, categories: list, kodi_trailer_url: str, imdb_url: str) -> bytes:
+    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str) -> bytes:
         """Generate the NFO XML tree structure, including IMDb URL if available."""
         if not metadata.title:
             raise ValueError("Metadata must contain a title")
@@ -195,8 +191,7 @@ class Film:
         thumb.set("aspect", "landscape")
         thumb.text = metadata.image
 
-        for category in categories:
-            ET.SubElement(movie, "tag").text = category
+
 
         ET.SubElement(movie, "dateadded").text = str(metadata.dateadded)
 
