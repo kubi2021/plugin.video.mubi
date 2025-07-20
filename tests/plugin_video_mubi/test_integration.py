@@ -257,7 +257,7 @@ class TestRealComponentIntegration:
         
         assert mubi.session_manager == real_session_manager
         assert isinstance(mubi.library, Library)
-        assert mubi.apiURL == "https://api.mubi.com/v3/"
+        assert mubi.apiURL == "https://api.mubi.com/"
         
         # Test that libraries are properly initialized
         assert len(mubi.library) == 0
