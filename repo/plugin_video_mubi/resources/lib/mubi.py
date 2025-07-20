@@ -303,7 +303,7 @@ class Mubi:
         :return: Dictionary with 'auth_token' and 'link_code'.
         :rtype: dict
         """
-        response = self._make_api_call('GET', 'v3/link_code', headers=self.hea_atv_gen())
+        response = self._make_api_call('GET', 'v4/link_code', headers=self.hea_atv_gen())
         if response:
             return response.json()
         else:
@@ -320,7 +320,7 @@ class Mubi:
         """
         data = {'auth_token': auth_token}
         response = self._make_api_call(
-            'POST', 'v3/authenticate', headers=self.hea_atv_gen(), json=data
+            'POST', 'v4/authenticate', headers=self.hea_atv_gen(), json=data
         )
 
         if response:
@@ -352,7 +352,7 @@ class Mubi:
         :return: True if logout was successful, False otherwise.
         :rtype: bool
         """
-        response = self._make_api_call('DELETE', 'v3/sessions', headers=self.hea_atv_auth())
+        response = self._make_api_call('DELETE', 'v4/sessions', headers=self.hea_atv_auth())
         if response and response.status_code == 200:
             return True
         else:
