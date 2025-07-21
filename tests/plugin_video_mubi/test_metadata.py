@@ -1,3 +1,14 @@
+"""
+Test suite for Metadata class following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
+"""
+
 import pytest
 from unittest.mock import patch
 from plugin_video_mubi.resources.lib.metadata import Metadata
@@ -23,7 +34,8 @@ class TestMetadata:
             castandrole="Actor One as Character One",
             dateadded="2023-01-01",
             trailer="http://example.com/trailer.mp4",
-            image="http://example.com/image.jpg"
+            image="http://example.com/image.jpg",
+            mpaa="PG-13"
         )
         
         assert metadata.title == "Test Movie"
@@ -41,6 +53,7 @@ class TestMetadata:
         assert metadata.dateadded == "2023-01-01"
         assert metadata.trailer == "http://example.com/trailer.mp4"
         assert metadata.image == "http://example.com/image.jpg"
+        assert metadata.mpaa == "PG-13"
 
     def test_metadata_initialization_minimal_fields(self):
         """Test metadata initialization with only required fields."""
@@ -176,7 +189,12 @@ class TestMetadata:
             'castandrole': "Test Cast",
             'dateadded': "2023-01-01",
             'trailer': "http://example.com/trailer",
-            'image': "http://example.com/image.jpg"
+            'image': "http://example.com/image.jpg",
+            'mpaa': "",
+            'artwork_urls': {},
+            'audio_languages': [],
+            'subtitle_languages': [],
+            'media_features': []
         }
         
         assert result_dict == expected_dict

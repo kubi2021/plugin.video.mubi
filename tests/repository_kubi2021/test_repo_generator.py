@@ -1,6 +1,13 @@
 """
 Test suite for the repository generator script.
 Tests the _repo_generator.py functionality and output.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
 """
 
 import os

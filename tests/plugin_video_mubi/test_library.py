@@ -49,7 +49,6 @@ def test_add_valid_film():
         title="Sample Movie",
         artwork="http://example.com/art.jpg",
         web_url="http://example.com",
-        category="Drama",
         metadata=metadata
     )
 
@@ -68,7 +67,6 @@ def test_library_len():
         title="Film One",
         artwork="http://example.com/art1.jpg",
         web_url="http://example.com/film1",
-        category="Drama",
         metadata=MockMetadata(2021)
     )
     film2 = Film(
@@ -76,7 +74,6 @@ def test_library_len():
         title="Film Two",
         artwork="http://example.com/art2.jpg",
         web_url="http://example.com/film2",
-        category="Comedy",
         metadata=MockMetadata(2022)
     )
 
@@ -104,7 +101,6 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
             title="Sample Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com",
-            category="Drama",
             metadata=metadata
         )
         library.add_film(film)
@@ -160,7 +156,6 @@ def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
             title="Existing Movie",
             artwork="http://example.com/art2.jpg",
             web_url="http://example.com",
-            category="Comedy",
             metadata=metadata
         )
         library.add_film(film)
@@ -203,7 +198,6 @@ def test_prepare_files_for_film_failure(mock_create_strm, mock_create_nfo):
             title="Failed Movie",
             artwork="http://example.com/art3.jpg",
             web_url="http://example.com",
-            category="Action",
             metadata=metadata
         )
         library.add_film(film)
@@ -250,7 +244,7 @@ def test_remove_obsolete_files():
         # Create a film and add it to the library
         library = Library()
         metadata = MockMetadata(year=2023)
-        film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg", web_url="http://example.com", category="Drama", metadata=metadata)
+        film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg", web_url="http://example.com", metadata=metadata)
         library.add_film(film)
 
         # Create the folder for the current film to simulate an existing folder
@@ -267,6 +261,96 @@ def test_remove_obsolete_files():
         # Check that the current film folder was not removed
         assert current_folder.exists(), "Current film folder should not have been removed."
 
+def test_remove_obsolete_files_with_artwork():
+    """Test that obsolete film folders are completely removed including all artwork files."""
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        plugin_userdata_path = Path(tmpdirname)
+
+        # Create obsolete film folder with various files including artwork
+        obsolete_folder = plugin_userdata_path / "Old Movie (2020)"
+        obsolete_folder.mkdir()
+
+        # Create typical film files that would be in a film folder
+        nfo_file = obsolete_folder / "Old Movie (2020).nfo"
+        strm_file = obsolete_folder / "Old Movie (2020).strm"
+        thumb_file = obsolete_folder / "Old Movie (2020)-thumb.jpg"
+        poster_file = obsolete_folder / "Old Movie (2020)-poster.jpg"
+        clearlogo_file = obsolete_folder / "Old Movie (2020)-clearlogo.png"
+
+        # Create all the files
+        nfo_file.touch()
+        strm_file.touch()
+        thumb_file.touch()
+        poster_file.touch()
+        clearlogo_file.touch()
+
+        # Verify files exist before cleanup
+        assert nfo_file.exists(), "NFO file should exist before cleanup"
+        assert strm_file.exists(), "STRM file should exist before cleanup"
+        assert thumb_file.exists(), "Thumbnail file should exist before cleanup"
+        assert poster_file.exists(), "Poster file should exist before cleanup"
+        assert clearlogo_file.exists(), "Clearlogo file should exist before cleanup"
+
+        # Create a library with no films (so the obsolete folder should be removed)
+        library = Library()
+
+        # Remove obsolete files
+        removed_count = library.remove_obsolete_files(plugin_userdata_path)
+
+        # Assert that the obsolete folder and all its contents were removed
+        assert removed_count == 1, "Should have removed 1 obsolete folder"
+        assert not obsolete_folder.exists(), "Obsolete folder should be completely removed"
+        assert not nfo_file.exists(), "NFO file should be removed with folder"
+        assert not strm_file.exists(), "STRM file should be removed with folder"
+        assert not thumb_file.exists(), "Thumbnail file should be removed with folder"
+        assert not poster_file.exists(), "Poster file should be removed with folder"
+        assert not clearlogo_file.exists(), "Clearlogo file should be removed with folder"
+
+def test_remove_obsolete_files_preserves_current_artwork():
+    """Test that current film folders and their artwork are preserved during cleanup."""
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        plugin_userdata_path = Path(tmpdirname)
+
+        # Create obsolete film folder
+        obsolete_folder = plugin_userdata_path / "Old Movie (2020)"
+        obsolete_folder.mkdir()
+        (obsolete_folder / "Old Movie (2020).nfo").touch()
+        (obsolete_folder / "Old Movie (2020)-thumb.jpg").touch()
+
+        # Create current film and add to library
+        library = Library()
+        metadata = MockMetadata(year=2023)
+        current_film = Film(
+            mubi_id="123456",
+            title="Current Movie",
+            artwork="http://example.com/art.jpg",
+            web_url="http://example.com",
+            metadata=metadata
+        )
+        library.add_film(current_film)
+
+        # Create current film folder with artwork
+        current_folder = plugin_userdata_path / current_film.get_sanitized_folder_name()
+        current_folder.mkdir()
+        current_nfo = current_folder / f"{current_film.get_sanitized_folder_name()}.nfo"
+        current_thumb = current_folder / f"{current_film.get_sanitized_folder_name()}-thumb.jpg"
+        current_poster = current_folder / f"{current_film.get_sanitized_folder_name()}-poster.jpg"
+
+        current_nfo.touch()
+        current_thumb.touch()
+        current_poster.touch()
+
+        # Remove obsolete files
+        removed_count = library.remove_obsolete_files(plugin_userdata_path)
+
+        # Assert obsolete folder was removed but current folder preserved
+        assert removed_count == 1, "Should have removed 1 obsolete folder"
+        assert not obsolete_folder.exists(), "Obsolete folder should be removed"
+        assert current_folder.exists(), "Current film folder should be preserved"
+        assert current_nfo.exists(), "Current film NFO should be preserved"
+        assert current_thumb.exists(), "Current film thumbnail should be preserved"
+        assert current_poster.exists(), "Current film poster should be preserved"
+
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
@@ -279,9 +363,9 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
         film1 = Film(mubi_id="123", title="Sample Movie 1", artwork="http://example.com/art1.jpg",
-                     web_url="http://example.com/film1", category="Drama", metadata=metadata)
+                     web_url="http://example.com/film1", metadata=metadata)
         film2 = Film(mubi_id="456", title="Sample Movie 2", artwork="http://example.com/art2.jpg",
-                     web_url="http://example.com/film2", category="Comedy", metadata=metadata)
+                     web_url="http://example.com/film2", metadata=metadata)
         library.add_film(film1)
         library.add_film(film2)
 
@@ -301,7 +385,7 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
 
         # Assertions for progress dialog
-        mock_dialog.create.assert_called_once_with("Syncing with MUBI", "Starting the sync...")
+        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Starting the sync...")
         assert mock_dialog.update.call_count == 2, "Progress dialog should have been updated twice"
         mock_dialog.close.assert_called_once()
 
@@ -327,9 +411,9 @@ def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
         film1 = Film(mubi_id="123", title="Sample Movie 1", artwork="http://example.com/art1.jpg",
-                     web_url="http://example.com/film1", category="Drama", metadata=metadata)
+                     web_url="http://example.com/film1", metadata=metadata)
         film2 = Film(mubi_id="456", title="Sample Movie 2", artwork="http://example.com/art2.jpg",
-                     web_url="http://example.com/film2", category="Comedy", metadata=metadata)
+                     web_url="http://example.com/film2", metadata=metadata)
         library.add_film(film1)
         library.add_film(film2)
 
@@ -364,7 +448,6 @@ def test_prepare_files_for_film_exception_in_nfo(mock_create_strm, mock_create_n
             title="Exception Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com",
-            category="Drama",
             metadata=metadata
         )
         library.add_film(film)
@@ -397,7 +480,6 @@ def test_prepare_files_for_film_exception_in_strm(mock_create_strm, mock_create_
             title="Exception Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com",
-            category="Drama",
             metadata=metadata
         )
         library.add_film(film)
@@ -428,7 +510,7 @@ def test_remove_obsolete_files_no_obsolete():
         library = Library()
         metadata = MockMetadata(year=2023)
         film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg",
-                    web_url="http://example.com", category="Drama", metadata=metadata)
+                    web_url="http://example.com", metadata=metadata)
         library.add_film(film)
 
         # Create the folder for the current film to simulate an existing folder
@@ -448,7 +530,7 @@ def test_remove_obsolete_files_nonexistent_path():
     library = Library()
     metadata = MockMetadata(year=2023)
     film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg",
-                web_url="http://example.com", category="Drama", metadata=metadata)
+                web_url="http://example.com", metadata=metadata)
     library.add_film(film)
 
     # Attempt to remove obsolete files
@@ -477,7 +559,7 @@ def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress, 
         library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
 
         # Assertions for progress dialog
-        mock_dialog.create.assert_called_once_with("Syncing with MUBI", "Starting the sync...")
+        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Starting the sync...")
         mock_dialog.update.assert_not_called()
         mock_dialog.close.assert_called_once()
 
@@ -496,7 +578,6 @@ def test_prepare_files_for_film_with_invalid_characters():
             title="Invalid/Character: Movie*?",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com",
-            category="Drama",
             metadata=metadata
         )
         library.add_film(film)
@@ -542,7 +623,6 @@ def test_prepare_files_for_film_unwritable_path():
             title="Unwritable Path Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com",
-            category="Drama",
             metadata=metadata
         )
         library.add_film(film)
@@ -576,7 +656,6 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
                 title=f"Sample Movie {i}",
                 artwork=f"http://example.com/art{i}.jpg",
                 web_url=f"http://example.com/film{i}",
-                category="Drama",
                 metadata=metadata
             )
             library.add_film(film)
@@ -600,7 +679,7 @@ def test_add_duplicate_film():
     library = Library()
     metadata = MockMetadata(year=2023)
     film = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg",
-                web_url="http://example.com", category="Drama", metadata=metadata)
+                web_url="http://example.com", metadata=metadata)
     library.add_film(film)
     library.add_film(film)
     assert len(library) == 1, "Library should contain only one instance of the film."
@@ -608,11 +687,11 @@ def test_add_duplicate_film():
 def test_film_equality():
     metadata = MockMetadata(year=2023)
     film1 = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg",
-                 web_url="http://example.com", category="Drama", metadata=metadata)
+                 web_url="http://example.com", metadata=metadata)
     film2 = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg",
-                 web_url="http://example.com", category="Drama", metadata=metadata)
+                 web_url="http://example.com", metadata=metadata)
     film3 = Film(mubi_id="654321", title="Another Movie", artwork="http://example.com/art2.jpg",
-                 web_url="http://example.com", category="Drama", metadata=metadata)
+                 web_url="http://example.com", metadata=metadata)
 
     assert film1 == film2, "Films with the same mubi_id should be equal."
     assert film1 != film3, "Films with different mubi_id should not be equal."
@@ -640,7 +719,6 @@ def test_sync_locally_with_genre_filtering(
             title="Scary Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com",
-            category="Horror",
             metadata=metadata_horror
         )
         library.add_film(film_horror)
@@ -653,7 +731,6 @@ def test_sync_locally_with_genre_filtering(
             title="Dramatic Movie",
             artwork="http://example.com/art2.jpg",
             web_url="http://example.com",
-            category="Drama",
             metadata=metadata_drama
         )
         library.add_film(film_drama)
