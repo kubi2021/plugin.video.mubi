@@ -514,14 +514,14 @@ class NavigationHandler:
                     # Raise an exception to signal cancellation to get_all_films
                     raise Exception("User canceled sync operation")
 
-                # Calculate percentage based on pages processed (more accurate than films)
+                # Calculate percentage based on pages processed (use full 100% for fetching phase)
                 if total_pages > 0:
-                    percent = int((current_page / total_pages) * 50)  # Use 50% for fetching phase
+                    percent = int((current_page / total_pages) * 100)  # Use full progress bar
                 else:
-                    percent = 25  # Fallback percentage
+                    percent = 50  # Fallback percentage
 
-                # Update dialog with dynamic information - only show films loaded, not pages
-                message = f"Fetching {total_films} playable films\n{current_films} films loaded"
+                # Update dialog with dynamic information - keep it simple without any counts
+                message = "Fetching playable films..."
                 pDialog.update(percent, message)
 
             # Use the new direct approach to fetch all films with progress tracking
@@ -538,9 +538,9 @@ class NavigationHandler:
                     raise  # Re-raise if it's not a cancellation
 
             # Update progress dialog for file creation phase
-            total_films = len(all_films_library.films)
-            pDialog.update(50, f"Fetched {total_films} films, creating local files...")
-            xbmc.log(f"Successfully fetched {total_films} films using direct API approach", xbmc.LOGINFO)
+            filtered_films_count = len(all_films_library.films)
+            pDialog.update(50, f"Fetched {filtered_films_count} films, creating local files...")
+            xbmc.log(f"Successfully fetched {filtered_films_count} films using direct API approach", xbmc.LOGINFO)
 
             if pDialog.iscanceled():
                 pDialog.close()
@@ -556,6 +556,7 @@ class NavigationHandler:
             import time
             time.sleep(0.1)
 
+            # Start file creation phase (no total count shown to avoid confusion)
             all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
 
             # Create a monitor instance for library operations
