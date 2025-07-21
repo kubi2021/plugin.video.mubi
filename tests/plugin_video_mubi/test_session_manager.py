@@ -177,12 +177,20 @@ class TestSessionManager:
 
     @patch('xbmc.log')
     def test_set_logged_in_exception(self, mock_log, mock_addon):
-        """Test login state setting handles exceptions."""
+        """Test login state setting handles exceptions with atomic rollback."""
         mock_addon.setSetting.side_effect = Exception("Settings error")
-        
+
         session = SessionManager(mock_addon)
-        session.set_logged_in('test-token', 'user-id')
-        
+
+        # BUG #8 FIX: Method should now raise exception for atomic behavior
+        with pytest.raises(Exception, match="Settings error"):
+            session.set_logged_in('test-token', 'user-id')
+
+        # Verify state was rolled back atomically (empty string is the original state from mock)
+        assert session.token == ""  # Original state from mock_addon
+        assert session.user_id == ""  # Original state from mock_addon
+        assert session.is_logged_in is False
+
         mock_log.assert_called()
 
     @patch('xbmc.log')

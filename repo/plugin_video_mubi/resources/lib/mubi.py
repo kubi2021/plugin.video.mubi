@@ -16,6 +16,7 @@ import hashlib
 import base64
 from collections import namedtuple
 import xbmc
+import xbmcgui
 import re
 import random
 from urllib.parse import urljoin
@@ -218,6 +219,59 @@ class Mubi:
             session.close()
             xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
 
+    def _safe_json_parse(self, response, operation_name="API operation"):
+        """
+        Safely parse JSON response with user-friendly error handling.
+
+        Level 2 Bug Fix: Handles malformed JSON responses gracefully with user notifications.
+
+        :param response: HTTP response object
+        :param operation_name: Name of the operation for user-friendly error messages
+        :return: Parsed JSON data or None if parsing fails
+        """
+        if not response:
+            return None
+
+        try:
+            return response.json()
+        except json.JSONDecodeError as e:
+            # Log technical details for debugging
+            xbmc.log(f"JSON parsing error in {operation_name}: {e}", xbmc.LOGERROR)
+            xbmc.log(f"Response content: {response.text[:500]}...", xbmc.LOGERROR)
+            xbmc.log(f"Response headers: {response.headers}", xbmc.LOGERROR)
+
+            # Show user-friendly notification
+            try:
+                dialog = xbmcgui.Dialog()
+                dialog.notification(
+                    "MUBI",
+                    "Having trouble reaching MUBI service. Please try again later.",
+                    xbmcgui.NOTIFICATION_WARNING,
+                    5000  # 5 second notification
+                )
+            except Exception as notification_error:
+                # Fallback if notification fails
+                xbmc.log(f"Failed to show notification: {notification_error}", xbmc.LOGWARNING)
+
+            return None
+        except Exception as e:
+            # Handle any other unexpected errors
+            xbmc.log(f"Unexpected error parsing response in {operation_name}: {e}", xbmc.LOGERROR)
+
+            # Show generic error notification
+            try:
+                dialog = xbmcgui.Dialog()
+                dialog.notification(
+                    "MUBI",
+                    "Service temporarily unavailable. Please try again later.",
+                    xbmcgui.NOTIFICATION_ERROR,
+                    5000
+                )
+            except Exception:
+                pass  # Silent fallback
+
+            return None
+
 
 
 
@@ -330,10 +384,7 @@ class Mubi:
         :rtype: dict
         """
         response = self._make_api_call('GET', 'v4/link_code', headers=self.hea_atv_gen())
-        if response:
-            return response.json()
-        else:
-            return None
+        return self._safe_json_parse(response, "authentication link code generation")
 
     def authenticate(self, auth_token):
         """
@@ -349,9 +400,9 @@ class Mubi:
             'POST', 'v4/authenticate', headers=self.hea_atv_gen(), json=data
         )
 
-        if response:
-            response_data = response.json()
+        response_data = self._safe_json_parse(response, "user authentication")
 
+        if response_data:
             # Check if token and user data are present in the response
             if 'token' in response_data and 'user' in response_data:
                 token = response_data['token']
@@ -428,10 +479,8 @@ class Mubi:
                     # Check response status
                     xbmc.log(f"Page {page}: Response status code: {response.status_code}", xbmc.LOGDEBUG)
 
-                    try:
-                        data = response.json()
-                    except Exception as e:
-                        xbmc.log(f"Page {page}: Failed to parse JSON response: {e}", xbmc.LOGERROR)
+                    data = self._safe_json_parse(response, f"films catalog page {page}")
+                    if not data:
                         break
 
                     films = data.get('films', [])
@@ -572,15 +621,24 @@ class Mubi:
         # First time with per_page=0, which will just return the total_count
         # Second time, with per_page=<total_count>, to ensure we retrieve all items
         response = self._call_wishlist_api(0)
-        data = response.json()
+        data = self._safe_json_parse(response, "watchlist count retrieval")
+
+        if not data:
+            return []  # Return empty list for graceful degradation
+
         meta = data.get('meta')
-        total_count = meta.get('total_count')
-        
+        total_count = meta.get('total_count') if meta else 0
+
+        if total_count == 0:
+            return []
+
         all_film_items = []
         response = self._call_wishlist_api(total_count)
-        data = response.json()
-        wishes = data.get('wishes', [])
-        all_film_items.extend(wishes)
+        data = self._safe_json_parse(response, "watchlist films retrieval")
+
+        if data:
+            wishes = data.get('wishes', [])
+            all_film_items.extend(wishes)
 
         return all_film_items
 
@@ -933,9 +991,16 @@ class Mubi:
             secure_response = self._make_api_call("GET", full_url=secure_url, headers=self.hea_atv_auth())
 
             # Ensure we keep the entire secure response data intact
-            secure_data = secure_response.json() if secure_response and secure_response.status_code == 200 else None
+            if secure_response and secure_response.status_code == 200:
+                secure_data = self._safe_json_parse(secure_response, "secure stream URL retrieval")
+            else:
+                secure_data = None
+
             if not secure_data or "url" not in secure_data:
-                message = secure_data.get('user_message', 'Unable to retrieve secure URL') if secure_data else 'Unknown error'
+                if secure_data:
+                    message = secure_data.get('user_message', 'Unable to retrieve secure URL')
+                else:
+                    message = 'Service temporarily unavailable'
                 xbmc.log(f"Error retrieving secure stream info: {message}", xbmc.LOGERROR)
                 return {'error': message}
 
@@ -960,7 +1025,7 @@ class Mubi:
 
         except Exception as e:
             xbmc.log(f"Error retrieving secure stream info: {e}", xbmc.LOGERROR)
-            return {'error': 'An unexpected error occurred while retrieving stream info'}
+            return {'error': 'Service temporarily unavailable while retrieving stream info'}
 
 
     def select_best_stream(self, stream_info):

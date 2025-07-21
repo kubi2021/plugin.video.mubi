@@ -1451,7 +1451,7 @@ class TestMubi:
             result = mubi_instance.get_secure_stream_info("12345")
 
             assert "error" in result
-            assert "unknown error" in result["error"].lower()
+            assert "service temporarily unavailable" in result["error"].lower()
 
     def test_get_secure_stream_info_stream_failure(self, mubi_instance):
         """Test secure stream info when stream request fails."""
@@ -1471,7 +1471,7 @@ class TestMubi:
             result = mubi_instance.get_secure_stream_info("12345")
 
             assert "error" in result
-            assert "unexpected error" in result["error"].lower()
+            assert "service temporarily unavailable" in result["error"].lower()
 
     def test_select_best_stream_dash_preferred(self, mubi_instance):
         """Test stream selection with DASH preferred."""

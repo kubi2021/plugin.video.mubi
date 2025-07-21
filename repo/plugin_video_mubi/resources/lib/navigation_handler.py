@@ -6,6 +6,7 @@ import webbrowser
 from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
+import threading
 from .library import Library
 from .playback import play_with_inputstream_adaptive
 
@@ -29,6 +30,10 @@ class NavigationHandler:
     """
     Handles all navigation and UI interactions within Kodi for the Mubi plugin.
     """
+
+    # Class-level lock for sync operations (shared across all instances)
+    _sync_lock = threading.Lock()
+    _sync_in_progress = False
 
     def __init__(self, handle: int, base_url: str, mubi, session):
         """
@@ -474,7 +479,25 @@ class NavigationHandler:
         """
         Sync all Mubi films locally by fetching all films directly and creating STRM and NFO files for each film.
         This allows the films to be imported into Kodi's standard media library.
+
+        Level 2 Bug Fix: Added concurrency protection to prevent multiple sync operations.
         """
+        # BUG #7 FIX: Check if sync is already in progress
+        with NavigationHandler._sync_lock:
+            if NavigationHandler._sync_in_progress:
+                # User-friendly notification about sync already running
+                xbmcgui.Dialog().notification(
+                    "MUBI",
+                    "Sync already in progress. Please wait for it to complete.",
+                    xbmcgui.NOTIFICATION_INFO,
+                    5000
+                )
+                xbmc.log("Sync operation blocked - another sync already in progress", xbmc.LOGINFO)
+                return None
+
+            # Mark sync as in progress
+            NavigationHandler._sync_in_progress = True
+
         try:
             # Check OMDb API key
             omdb_api_key = self._check_omdb_api_key()
@@ -517,6 +540,11 @@ class NavigationHandler:
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
+        finally:
+            # BUG #7 FIX: Always clear the sync flag, even if an error occurs
+            with NavigationHandler._sync_lock:
+                NavigationHandler._sync_in_progress = False
+                xbmc.log("Sync operation completed - flag cleared", xbmc.LOGDEBUG)
 
 
     def update_kodi_library(self, monitor):
