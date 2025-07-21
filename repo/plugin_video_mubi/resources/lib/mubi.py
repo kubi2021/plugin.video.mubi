@@ -439,12 +439,14 @@ class Mubi:
 
 
 
-    def get_all_films(self, playable_only=True):
+    def get_all_films(self, playable_only=True, progress_callback=None):
         """
         Retrieves all films directly from the MUBI API V4 /browse/films endpoint, handling pagination.
         This is more efficient than fetching films category by category.
 
         :param playable_only: If True, only fetch currently playable films. If False, fetch entire catalog.
+        :param progress_callback: Optional callback function to report progress.
+                                Called with (current_films, total_films, current_page, total_pages)
         :return: Library instance with all films.
         :rtype: Library
         """
@@ -456,6 +458,8 @@ class Mubi:
             total_films_fetched = 0
             total_series_skipped = 0
             total_pages_fetched = 0
+            total_films_available = None  # Will be set from first API response
+            total_pages_available = None  # Will be set from first API response
 
             xbmc.log(f"Starting to fetch all films from {endpoint} using sort=title (filtering out series)", xbmc.LOGINFO)
 
@@ -486,6 +490,12 @@ class Mubi:
                     films = data.get('films', [])
                     meta = data.get('meta', {})
                     total_pages_fetched += 1
+
+                    # Extract total counts from first response
+                    if total_films_available is None:
+                        total_films_available = meta.get('total_count', 0)
+                        total_pages_available = meta.get('total_pages', 0)
+                        xbmc.log(f"API reports {total_films_available} total films across {total_pages_available} pages", xbmc.LOGINFO)
 
                     # Log the complete API response for the first few pages to understand structure
                     if total_pages_fetched <= 2:  # Only log first 2 pages to avoid spam
@@ -555,6 +565,20 @@ class Mubi:
 
                             all_films_library.add_film(film)
                             total_films_fetched += 1
+
+                    # Call progress callback if provided
+                    if progress_callback and total_films_available is not None:
+                        try:
+                            progress_callback(
+                                current_films=total_films_fetched,
+                                total_films=total_films_available,
+                                current_page=page,
+                                total_pages=total_pages_available or 0
+                            )
+                        except Exception as e:
+                            # If progress callback raises an exception (e.g., user cancellation), stop fetching
+                            xbmc.log(f"Progress callback raised exception (likely user cancellation): {e}", xbmc.LOGINFO)
+                            break
 
                     # Check if there's a next page
                     next_page = meta.get('next_page')
