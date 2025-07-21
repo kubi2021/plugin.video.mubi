@@ -477,10 +477,8 @@ class TestNavigationHandler:
 
     def test_update_kodi_library(self, navigation_handler):
         """Test Kodi library update functionality."""
-        mock_monitor = Mock()
-
         with patch('xbmc.executebuiltin') as mock_execute:
-            navigation_handler.update_kodi_library(mock_monitor)
+            navigation_handler.update_kodi_library()
 
             # Should execute update command
             mock_execute.assert_called_with('UpdateLibrary(video)')

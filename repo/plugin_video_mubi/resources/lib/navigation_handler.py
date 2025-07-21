@@ -548,18 +548,24 @@ class NavigationHandler:
                 return None
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
-            all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
 
+            # Close the first progress dialog before starting file creation
             pDialog.close()
 
-            # Create a monitor instance
+            # Small delay to ensure dialog is fully closed before next phase
+            import time
+            time.sleep(0.1)
+
+            all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
+
+            # Create a monitor instance for library operations
             monitor = LibraryMonitor()
 
-            # Trigger Kodi library clean first and wait for it to complete
+            # Trigger Kodi library clean first and wait for it to complete (blocking)
             self.clean_kodi_library(monitor)
 
-            # After clean is complete, trigger Kodi library update and wait for it to complete
-            self.update_kodi_library(monitor)
+            # After clean is complete, trigger Kodi library update in background (non-blocking)
+            self.update_kodi_library()
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
@@ -570,20 +576,15 @@ class NavigationHandler:
                 xbmc.log("Sync operation completed - flag cleared", xbmc.LOGDEBUG)
 
 
-    def update_kodi_library(self, monitor):
+    def update_kodi_library(self):
         """
         Triggers a Kodi library update to scan for new movies after the sync process.
+        Library update runs in the background without blocking the UI.
         """
         try:
             xbmc.log("Triggering Kodi library update...", xbmc.LOGDEBUG)
             xbmc.executebuiltin('UpdateLibrary(video)')
-
-            # Wait for the update operation to finish
-            xbmc.log("Waiting for library update to complete...", xbmc.LOGDEBUG)
-            while not monitor.scan_finished:
-                if monitor.waitForAbort(1):  # Wait for 1 second intervals
-                    xbmc.log("Abort requested during library update wait.", xbmc.LOGDEBUG)
-                    break
+            xbmc.log("Library update triggered successfully - running in background", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library update: {e}", xbmc.LOGERROR)
 
@@ -591,6 +592,7 @@ class NavigationHandler:
     def clean_kodi_library(self, monitor):
         """
         Triggers a Kodi library clean to remove items from the library that are not found locally.
+        Waits for the clean operation to complete before returning (blocking).
         """
         try:
             xbmc.log("Triggering Kodi library clean...", xbmc.LOGDEBUG)
@@ -602,6 +604,7 @@ class NavigationHandler:
                 if monitor.waitForAbort(1):  # Wait for 1 second intervals
                     xbmc.log("Abort requested during library clean wait.", xbmc.LOGDEBUG)
                     break
+            xbmc.log("Library clean completed", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library clean: {e}", xbmc.LOGERROR)
 
