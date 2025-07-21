@@ -489,7 +489,6 @@ class TestDirectoryHandling:
                 title=title,
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=mock_metadata
             )
 
@@ -509,7 +508,6 @@ class TestDirectoryHandling:
                 title="27",
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=mock_metadata
             )
 
@@ -541,7 +539,6 @@ class TestDirectoryHandling:
                 title="27",
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=mock_metadata
             )
 
@@ -586,7 +583,6 @@ class TestDirectoryHandling:
                 title=dangerous_title,
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=mock_metadata
             )
 
@@ -626,7 +622,6 @@ class TestDirectoryHandling:
                 title=title,
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=mock_metadata
             )
 
@@ -792,11 +787,9 @@ class TestKodiPluginCompliance:
 
         # List all possible actions from the addon
         actions_to_test = [
-            "list_categories",
             "log_in",
             "log_out",
             "watchlist",
-            "listing",
             "play_ext",
             "play_trailer",
             "sync_locally",
@@ -838,10 +831,7 @@ class TestKodiPluginCompliance:
                         navigation.play_trailer(None)
                     elif action_param == "play_mubi_video":
                         navigation.play_mubi_video(None, None)
-                    elif action_param == "list_categories":
-                        navigation.list_categories()
-                    elif action_param == "listing":
-                        navigation.list_videos(None, None)
+
                     elif action_param == "watchlist":
                         navigation.list_watchlist()
                     else:
