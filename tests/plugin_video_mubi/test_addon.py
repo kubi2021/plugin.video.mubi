@@ -1,3 +1,14 @@
+"""
+Test suite for Addon main module following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
+"""
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import sys

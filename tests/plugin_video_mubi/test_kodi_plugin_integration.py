@@ -4,6 +4,13 @@ Kodi Plugin Integration Tests
 These tests verify that the plugin properly integrates with Kodi's plugin system,
 including proper responses for all actions, directory handling, and error scenarios.
 This prevents issues like GetDirectory errors and improper plugin responses.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
 """
 
 import pytest
