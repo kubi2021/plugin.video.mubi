@@ -17,11 +17,15 @@ from pathlib import Path
 
 class Film:
     def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata):
-        if not mubi_id or not title or not metadata:
-            raise ValueError("Film must have a mubi_id, title, and metadata")
+        if not mubi_id or not metadata:
+            raise ValueError("Film must have a mubi_id and metadata")
+
+        # Handle edge case where title might be empty or only prohibited characters
+        if not title or not title.strip():
+            title = "Unknown Movie"
 
         self.mubi_id = mubi_id
-        self.title = title
+        self.title = title  # Keep original title for NFO content
         self.artwork = artwork
         self.web_url = web_url
         self.metadata = metadata
@@ -37,38 +41,142 @@ class Film:
 
 
 
-    def _sanitize_filename(self, filename: str, replacement: str = " ") -> str:
+    def _sanitize_filename(self, filename: str) -> str:
         """
-        Sanitize a filename by removing or replacing characters that are unsafe for file names
-        and ensuring compatibility across multiple operating systems.
-        
-        :param filename: The original file name.
-        :param replacement: Character to replace invalid characters with.
-        :return: A sanitized file name.
-        """
-        # Replace reserved characters and command injection characters
-        # Note: Parentheses () and apostrophes ' are safe in filenames and commonly used
-        sanitized = re.sub(r'[<>:"/\\|?*^%$&{}@!;`~#]', replacement, filename)
+        LEVEL 2 FILESYSTEM SAFETY PROTECTION
 
-        # Handle reserved Windows names (e.g., CON, PRN, AUX, NUL, COM1, LPT1, etc.)
+        Sanitize filename by removing only filesystem-dangerous characters while
+        preserving normal punctuation for good user experience.
+
+        LEVEL 2 REMOVES:
+        - Filesystem-dangerous: < > : " / \ | ? *
+        - Path traversal: .. ... ....
+        - Windows reserved names: CON, PRN, etc.
+        - Control characters and dangerous Unicode
+
+        LEVEL 2 PRESERVES:
+        - Normal punctuation: ' & , ( ) + = @ # ~ ! $ % ^ [ ] { }
+        - International characters: Amélie, 東京物語, etc.
+        - Common symbols that are filesystem-safe
+
+        :param filename: The original file name.
+        :return: A Level 2 sanitized file name.
+        """
+        if not filename:
+            return "unknown"
+
+        # Convert to string and handle None
+        sanitized = str(filename) if filename is not None else "unknown"
+
+        # LEVEL 2: Remove path traversal sequences (security)
+        # Remove any sequence of 2 or more consecutive dots
+        sanitized = re.sub(r'\.{2,}', '', sanitized)
+
+        # LEVEL 2: Remove ONLY filesystem-dangerous characters
+        # These characters cause issues on Windows/Mac/Linux filesystems
+        sanitized = re.sub(r'[<>:"/\\|?*]', '', sanitized)
+
+        # LEVEL 2: Remove control characters (security)
+        sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', sanitized)
+
+        # LEVEL 2: Remove dangerous Unicode sequences (security)
+        sanitized = re.sub(r'[\u0000-\u001F\u007F-\u009F]', '', sanitized)  # Control chars
+        # Zero-width and directional characters
+        sanitized = re.sub(r'[\u200B-\u200F\u202A-\u202E\u2060-\u206F]', '', sanitized)
+        sanitized = re.sub(r'[\uFEFF\uFFFE\uFFFF]', '', sanitized)  # BOM and non-characters
+
+        # LEVEL 2: Handle Windows reserved names
         reserved_names = {
-            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", 
-            "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", 
+            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5",
+            "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4",
             "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
         }
         if sanitized.upper() in reserved_names:
-            sanitized = f"{sanitized}_{replacement}"  # Add suffix to avoid reserved name conflict
+            sanitized = f"{sanitized}_"  # Add suffix to avoid reserved name conflict
+
+        # LEVEL 2: Normalize whitespace (preserve single spaces)
+        sanitized = re.sub(r'\s+', ' ', sanitized)  # Replace multiple spaces with single space
 
         # Strip trailing periods and spaces
         sanitized = sanitized.rstrip(". ")
 
+        # Strip leading spaces
+        sanitized = sanitized.lstrip(" ")
+
+        # Ensure we have some content
+        if not sanitized or sanitized.isspace():
+            sanitized = "unknown_file"
+
         # Enforce length limit (255 characters for most filesystems)
         max_length = 255
         if len(sanitized) > max_length:
-            sanitized = sanitized[:max_length]
+            sanitized = sanitized[:max_length].rstrip(". ")
+
+        # Final safety check: ensure we never return empty filename
+        final_result = sanitized.strip()
+        if not final_result or final_result.isspace():
+            final_result = "unknown_file"
+
+        return final_result
+
+    def _sanitize_xml_content(self, content) -> str:
+        """
+        LEVEL 2 NFO CONTENT PROTECTION
+
+        For NFO content, Level 2 preserves normal punctuation and movie title characters
+        while removing only truly dangerous patterns that could break XML or cause security issues.
+
+        LEVEL 2 NFO PRESERVES:
+        - Normal punctuation: ? : & , ' " ( ) etc.
+        - International characters: Amélie, 東京物語, etc.
+        - Movie title formatting: "Movie: Subtitle", "What's Up?", etc.
+
+        LEVEL 2 NFO REMOVES:
+        - Only truly dangerous injection patterns
+        - Control characters that break XML
+
+        :param content: Content to sanitize for NFO
+        :return: Level 2 sanitized content safe for XML
+        """
+        if content is None:
+            return ""
+
+        # Convert to string
+        sanitized = str(content)
+
+        # LEVEL 2: Remove only truly dangerous patterns for NFO content
+        # Note: ElementTree automatically escapes XML special characters (&, <, >, etc.)
+
+        # Remove control characters that could break XML parsing
+        sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', sanitized)
+
+        # Remove dangerous Unicode sequences
+        sanitized = re.sub(r'[\u0000-\u001F\u007F-\u009F]', '', sanitized)
+        sanitized = re.sub(r'[\u200B-\u200F\u202A-\u202E\u2060-\u206F]', '', sanitized)
+        sanitized = re.sub(r'[\uFEFF\uFFFE\uFFFF]', '', sanitized)
+
+        # LEVEL 2: Preserve all normal punctuation for movie titles
+        # This includes: ? : & , ' " ( ) + = @ # ~ ! $ % ^ [ ] { } etc.
+        # Only remove truly dangerous patterns if needed for security
+
+        # SECURITY FIX: Remove dangerous Unicode sequences
+        sanitized = re.sub(r'[\u0000-\u001F\u007F-\u009F]', '', sanitized)  # Control chars
+        sanitized = re.sub(r'[\u200B-\u200F\u202A-\u202E\u2060-\u206F]', '', sanitized)  # Zero-width and directional
+        sanitized = re.sub(r'[\uFEFF\uFFFE\uFFFF]', '', sanitized)  # BOM and non-characters
+
+        # Remove script tags and javascript URLs
+        sanitized = re.sub(r'(?i)<script[^>]*>.*?</script>', '', sanitized)
+        sanitized = re.sub(r'(?i)javascript:', '', sanitized)
+
+        # Remove XML processing instructions and DOCTYPE declarations
+        sanitized = re.sub(r'<\?xml[^>]*\?>', '', sanitized)
+        sanitized = re.sub(r'<!DOCTYPE[^>]*>', '', sanitized)
+        sanitized = re.sub(r'<!ENTITY[^>]*>', '', sanitized)
+
+        # The XML library will handle proper escaping of &, <, >, etc.
+        # when we assign to .text, so we don't need to manually escape those
 
         return sanitized.strip()
-
 
     def get_sanitized_folder_name(self) -> str:
         """
@@ -166,8 +274,9 @@ class Film:
 
         movie = ET.Element("movie")
 
-        ET.SubElement(movie, "title").text = metadata.title
-        ET.SubElement(movie, "originaltitle").text = metadata.originaltitle
+        # SECURITY FIX: Sanitize all text content before adding to XML
+        ET.SubElement(movie, "title").text = self._sanitize_xml_content(metadata.title)
+        ET.SubElement(movie, "originaltitle").text = self._sanitize_xml_content(metadata.originaltitle)
 
         ratings = ET.SubElement(movie, "ratings")
         rating = ET.SubElement(ratings, "rating")
@@ -176,25 +285,26 @@ class Film:
         ET.SubElement(rating, "value").text = str(metadata.rating)
         ET.SubElement(rating, "votes").text = str(metadata.votes)
 
-        ET.SubElement(movie, "plot").text = metadata.plot
-        ET.SubElement(movie, "outline").text = metadata.plotoutline
+        ET.SubElement(movie, "plot").text = self._sanitize_xml_content(metadata.plot)
+        ET.SubElement(movie, "outline").text = self._sanitize_xml_content(metadata.plotoutline)
         ET.SubElement(movie, "runtime").text = str(metadata.duration)
 
         # Add content rating (age rating)
         if metadata.mpaa:
-            ET.SubElement(movie, "mpaa").text = metadata.mpaa
+            ET.SubElement(movie, "mpaa").text = self._sanitize_xml_content(metadata.mpaa)
 
         if metadata.country:
-            ET.SubElement(movie, "country").text = metadata.country[0]
+            ET.SubElement(movie, "country").text = self._sanitize_xml_content(metadata.country[0])
 
         for genre in metadata.genre:
-            ET.SubElement(movie, "genre").text = genre
+            ET.SubElement(movie, "genre").text = self._sanitize_xml_content(genre)
 
         for director in metadata.director:
-            ET.SubElement(movie, "director").text = director
+            ET.SubElement(movie, "director").text = self._sanitize_xml_content(director)
 
         ET.SubElement(movie, "year").text = str(metadata.year)
-        ET.SubElement(movie, "trailer").text = kodi_trailer_url
+        # SECURITY FIX: Sanitize trailer URL to prevent injection
+        ET.SubElement(movie, "trailer").text = self._sanitize_xml_content(kodi_trailer_url)
 
         # Add all available artwork types
         if artwork_paths is None:
@@ -238,7 +348,8 @@ class Film:
                     if lang and str(lang).strip():  # Skip empty/None values
                         audio_elem = ET.SubElement(streamdetails, "audio")
                         audio_lang = ET.SubElement(audio_elem, "language")
-                        audio_lang.text = str(lang).strip()
+                        # SECURITY FIX: Sanitize language content
+                        audio_lang.text = self._sanitize_xml_content(str(lang).strip())
 
             # Subtitle streams - create separate <subtitle> element for each language
             if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
@@ -246,7 +357,8 @@ class Film:
                     if lang and str(lang).strip():  # Skip empty/None values
                         subtitle_elem = ET.SubElement(streamdetails, "subtitle")
                         subtitle_lang = ET.SubElement(subtitle_elem, "language")
-                        subtitle_lang.text = str(lang).strip()
+                        # SECURITY FIX: Sanitize language content
+                        subtitle_lang.text = self._sanitize_xml_content(str(lang).strip())
 
         # Note: Media features like "4K", "HDR", "Dolby Atmos" are not part of the official
         # Kodi NFO specification. Technical details should go in specific elements like:
@@ -255,11 +367,12 @@ class Film:
 
 
 
-        ET.SubElement(movie, "dateadded").text = str(metadata.dateadded)
+        ET.SubElement(movie, "dateadded").text = self._sanitize_xml_content(str(metadata.dateadded))
 
         # Add IMDb URL if available
         if imdb_url:
-            ET.SubElement(movie, "imdbid").text = imdb_url
+            # SECURITY FIX: Sanitize IMDb URL to prevent injection
+            ET.SubElement(movie, "imdbid").text = self._sanitize_xml_content(imdb_url)
 
         return ET.tostring(movie)
 

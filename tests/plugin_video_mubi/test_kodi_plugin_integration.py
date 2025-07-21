@@ -443,51 +443,52 @@ class TestDirectoryHandling:
         """Test that folder names are consistent between creation and access."""
         from plugin_video_mubi.resources.lib.film import Film
 
-        # Test various titles that could cause issues
+        # Test various titles that could cause issues - Updated for Level 2 protection
         test_cases = [
-            # Original test cases
+            # Original test cases - Updated for Level 2 filesystem safety
             ("27", "27 (2023)"),  # The specific case that caused the bug
-            ("Movie: Special", "Movie  Special (2023)"),  # Colon should be replaced
-            ("Movie/Title", "Movie Title (2023)"),  # Slash should be replaced
-            ("Movie (Director's Cut)", "Movie (Director's Cut) (2023)"),  # Parentheses and apostrophes should be preserved
-            ("Movie & Co", "Movie   Co (2023)"),  # Ampersand should be replaced
-            ("#21XOXO", "21XOXO (2023)"),  # Hash symbol should be replaced and stripped (real bug case)
+            ("Movie: Special", "Movie Special (2023)"),  # Colon removed (filesystem-dangerous)
+            ("Movie/Title", "MovieTitle (2023)"),  # Slash removed (filesystem-dangerous)
+            ("Movie (Director's Cut)", "Movie (Director's Cut) (2023)"),  # Parentheses preserved
+            ("Movie & Co", "Movie & Co (2023)"),  # Ampersand preserved (Level 2 safe)
+            ("#21XOXO", "#21XOXO (2023)"),  # Hash symbol preserved (Level 2 safe)
 
             # Real movie titles with Windows forbidden characters - Colon (:)
-            ("2001: A Space Odyssey", "2001  A Space Odyssey (2023)"),
-            ("Star Wars: Episode IV – A New Hope", "Star Wars  Episode IV – A New Hope (2023)"),
-            ("Mission: Impossible", "Mission  Impossible (2023)"),
-            ("Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb", "Dr. Strangelove or  How I Learned to Stop Worrying and Love the Bomb (2023)"),
-            ("Blade Runner 2049: The Final Cut", "Blade Runner 2049  The Final Cut (2023)"),
+            ("2001: A Space Odyssey", "2001 A Space Odyssey (2023)"),
+            ("Star Wars: Episode IV – A New Hope", "Star Wars Episode IV – A New Hope (2023)"),
+            ("Mission: Impossible", "Mission Impossible (2023)"),
+            ("Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb",
+             "Dr. Strangelove or How I Learned to Stop Worrying and Love the Bomb (2023)"),
+            ("Blade Runner 2049: The Final Cut", "Blade Runner 2049 The Final Cut (2023)"),
 
-            # Question Mark (?)
+            # Question Mark (?) - Level 2 removes filesystem-dangerous chars
             ("What About Bob?", "What About Bob (2023)"),
             ("Who Framed Roger Rabbit?", "Who Framed Roger Rabbit (2023)"),
-            ("Dude, Where's My Car?", "Dude, Where's My Car (2023)"),
+            ("Dude, Where's My Car?", "Dude, Where's My Car (2023)"),  # Comma preserved in Level 2
             ("Are We There Yet?", "Are We There Yet (2023)"),
 
-            # Asterisk (*)
+            # Asterisk (*) - Level 2 removes filesystem-dangerous chars
             ("*batteries not included", "batteries not included (2023)"),
 
-            # Forward Slash (/)
-            ("AC/DC: Let There Be Rock", "AC DC  Let There Be Rock (2023)"),
-            ("He/She", "He She (2023)"),
+            # Forward Slash (/) - Level 2 removes filesystem-dangerous chars
+            ("AC/DC: Let There Be Rock", "ACDC Let There Be Rock (2023)"),
+            ("He/She", "HeShe (2023)"),
 
-            # Quotation Mark (")
-            ('"Crocodile" Dundee', 'Crocodile  Dundee (2023)'),
+            # Quotation Mark (") - Level 2 removes filesystem-dangerous chars
+            ('"Crocodile" Dundee', 'Crocodile Dundee (2023)'),
 
             # Shell metacharacters - Pipe (|)
-            ("Fear|Love", "Fear Love (2023)"),
+            ("Fear|Love", "FearLove (2023)"),
 
-            # Variable Expansion ($)
-            ("$9.99", "9.99 (2023)"),
+            # Dollar sign ($) - Level 2 preserves safe characters
+            ("$9.99", "$9.99 (2023)"),
 
             # Leading dot (hidden files)
-            (".com for Murder", ".com for Murder (2023)"),  # Should preserve leading dot for movie titles
+            (".com for Murder", ".com for Murder (2023)"),  # Should preserve leading dot
 
             # Trailing periods (Windows issues)
-            ("There Will Be Blood.", "There Will Be Blood (2023)"),  # Trailing period should be removed
-            ("Carnage.", "Carnage (2023)"),  # Trailing period should be removed
+            ("There Will Be Blood.", "There Will Be Blood (2023)"),  # Trailing period removed
+            ("Carnage.", "Carnage (2023)"),  # Trailing period removed
         ]
 
         for title, expected_folder in test_cases:
@@ -569,40 +570,7 @@ class TestDirectoryHandling:
             assert expected_nfo.name == f"{folder_name}.nfo"
             assert expected_strm.name == f"{folder_name}.strm"
 
-    def test_dangerous_characters_are_sanitized(self, mock_metadata):
-        """Test that dangerous characters are properly sanitized from folder names."""
-        from plugin_video_mubi.resources.lib.film import Film
 
-        dangerous_titles = [
-            "Movie; rm -rf /",  # Command injection
-            "Movie | whoami",   # Pipe command
-            "Movie & echo test", # Command chaining
-            "Movie `id`",       # Command substitution
-            "Movie $HOME",      # Variable expansion
-            "Movie<script>",    # HTML/XML injection
-            "Movie\"test\"",    # Quote injection
-            "#Movie",           # Hash symbol (causes Kodi path issues)
-        ]
-
-        for dangerous_title in dangerous_titles:
-            film = Film(
-                mubi_id="123",
-                title=dangerous_title,
-                artwork="http://example.com/art.jpg",
-                web_url="http://example.com/movie",
-                metadata=mock_metadata
-            )
-
-            folder_name = film.get_sanitized_folder_name()
-
-            # Verify dangerous characters are removed
-            dangerous_chars = [';', '|', '&', '`', '$', '<', '>', '"', '#']
-            for char in dangerous_chars:
-                assert char not in folder_name, f"Dangerous character '{char}' should be removed from '{folder_name}'"
-
-            # Verify the folder name is still meaningful
-            assert len(folder_name.strip()) > 0, f"Folder name should not be empty after sanitization"
-            assert "2023" in folder_name, f"Year should be preserved in folder name"
 
     def test_windows_reserved_filenames_handled(self, mock_metadata):
         """Test that Windows reserved filenames are properly handled."""
@@ -634,6 +602,311 @@ class TestDirectoryHandling:
 
             folder_name = film.get_sanitized_folder_name()
             assert folder_name == expected_folder, f"Reserved name '{title}' should create folder '{expected_folder}', got '{folder_name}'"
+
+
+
+
+
+    def test_level2_filesystem_safety_protection(self, mock_metadata):
+        """
+        Test Level 2 (Filesystem Safety) protection requirements.
+
+        LEVEL 2 SPECIFICATION:
+        - Remove filesystem-dangerous characters: < > : " / \ | ? *
+        - Handle Windows reserved names (CON, PRN, etc.)
+        - Remove path traversal sequences (..)
+        - Preserve normal punctuation in NFO content
+        - Allow safe characters: apostrophes, ampersands, commas, etc.
+        """
+        from plugin_video_mubi.resources.lib.film import Film
+        import xml.etree.ElementTree as ET
+
+        # Level 2 test cases: filesystem safety with good UX
+        test_cases = [
+            # FILESYSTEM-DANGEROUS CHARACTERS (should be removed from filenames)
+            ("Movie<script>", "Moviescript (2023)", "Movie<script>"),  # Angle brackets
+            ("Movie>file", "Moviefile (2023)", "Movie>file"),  # Angle brackets
+            ("Movie:Title", "MovieTitle (2023)", "Movie:Title"),  # Colon
+            ('Movie"Quote', "MovieQuote (2023)", 'Movie"Quote'),  # Double quote
+            ("Movie/Path", "MoviePath (2023)", "Movie/Path"),  # Forward slash
+            ("Movie\\Path", "MoviePath (2023)", "Movie\\Path"),  # Backslash
+            ("Movie|Pipe", "MoviePipe (2023)", "Movie|Pipe"),  # Pipe
+            ("Movie?Question", "MovieQuestion (2023)", "Movie?Question"),  # Question mark
+            ("Movie*Star", "MovieStar (2023)", "Movie*Star"),  # Asterisk
+
+            # PATH TRAVERSAL (should be removed from filenames)
+            ("../Movie", "Movie (2023)", "../Movie"),  # Simple path traversal
+            ("...Movie", "Movie (2023)", "...Movie"),  # Multiple dots
+            ("Movie..", "Movie (2023)", "Movie.."),  # Trailing dots
+            ("..Movie..", "Movie (2023)", "..Movie.."),  # Leading and trailing
+
+            # SAFE CHARACTERS (should be preserved in filenames AND NFO)
+            ("Movie's Title", "Movie's Title (2023)", "Movie's Title"),  # Apostrophe
+            ("Movie & Co", "Movie & Co (2023)", "Movie & Co"),  # Ampersand
+            ("Movie, The", "Movie, The (2023)", "Movie, The"),  # Comma
+            ("Movie (2023)", "Movie (2023) (2023)", "Movie (2023)"),  # Parentheses
+            ("Movie + Extra", "Movie + Extra (2023)", "Movie + Extra"),  # Plus
+            ("Movie = Equals", "Movie = Equals (2023)", "Movie = Equals"),  # Equals
+            ("Movie @ Home", "Movie @ Home (2023)", "Movie @ Home"),  # At symbol
+            ("Movie # 1", "Movie # 1 (2023)", "Movie # 1"),  # Hash
+            ("Movie ~ Tilde", "Movie ~ Tilde (2023)", "Movie ~ Tilde"),  # Tilde
+            ("Movie ! Bang", "Movie ! Bang (2023)", "Movie ! Bang"),  # Exclamation
+
+            # INTERNATIONAL CHARACTERS (should be preserved)
+            ("Amélie", "Amélie (2023)", "Amélie"),  # French
+            ("東京物語", "東京物語 (2023)", "東京物語"),  # Japanese
+            ("Москва", "Москва (2023)", "Москва"),  # Russian
+            ("Niño", "Niño (2023)", "Niño"),  # Spanish
+
+            # REAL MOVIE TITLES (Level 2 should handle gracefully)
+            ("2001: A Space Odyssey", "2001 A Space Odyssey (2023)", "2001: A Space Odyssey"),
+            ("What's Eating Gilbert Grape?", "What's Eating Gilbert Grape (2023)", "What's Eating Gilbert Grape?"),
+            ("*batteries not included", "batteries not included (2023)", "*batteries not included"),
+            ("The Good, the Bad & the Ugly", "The Good, the Bad & the Ugly (2023)", "The Good, the Bad & the Ugly"),
+            ('"Crocodile" Dundee', 'Crocodile Dundee (2023)', '"Crocodile" Dundee'),
+        ]
+
+        for original_title, expected_filename, expected_nfo_title in test_cases:
+            # Create film with original title
+            film = Film(
+                mubi_id="123",
+                title=original_title,
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/movie",
+                metadata=mock_metadata
+            )
+
+            # TEST 1: Filename should follow Level 2 filesystem safety
+            folder_name = film.get_sanitized_folder_name()
+            assert folder_name == expected_filename, \
+                f"Level 2 filename for '{original_title}' should be '{expected_filename}', got '{folder_name}'"
+
+            # TEST 2: NFO content should preserve original title (Level 2 allows normal punctuation)
+            from plugin_video_mubi.resources.lib.metadata import Metadata
+            test_metadata = Metadata(
+                title=original_title,
+                year="2023",
+                director=["Test Director"],
+                genre=["Drama"],
+                plot="Test plot",
+                plotoutline="Test outline",
+                originaltitle=original_title,
+                rating=7.5,
+                votes=1000,
+                duration=120,
+                country=["USA"],
+                castandrole="Test Actor",
+                dateadded="2023-01-01",
+                trailer="http://example.com/trailer",
+                image="http://example.com/image.jpg",
+                mpaa="PG-13"
+            )
+
+            nfo_content = film._get_nfo_tree(
+                test_metadata,
+                "http://example.com/trailer",
+                "http://imdb.com/title/tt123456",
+                None
+            )
+
+            # Parse NFO and extract title
+            if isinstance(nfo_content, bytes):
+                nfo_content = nfo_content.decode('utf-8')
+
+            root = ET.fromstring(nfo_content)
+            nfo_title = root.find('title').text
+
+            assert nfo_title == expected_nfo_title, \
+                f"Level 2 NFO title for '{original_title}' should preserve original as '{expected_nfo_title}', got '{nfo_title}'"
+
+    def test_level2_windows_reserved_names(self, mock_metadata):
+        """
+        Test Level 2 handling of Windows reserved names.
+
+        Should add suffix to avoid conflicts while preserving readability.
+        """
+        from plugin_video_mubi.resources.lib.film import Film
+
+        reserved_names_tests = [
+            ("CON", "CON_ (2023)"),  # Should add suffix
+            ("con", "con_ (2023)"),  # Case insensitive
+            ("AUX", "AUX_ (2023)"),
+            ("NUL", "NUL_ (2023)"),
+            ("PRN", "PRN_ (2023)"),
+            ("COM1", "COM1_ (2023)"),
+            ("COM9", "COM9_ (2023)"),
+            ("LPT1", "LPT1_ (2023)"),
+            ("LPT9", "LPT9_ (2023)"),
+            # Non-reserved names should not get suffix
+            ("MOVIE", "MOVIE (2023)"),
+            ("CONTENT", "CONTENT (2023)"),
+        ]
+
+        for title, expected_folder in reserved_names_tests:
+            film = Film(
+                mubi_id="123",
+                title=title,
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/movie",
+                metadata=mock_metadata
+            )
+
+            folder_name = film.get_sanitized_folder_name()
+            assert folder_name == expected_folder, \
+                f"Level 2 reserved name '{title}' should create folder '{expected_folder}', got '{folder_name}'"
+
+    def test_level2_edge_cases(self, mock_metadata):
+        """
+        Test Level 2 edge cases and boundary conditions.
+        """
+        from plugin_video_mubi.resources.lib.film import Film
+
+        edge_cases = [
+            # Empty/whitespace handling
+            ("   ", "Unknown Movie (2023)"),  # Only spaces
+            ("", "Unknown Movie (2023)"),  # Empty string
+
+            # Only filesystem-dangerous characters
+            ("<>:\"/\\|?*", "unknown_file (2023)"),  # Only dangerous chars
+            ("???", "unknown_file (2023)"),  # Only question marks
+            ("***", "unknown_file (2023)"),  # Only asterisks
+
+            # Path traversal edge cases
+            ("../../../etc/passwd", "etcpasswd (2023)"),  # Path traversal removed, content preserved
+            ("....movie", "movie (2023)"),  # Multiple dots
+
+            # Mixed safe and dangerous
+            ("Movie: The <Best> Film?", "Movie The Best Film (2023)"),  # Mixed characters
+            ("A*B/C\\D|E?F", "ABCDEF (2023)"),  # All dangerous chars mixed
+
+            # Length edge cases
+            ("A" * 300, "A" * 255 + " (2023)"),  # Very long title (should be truncated)
+        ]
+
+        for title, expected_folder in edge_cases:
+            film = Film(
+                mubi_id="123",
+                title=title,
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/movie",
+                metadata=mock_metadata
+            )
+
+            folder_name = film.get_sanitized_folder_name()
+
+            # For very long titles, just check it's reasonable length
+            if len(title) > 250:
+                assert len(folder_name) <= 265, f"Long title should be truncated: {len(folder_name)}"
+                assert folder_name.endswith(" (2023)"), "Should still have year suffix"
+            else:
+                assert folder_name == expected_folder, \
+                    f"Level 2 edge case '{title}' should create folder '{expected_folder}', got '{folder_name}'"
+
+    def test_level2_security_boundaries(self, mock_metadata):
+        """
+        Test that Level 2 does NOT over-sanitize (maintains good UX).
+
+        Level 2 should allow safe characters that Level 3+ would remove.
+        """
+        from plugin_video_mubi.resources.lib.film import Film
+
+        # Characters that Level 2 should PRESERVE (good UX)
+        safe_characters_tests = [
+            ("Movie's", "Movie's (2023)"),  # Apostrophe
+            ("Movie & Co", "Movie & Co (2023)"),  # Ampersand
+            ("Movie, The", "Movie, The (2023)"),  # Comma
+            ("Movie (Director's Cut)", "Movie (Director's Cut) (2023)"),  # Parentheses
+            ("Movie + Bonus", "Movie + Bonus (2023)"),  # Plus
+            ("Movie = Title", "Movie = Title (2023)"),  # Equals
+            ("Movie @ Home", "Movie @ Home (2023)"),  # At symbol
+            ("Movie # 1", "Movie # 1 (2023)"),  # Hash
+            ("Movie ~ Version", "Movie ~ Version (2023)"),  # Tilde
+            ("Movie ! Exclamation", "Movie ! Exclamation (2023)"),  # Exclamation
+            ("Movie $ Dollar", "Movie $ Dollar (2023)"),  # Dollar (safe in Level 2)
+            ("Movie % Percent", "Movie % Percent (2023)"),  # Percent
+            ("Movie ^ Caret", "Movie ^ Caret (2023)"),  # Caret
+            ("Movie [ Bracket", "Movie [ Bracket (2023)"),  # Square bracket
+            ("Movie ] Bracket", "Movie ] Bracket (2023)"),  # Square bracket
+            ("Movie { Brace", "Movie { Brace (2023)"),  # Curly brace
+            ("Movie } Brace", "Movie } Brace (2023)"),  # Curly brace
+        ]
+
+        for title, expected_folder in safe_characters_tests:
+            film = Film(
+                mubi_id="123",
+                title=title,
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/movie",
+                metadata=mock_metadata
+            )
+
+            folder_name = film.get_sanitized_folder_name()
+            assert folder_name == expected_folder, \
+                f"Level 2 should preserve safe character in '{title}', expected '{expected_folder}', got '{folder_name}'"
+
+    def test_never_empty_filenames(self, mock_metadata):
+        """
+        Test that we NEVER generate empty filenames, even for extreme edge cases.
+
+        Empty filenames would cause filesystem bugs and crashes.
+        """
+        from plugin_video_mubi.resources.lib.film import Film
+
+        # Extreme edge cases that could potentially result in empty filenames
+        extreme_cases = [
+            "",  # Empty string
+            "   ",  # Only spaces
+            "...",  # Only dots
+            "???",  # Only question marks
+            "***",  # Only asterisks
+            "<>:|",  # Only filesystem-dangerous chars
+            "||||",  # Only pipes
+            "////",  # Only slashes
+            "\\\\\\\\",  # Only backslashes
+            ":::::",  # Only colons
+            '""""',  # Only quotes
+            "     ....     ",  # Spaces and dots
+            "\t\n\r",  # Only whitespace chars
+            "\x00\x01\x02",  # Only control chars
+            "." * 300,  # Very long string of only dots
+            " " * 300,  # Very long string of only spaces
+        ]
+
+        for extreme_title in extreme_cases:
+            film = Film(
+                mubi_id="123",
+                title=extreme_title,
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/movie",
+                metadata=mock_metadata
+            )
+
+            # Test folder name is never empty
+            folder_name = film.get_sanitized_folder_name()
+            assert folder_name is not None, f"Folder name should never be None for '{extreme_title}'"
+            assert len(folder_name.strip()) > 0, f"Folder name should never be empty for '{extreme_title}'"
+            assert folder_name != "", f"Folder name should never be empty string for '{extreme_title}'"
+            assert not folder_name.isspace(), f"Folder name should not be only whitespace for '{extreme_title}'"
+
+            # Test sanitized filename is never empty
+            sanitized = film._sanitize_filename(extreme_title)
+            assert sanitized is not None, f"Sanitized filename should never be None for '{extreme_title}'"
+            assert len(sanitized.strip()) > 0, f"Sanitized filename should never be empty for '{extreme_title}'"
+            assert sanitized != "", f"Sanitized filename should never be empty string for '{extreme_title}'"
+            assert not sanitized.isspace(), f"Sanitized filename should not be only whitespace for '{extreme_title}'"
+
+            # Should contain meaningful content
+            assert "unknown" in sanitized.lower() or len(sanitized) >= 1, \
+                f"Sanitized filename should contain meaningful content for '{extreme_title}', got '{sanitized}'"
+
+            # Folder name should always contain year
+            assert "(2023)" in folder_name, f"Folder name should always contain year for '{extreme_title}'"
+
+
+
+
+
+
 
 
 class TestPluginErrorHandling:

@@ -677,7 +677,7 @@ class TestEndToEndWorkflows:
         current_folder = plugin_userdata_path / current_film.get_sanitized_folder_name()
         assert current_folder.exists(), "Current film folder should be created"
 
-    @pytest.mark.parametrize("invalid_char", ['<', '>', ':', '"', '/', '\\', '|', '?', '*', '#'])
+    @pytest.mark.parametrize("invalid_char", ['<', '>', ':', '"', '/', '\\', '|', '?', '*'])
     def test_filename_sanitization_workflow(self, e2e_setup, invalid_char):
         """
         Test filename sanitization workflow with various invalid characters.
@@ -1022,7 +1022,8 @@ class TestEndToEndWorkflows:
         film_folders = [f for f in folders if f.is_dir()]
         assert len(film_folders) == 0, "No film folders should be created for empty library"
 
-    @pytest.mark.parametrize("missing_field", ['title', 'mubi_id', 'metadata'])
+    # Level 2: title is no longer required, only mubi_id and metadata
+    @pytest.mark.parametrize("missing_field", ['mubi_id', 'metadata'])
     def test_invalid_film_data_workflow(self, e2e_setup, missing_field):
         """
         Test workflow with invalid film data - error handling.
@@ -1068,10 +1069,10 @@ class TestEndToEndWorkflows:
         if missing_field == 'metadata':
             film_data[missing_field] = None
         else:
-            film_data[missing_field] = None if missing_field != 'title' else ""
+            film_data[missing_field] = None
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
+        # Act & Assert - Level 2: Updated validation message
+        with pytest.raises(ValueError, match="Film must have a mubi_id and metadata"):
             invalid_film = Film(**film_data)
             library.add_film(invalid_film)
 
