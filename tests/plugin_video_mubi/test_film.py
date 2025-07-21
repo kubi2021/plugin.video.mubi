@@ -37,7 +37,6 @@ class TestFilm:
             title=title,
             artwork=artwork,
             web_url=web_url,
-            category=category,
             metadata=mock_metadata
         )
 
@@ -46,25 +45,26 @@ class TestFilm:
         assert film.title == "Test Movie"
         assert film.artwork == "http://example.com/art.jpg"
         assert film.web_url == "http://example.com/movie"
-        assert film.categories == ["Drama"]
         assert film.metadata == mock_metadata
 
     def test_film_initialization_missing_required_fields(self):
         """Test film initialization fails with missing required fields."""
-        with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
-            Film(mubi_id="", title="Test", artwork="", web_url="", category="", metadata=None)
-        
-        with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
-            Film(mubi_id="123", title="", artwork="", web_url="", category="", metadata=Mock())
-        
-        with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
-            Film(mubi_id="123", title="Test", artwork="", web_url="", category="", metadata=None)
+        # Level 2: Updated validation - only mubi_id and metadata are required
+        with pytest.raises(ValueError, match="Film must have a mubi_id and metadata"):
+            Film(mubi_id="", title="Test", artwork="", web_url="", metadata=None)
+
+        # Level 2: Empty title is now allowed (gets converted to "Unknown Movie")
+        film_with_empty_title = Film(mubi_id="123", title="", artwork="", web_url="", metadata=Mock())
+        assert film_with_empty_title.title == "Unknown Movie"
+
+        with pytest.raises(ValueError, match="Film must have a mubi_id and metadata"):
+            Film(mubi_id="123", title="Test", artwork="", web_url="", metadata=None)
 
     def test_film_equality(self, mock_metadata):
         """Test film equality based on mubi_id."""
-        film1 = Film("123", "Movie 1", "", "", "Drama", mock_metadata)
-        film2 = Film("123", "Movie 2", "", "", "Comedy", mock_metadata)  # Different title, same ID
-        film3 = Film("456", "Movie 1", "", "", "Drama", mock_metadata)  # Same title, different ID
+        film1 = Film("123", "Movie 1", "", "", mock_metadata)
+        film2 = Film("123", "Movie 2", "", "", mock_metadata)  # Different title, same ID
+        film3 = Film("456", "Movie 1", "", "", mock_metadata)  # Same title, different ID
         
         assert film1 == film2  # Same mubi_id
         assert film1 != film3  # Different mubi_id
@@ -72,8 +72,8 @@ class TestFilm:
 
     def test_film_hash(self, mock_metadata):
         """Test film hash is based on mubi_id."""
-        film1 = Film("123", "Movie 1", "", "", "Drama", mock_metadata)
-        film2 = Film("123", "Movie 2", "", "", "Comedy", mock_metadata)
+        film1 = Film("123", "Movie 1", "", "", mock_metadata)
+        film2 = Film("123", "Movie 2", "", "", mock_metadata)
         
         assert hash(film1) == hash(film2)
         
@@ -81,27 +81,12 @@ class TestFilm:
         film_set = {film1, film2}
         assert len(film_set) == 1  # Should only contain one film due to same mubi_id
 
-    def test_add_category(self, mock_metadata):
-        """Test adding categories to a film."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
-        
-        # Add new category
-        film.add_category("Comedy")
-        assert "Comedy" in film.categories
-        assert len(film.categories) == 2
-        
-        # Try to add duplicate category
-        film.add_category("Drama")
-        assert film.categories.count("Drama") == 1  # Should not duplicate
-        
-        # Try to add empty category
-        film.add_category("")
-        assert "" not in film.categories
+
 
     def test_get_sanitized_folder_name(self, mock_metadata):
         """Test folder name sanitization."""
         # Test with special characters
-        film = Film("123", "Test/Movie: Special*Characters?", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test/Movie: Special*Characters?", "", "", mock_metadata)
         mock_metadata.year = 2023
         
         sanitized = film.get_sanitized_folder_name()
@@ -112,14 +97,14 @@ class TestFilm:
         assert "2023" in sanitized
         
         # Test with normal title
-        film2 = Film("456", "Normal Movie", "", "", "Drama", mock_metadata)
+        film2 = Film("456", "Normal Movie", "", "", mock_metadata)
         sanitized2 = film2.get_sanitized_folder_name()
         assert sanitized2 == "Normal Movie (2023)"
 
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_success(self, mock_get, mock_metadata):
         """Test successful IMDB URL retrieval."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         # Mock successful API response
         mock_response = Mock()
@@ -141,7 +126,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_not_found(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval when movie not found."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         # Mock API response with no results
         mock_response = Mock()
@@ -155,7 +140,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_api_error(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with API error."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Import the mock exception class
         from requests.exceptions import RequestException
@@ -169,7 +154,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_http_errors(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with various HTTP errors."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Test 401 Unauthorized
         mock_response = Mock()
@@ -199,7 +184,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_alternative_titles(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with alternative title generation."""
-        film = Film("123", "Test Movie and Friends", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie and Friends", "", "", mock_metadata)
 
         # Mock API response that fails for first title but succeeds for alternative
         def side_effect(*args, **kwargs):
@@ -227,7 +212,7 @@ class TestFilm:
 
     def test_normalize_title(self, mock_metadata):
         """Test title normalization functionality."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Test removing 'and' as whole word
         normalized = film._normalize_title("Test Movie and Friends")
@@ -243,7 +228,7 @@ class TestFilm:
 
     def test_generate_alternative_titles(self, mock_metadata):
         """Test alternative title generation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         alternatives = film._generate_alternative_titles("Test Movie")
         assert isinstance(alternatives, list)
@@ -252,7 +237,7 @@ class TestFilm:
 
     def test_should_use_original_title(self, mock_metadata):
         """Test original title usage logic."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Same titles should return False
         should_use = film._should_use_original_title("Test Movie", "Test Movie")
@@ -264,7 +249,7 @@ class TestFilm:
 
     def test_is_unauthorized_request(self, mock_metadata):
         """Test unauthorized request detection."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Test with None response
         assert film._is_unauthorized_request(None) == False
@@ -281,7 +266,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_make_omdb_request_success(self, mock_get, mock_metadata):
         """Test successful OMDB request."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         mock_response = Mock()
         mock_response.json.return_value = {'Response': 'True', 'imdbID': 'tt123'}
@@ -296,7 +281,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_make_omdb_request_error(self, mock_get, mock_metadata):
         """Test OMDB request with error."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
 
@@ -307,13 +292,13 @@ class TestFilm:
 
     def test_get_nfo_tree(self, mock_metadata):
         """Test NFO XML tree generation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
-        
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
         nfo_tree = film._get_nfo_tree(
-            mock_metadata, 
-            ["Drama"], 
-            "http://example.com/trailer", 
-            "http://imdb.com/title/tt123"
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
         )
         
         # Parse the XML to verify structure
@@ -328,11 +313,349 @@ class TestFilm:
         # Check genre
         genre_elem = root.find("genre")
         assert genre_elem is not None
-        assert "Drama" in genre_elem.text
+
+    def test_nfo_tree_generation_with_mpaa(self, mock_metadata):
+        """Test NFO XML tree generation includes MPAA rating when available."""
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Set mpaa rating on metadata
+        mock_metadata.mpaa = "PG-13 - Some material may be inappropriate for children under 13"
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
+        )
+
+        # Parse the XML to verify mpaa element is included
+        root = ET.fromstring(nfo_tree)
+
+        mpaa_element = root.find("mpaa")
+        assert mpaa_element is not None
+        assert mpaa_element.text == "PG-13 - Some material may be inappropriate for children under 13"
+
+    def test_nfo_tree_generation_without_mpaa(self, mock_metadata):
+        """Test NFO XML tree generation when no MPAA rating available."""
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Ensure mpaa is empty
+        mock_metadata.mpaa = ""
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
+        )
+
+        # Parse the XML to verify no mpaa element when empty
+        root = ET.fromstring(nfo_tree)
+
+        mpaa_element = root.find("mpaa")
+        assert mpaa_element is None  # Should not be present when empty
+
+    # ===== Enhanced NFO Generation Tests for New Metadata =====
+
+    def test_nfo_tree_generation_with_audio_languages(self, mock_metadata):
+        """Test NFO XML tree generation includes audio languages when available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = ["English", "French", "Spanish"]
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Check for official Kodi structure: fileinfo/streamdetails/audio
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is not None, "Should have fileinfo element"
+
+        streamdetails = fileinfo.find("streamdetails")
+        assert streamdetails is not None, "Should have streamdetails element"
+
+        # Check that all audio languages are present as separate audio elements
+        audio_elements = streamdetails.findall("audio")
+        assert len(audio_elements) == 3, "Should have 3 separate audio elements"
+
+        # Extract language texts from each audio element
+        language_texts = []
+        for audio_elem in audio_elements:
+            lang_elem = audio_elem.find("language")
+            assert lang_elem is not None, "Each audio element should have a language"
+            language_texts.append(lang_elem.text)
+
+        assert "English" in language_texts
+        assert "French" in language_texts
+        assert "Spanish" in language_texts
+
+    def test_nfo_tree_generation_without_audio_languages(self, mock_metadata):
+        """Test NFO XML tree generation when no audio languages available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = []
+        mock_metadata.subtitle_languages = []  # Also clear subtitles to ensure no fileinfo
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should not have fileinfo/streamdetails when no audio/subtitle languages
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is None, "Should not have fileinfo element when no audio/subtitle data"
+
+    def test_nfo_tree_generation_with_subtitle_languages(self, mock_metadata):
+        """Test NFO XML tree generation includes subtitle languages when available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.subtitle_languages = ["English", "French", "German", "Spanish"]
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Check for official Kodi structure: fileinfo/streamdetails/subtitle
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is not None, "Should have fileinfo element"
+
+        streamdetails = fileinfo.find("streamdetails")
+        assert streamdetails is not None, "Should have streamdetails element"
+
+        # Check that all subtitle languages are present as separate subtitle elements
+        subtitle_elements = streamdetails.findall("subtitle")
+        assert len(subtitle_elements) == 4, "Should have 4 separate subtitle elements"
+
+        # Extract language texts from each subtitle element
+        language_texts = []
+        for subtitle_elem in subtitle_elements:
+            lang_elem = subtitle_elem.find("language")
+            assert lang_elem is not None, "Each subtitle element should have a language"
+            language_texts.append(lang_elem.text)
+
+        assert "English" in language_texts
+        assert "French" in language_texts
+        assert "German" in language_texts
+        assert "Spanish" in language_texts
+
+    def test_nfo_tree_generation_without_subtitle_languages(self, mock_metadata):
+        """Test NFO XML tree generation when no subtitle languages available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = []  # Also clear audio to ensure no fileinfo
+        mock_metadata.subtitle_languages = []
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should not have fileinfo/streamdetails when no audio/subtitle languages
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is None, "Should not have fileinfo element when no audio/subtitle data"
+
+    # Note: Media features tests removed as they are not part of the official Kodi NFO specification.
+    # Technical details should be included in specific streamdetails elements like <codec>, <width>,
+    # <height>, <hdrtype>, <channels> when available from the source data.
+
+    def test_nfo_tree_generation_with_artwork_paths(self, mock_metadata):
+        """Test NFO XML tree generation includes artwork paths when available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        artwork_paths = {
+            'thumb': '/nonexistent/path/thumb.jpg',  # Non-existent path
+            'poster': '/nonexistent/path/poster.jpg',
+            'clearlogo': '/nonexistent/path/logo.png'
+        }
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            artwork_paths
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Check thumb artwork - should fallback to metadata.image when file doesn't exist
+        thumb_elem = root.find("thumb")
+        assert thumb_elem is not None
+        assert thumb_elem.text == mock_metadata.image  # Fallback to metadata.image
+
+        # Check poster artwork - should not be present when file doesn't exist
+        poster_elem = root.find("poster")
+        assert poster_elem is None  # Not present when file doesn't exist
+
+        # Check clearlogo artwork - should not be present when file doesn't exist
+        clearlogo_elem = root.find("clearlogo")
+        assert clearlogo_elem is None  # Not present when file doesn't exist
+
+    def test_nfo_tree_generation_without_artwork_paths(self, mock_metadata):
+        """Test NFO XML tree generation when no artwork paths available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No artwork paths
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should not have artwork elements when no paths provided
+        thumb_elem = root.find("thumb")
+        poster_elem = root.find("poster")
+        clearlogo_elem = root.find("clearlogo")
+
+        # These may or may not be present depending on fallback logic
+        # The important thing is that the NFO generation doesn't crash
+
+    def test_nfo_tree_generation_comprehensive_metadata(self, mock_metadata):
+        """Test NFO XML tree generation with all new metadata fields populated."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = ["English", "French"]
+        mock_metadata.subtitle_languages = ["English", "French", "Spanish"]
+        mock_metadata.media_features = ["4K", "HDR", "Dolby Atmos"]
+        mock_metadata.mpaa = "PG-13 - Some material may be inappropriate"
+
+        artwork_paths = {
+            'thumb': '/nonexistent/path/thumb.jpg',  # Non-existent path
+            'poster': '/nonexistent/path/poster.jpg'
+        }
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            artwork_paths
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Verify all new metadata fields are present using official Kodi structure
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is not None, "Should have fileinfo element"
+
+        streamdetails = fileinfo.find("streamdetails")
+        assert streamdetails is not None, "Should have streamdetails element"
+
+        assert root.find("mpaa") is not None
+        assert root.find("thumb") is not None
+        # Note: poster won't be present when file doesn't exist
+
+        # Verify content
+        assert root.find("mpaa").text == "PG-13 - Some material may be inappropriate"
+
+        # Check audio and subtitle elements in streamdetails
+        audio_elements = streamdetails.findall("audio")
+        assert len(audio_elements) == 2, "Should have 2 audio elements"
+
+        subtitle_elements = streamdetails.findall("subtitle")
+        assert len(subtitle_elements) == 3, "Should have 3 subtitle elements"
+
+    def test_nfo_tree_generation_edge_cases(self, mock_metadata):
+        """Test NFO XML tree generation with edge case metadata values."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = [""]  # Empty string in list
+        mock_metadata.subtitle_languages = [None, "English"]  # None value in list
+        mock_metadata.media_features = ["4K", "", "HDR"]  # Mixed valid and empty
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should handle edge cases gracefully without crashing
+        assert isinstance(nfo_tree, bytes)
+        assert root.tag == "movie"
+
+        # Check that empty/None values are handled appropriately
+        fileinfo = root.find("fileinfo")
+        if fileinfo is not None:
+            streamdetails = fileinfo.find("streamdetails")
+            if streamdetails is not None:
+                # Check audio elements - should not include empty strings
+                audio_elements = streamdetails.findall("audio")
+                for audio_elem in audio_elements:
+                    lang_elem = audio_elem.find("language")
+                    if lang_elem is not None:
+                        assert lang_elem.text != "", "Should not include empty language strings"
+
+    def test_nfo_tree_generation_rating_scale(self, mock_metadata):
+        """Test NFO XML tree generation includes correct 10-point rating scale."""
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Set a specific rating to test and ensure mpaa is a string
+        mock_metadata.rating = 7.6
+        mock_metadata.mpaa = ""  # Ensure mpaa is a string, not a Mock
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
+        )
+
+        # Parse the XML to verify rating structure
+        root = ET.fromstring(nfo_tree)
+
+        ratings_element = root.find("ratings")
+        assert ratings_element is not None
+
+        rating_element = ratings_element.find("rating")
+        assert rating_element is not None
+        assert rating_element.get("name") == "MUBI"
+        assert rating_element.get("max") == "10"  # Should specify 10-point scale
+
+        value_element = rating_element.find("value")
+        assert value_element is not None
+        assert value_element.text == "7.6"
 
     def test_create_strm_file(self, mock_metadata):
         """Test STRM file creation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
@@ -352,7 +675,7 @@ class TestFilm:
     @patch.object(Film, '_get_imdb_url')
     def test_create_nfo_file_success(self, mock_get_imdb, mock_sleep, mock_metadata):
         """Test successful NFO file creation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         mock_get_imdb.return_value = "http://imdb.com/title/tt123"
         
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -372,7 +695,7 @@ class TestFilm:
     @patch.object(Film, '_get_imdb_url')
     def test_create_nfo_file_no_api_key(self, mock_get_imdb, mock_metadata):
         """Test NFO file creation without API key."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
@@ -389,7 +712,7 @@ class TestFilm:
     @patch.object(Film, '_get_imdb_url')
     def test_create_nfo_file_imdb_error(self, mock_get_imdb, mock_metadata):
         """Test NFO file creation when IMDB lookup fails."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         mock_get_imdb.return_value = None  # Simulate API error
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -409,7 +732,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_401_error_with_retry(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with 401 error and retry logic."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Mock 401 error response
         mock_response = Mock()
@@ -427,7 +750,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_request_exception(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with request exception."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Mock request exception
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
@@ -435,30 +758,12 @@ class TestFilm:
         result = film._get_imdb_url("Test Movie", "Test Movie", 2023, "test_api_key")
         assert result == ""
 
-    def test_film_categories_management(self, mock_metadata):
-        """Test film categories management."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
 
-        # Test initial category
-        assert "Drama" in film.categories
-
-        # Test adding multiple categories
-        film.add_category("Action")
-        film.add_category("Thriller")
-
-        assert "Drama" in film.categories
-        assert "Action" in film.categories
-        assert "Thriller" in film.categories
-
-        # Test adding duplicate category
-        initial_count = len(film.categories)
-        film.add_category("Drama")  # Should not add duplicate
-        assert len(film.categories) == initial_count
 
     def test_sanitized_folder_name_edge_cases(self, mock_metadata):
         """Test folder name sanitization with edge cases."""
         # Test with special characters
-        film = Film("123", "Test/Movie\\With:Special*Characters?", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test/Movie\\With:Special*Characters?", "", "", mock_metadata)
         folder_name = film.get_sanitized_folder_name()
 
         # Should not contain invalid characters
@@ -468,7 +773,7 @@ class TestFilm:
 
         # Test with very long title
         long_title = "A" * 300  # Very long title
-        film2 = Film("123", long_title, "", "", "Drama", mock_metadata)
+        film2 = Film("123", long_title, "", "", mock_metadata)
         folder_name2 = film2.get_sanitized_folder_name()
 
         # Should be truncated to reasonable length
@@ -513,7 +818,6 @@ class TestFilm:
                 title=title,
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=metadata
             )
 
@@ -533,3 +837,279 @@ class TestFilm:
             # Should not start or end with spaces
             assert not sanitized_name.startswith(" ")
             assert not sanitized_name.endswith(" ")
+
+    # ===== Bug Hunting Tests (moved from test_bug_hunting.py) =====
+
+    def test_unicode_handling_level2_assessment(self):
+        """
+        BUG #3: Unicode Handling in Filenames
+        Location: film.py:181-191 (get_sanitized_folder_name)
+        Issue: Unicode characters might cause filesystem errors on some platforms
+        Level 2 Assessment: Test if this is actually a user-blocking bug
+        """
+        # Test various Unicode scenarios that could cause issues
+        unicode_test_cases = [
+            # Basic Unicode that should work fine
+            ("Amélie", "Amélie (2001)"),  # French accents
+            ("Nausicaä", "Nausicaä (1984)"),  # German umlauts
+            ("七人の侍", "七人の侍 (1954)"),  # Japanese characters
+            ("Город", "Город (2010)"),  # Cyrillic
+            ("الفيلم", "الفيلم (2020)"),  # Arabic
+
+            # Potentially problematic Unicode
+            ("Movie🎬Title", "Movie🎬Title (2023)"),  # Emojis
+            ("Film\u200BTitle", "FilmTitle (2023)"),  # Zero-width space (should be removed)
+            ("Test\uFEFFMovie", "TestMovie (2023)"),  # BOM character (should be removed)
+            ("Movie\u202ATitle", "MovieTitle (2023)"),  # Left-to-right embedding (should be removed)
+
+            # Edge cases
+            ("🎭🎪🎨", "🎭🎪🎨 (2023)"),  # Only emojis
+            ("", "unknown_file (2023)"),  # Empty string
+            ("   ", "unknown_file (2023)"),  # Only spaces
+        ]
+
+        for original_title, expected_folder in unicode_test_cases:
+            # Create film with Unicode title
+            metadata = Metadata(
+                title=original_title,
+                year="2023" if "2023" in expected_folder else expected_folder.split("(")[1].split(")")[0],
+                director=["Test Director"],
+                genre=["Drama"],
+                plot="Test plot",
+                plotoutline="Test outline",
+                originaltitle=original_title,
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["Test"],
+                castandrole="Test Actor",
+                dateadded="2023-01-01",
+                trailer="http://example.com/trailer",
+                image="http://example.com/image.jpg",
+                mpaa="PG",
+                artwork_urls={},
+                audio_languages=["English"],
+                subtitle_languages=["English"],
+                media_features=["HD"]
+            )
+
+            film = Film(
+                mubi_id="123",
+                title=original_title,
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/movie",
+                metadata=metadata
+            )
+
+            # Test folder name generation
+            try:
+                folder_name = film.get_sanitized_folder_name()
+
+                # LEVEL 2 CHECKS: Does it work for real-world usage?
+
+                # 1. Should not crash
+                assert folder_name is not None, f"Should not crash for '{original_title}'"
+
+                # 2. Should not be empty
+                assert len(folder_name.strip()) > 0, f"Should not be empty for '{original_title}'"
+
+                # 3. Should be filesystem-safe (no dangerous characters)
+                dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                for char in dangerous_chars:
+                    assert char not in folder_name, f"Should not contain '{char}' in '{folder_name}'"
+
+                # 4. Should handle length limits
+                assert len(folder_name) <= 255, f"Should respect length limit: {len(folder_name)} chars"
+
+                # 5. Should be encodable to filesystem encoding
+                try:
+                    # Test encoding to common filesystem encodings
+                    folder_name.encode('utf-8')  # Most modern systems
+                    folder_name.encode('cp1252', errors='ignore')  # Windows fallback
+                    encoding_ok = True
+                except UnicodeEncodeError:
+                    encoding_ok = False
+
+                assert encoding_ok, f"Should be encodable to filesystem: '{folder_name}'"
+
+            except Exception as e:
+                # This would indicate a real bug
+                assert False, f"Unicode handling failed for '{original_title}': {e}"
+
+    def test_filesystem_compatibility_cross_platform(self):
+        """
+        Test Unicode filename compatibility across different platforms
+        """
+        import tempfile
+        import os
+
+        # Test cases that might cause cross-platform issues
+        problematic_cases = [
+            "Café",  # Accented characters
+            "北京",  # Chinese characters
+            "🎬",    # Emoji
+            "test\u0301",  # Combining character
+            "file\u200B",  # Zero-width space
+        ]
+
+        for title in problematic_cases:
+            metadata = Metadata(
+                title=title,
+                year="2023",
+                director=["Test"],
+                genre=["Test"],
+                plot="Test",
+                plotoutline="Test",
+                originaltitle=title,
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["Test"],
+                castandrole="Test",
+                dateadded="2023-01-01",
+                trailer="",
+                image="",
+                mpaa="",
+                artwork_urls={},
+                audio_languages=[],
+                subtitle_languages=[],
+                media_features=[]
+            )
+
+            film = Film("123", title, "", "", metadata)
+            folder_name = film.get_sanitized_folder_name()
+
+            # LEVEL 2 TEST: Can we actually create a folder with this name?
+            try:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    test_path = os.path.join(temp_dir, folder_name)
+                    os.makedirs(test_path, exist_ok=True)
+
+                    # Verify folder was created successfully
+                    assert os.path.exists(test_path), f"Could not create folder: {folder_name}"
+
+                    # Test file creation within the folder
+                    test_file = os.path.join(test_path, "test.txt")
+                    with open(test_file, 'w', encoding='utf-8') as f:
+                        f.write("test")
+
+                    assert os.path.exists(test_file), f"Could not create file in folder: {folder_name}"
+
+            except Exception as e:
+                # This would indicate a real Level 2 bug (user-blocking)
+                assert False, f"Filesystem operation failed for '{title}': {e}"
+
+    def test_unicode_level2_verdict_not_a_bug(self):
+        """
+        BUG #3 Level 2 Verdict: This is NOT actually a user-blocking bug
+
+        Evidence:
+        1. Current code already handles Unicode properly
+        2. Dangerous Unicode sequences are already filtered out
+        3. Filesystem operations work correctly
+        4. Cross-platform compatibility is maintained
+
+        Level 2 Assessment: FALSE POSITIVE - No fix needed
+        """
+        # Test the most extreme Unicode cases that could theoretically cause issues
+        extreme_unicode_cases = [
+            # Normalization issues
+            "café",  # NFC normalization
+            "cafe\u0301",  # NFD normalization (e + combining acute)
+
+            # Bidirectional text
+            "English\u202Dعربي\u202C",  # Left-to-right override
+
+            # Surrogate pairs (emojis)
+            "🎬🎭🎪🎨🎯🎲",  # Multiple emojis
+
+            # Mixed scripts
+            "Movie名前فيلم",  # English + Japanese + Arabic
+
+            # Potential encoding issues
+            "test\u00A0space",  # Non-breaking space
+            "file\u2028line",  # Line separator
+            "text\u2029para",  # Paragraph separator
+        ]
+
+        for title in extreme_unicode_cases:
+            metadata = Metadata(
+                title=title,
+                year="2023",
+                director=["Test"],
+                genre=["Test"],
+                plot="Test",
+                plotoutline="Test",
+                originaltitle=title,
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["Test"],
+                castandrole="Test",
+                dateadded="2023-01-01",
+                trailer="",
+                image="",
+                mpaa="",
+                artwork_urls={},
+                audio_languages=[],
+                subtitle_languages=[],
+                media_features=[]
+            )
+
+            film = Film("123", title, "", "", metadata)
+
+            # LEVEL 2 VERIFICATION: All operations should work smoothly
+            try:
+                # 1. Folder name generation
+                folder_name = film.get_sanitized_folder_name()
+                assert folder_name is not None
+                assert len(folder_name) > 0
+
+                # 2. Filename sanitization
+                sanitized = film._sanitize_filename(title)
+                assert sanitized is not None
+                assert len(sanitized) > 0
+
+                # 3. No dangerous characters remain
+                dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                for char in dangerous_chars:
+                    assert char not in folder_name
+                    assert char not in sanitized
+
+            except Exception as e:
+                # If this fails, then we have a real bug
+                assert False, f"Unicode handling failed: {e}"
+
+        # Verify the current Unicode filtering is working
+        metadata = Metadata(
+            title="test",
+            year="2023",
+            director=["Test"],
+            genre=["Test"],
+            plot="Test",
+            plotoutline="Test",
+            originaltitle="test",
+            rating=7.0,
+            votes=100,
+            duration=120,
+            country=["Test"],
+            castandrole="Test",
+            dateadded="2023-01-01",
+            trailer="",
+            image="",
+            mpaa="",
+            artwork_urls={},
+            audio_languages=[],
+            subtitle_languages=[],
+            media_features=[]
+        )
+
+        test_dangerous = "file\u200B\uFEFF\u202Atest"  # Zero-width + BOM + LTR embedding
+        film_dangerous = Film("123", test_dangerous, "", "", metadata)
+        clean_result = film_dangerous._sanitize_filename(test_dangerous)
+
+        # Should have removed the dangerous Unicode
+        assert '\u200B' not in clean_result, "Zero-width space should be removed"
+        assert '\uFEFF' not in clean_result, "BOM should be removed"
+        assert '\u202A' not in clean_result, "LTR embedding should be removed"
+        assert clean_result == "filetest", f"Expected 'filetest', got '{clean_result}'"

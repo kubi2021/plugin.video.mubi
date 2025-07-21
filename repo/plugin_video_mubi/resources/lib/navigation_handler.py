@@ -6,6 +6,7 @@ import webbrowser
 from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
+import threading
 from .library import Library
 from .playback import play_with_inputstream_adaptive
 
@@ -29,6 +30,10 @@ class NavigationHandler:
     """
     Handles all navigation and UI interactions within Kodi for the Mubi plugin.
     """
+
+    # Class-level lock for sync operations (shared across all instances)
+    _sync_lock = threading.Lock()
+    _sync_in_progress = False
 
     def __init__(self, handle: int, base_url: str, mubi, session):
         """
@@ -82,7 +87,6 @@ class NavigationHandler:
         """ Helper method to retrieve main menu items based on login status. """
         if self.session.is_logged_in:
             return [
-                {"label": "Browse Mubi films by category", "description": "Browse Mubi films by category", "action": "list_categories", "is_folder": True},
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
                 {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": True},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
@@ -105,42 +109,7 @@ class NavigationHandler:
             xbmc.log(f"Error adding menu item {item['label']}: {e}", xbmc.LOGERROR)
 
 
-    def list_categories(self):
-        """
-        List categories fetched from the Mubi API.
-        """
-        try:
-            xbmcplugin.setPluginCategory(self.handle, "Browsing Mubi")
-            xbmcplugin.setContent(self.handle, "videos")
 
-            categories = self.mubi.get_film_groups()
-
-            for category in categories:
-                self._add_category_item(category)
-
-            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_NONE)
-            xbmcplugin.endOfDirectory(self.handle)
-
-        except Exception as e:
-            xbmc.log(f"Error listing categories: {e}", xbmc.LOGERROR)
-
-    def _add_category_item(self, category: dict):
-        try:
-            list_item = xbmcgui.ListItem(label=category["title"])
-            info_tag = list_item.getVideoInfoTag()
-            info_tag.setTitle(category["title"])
-            info_tag.setPlot(category["description"])
-            info_tag.setMediaType("video")
-            list_item.setArt({
-                "thumb": category["image"],
-                "poster": category["image"],
-                "banner": category["image"],
-                "fanart": category["image"]
-            })
-            url = self.get_url(action="listing", id=category["id"], category_name=category["title"])
-            xbmcplugin.addDirectoryItem(self.handle, url, list_item, True)
-        except Exception as e:
-            xbmc.log(f"Error adding category item {category['title']}: {e}", xbmc.LOGERROR)
 
 
     def list_watchlist(self):
@@ -162,26 +131,7 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error listing videos: {e}", xbmc.LOGERROR)
 
-    def list_videos(self, id: int, category_name: str):
-        """
-        List videos in a selected category.
 
-        :param id: ID of the category
-        :param category_name: Name of the category
-        """
-        try:
-            xbmcplugin.setContent(self.handle, "videos")
-
-            library = self.mubi.get_film_list(id, category_name)
-
-            for film in library.films:
-                self._add_film_item(film)
-
-            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_NONE)
-            xbmcplugin.endOfDirectory(self.handle)
-
-        except Exception as e:
-            xbmc.log(f"Error listing videos: {e}", xbmc.LOGERROR)
 
     def _add_film_item(self, film):
         try:
@@ -441,6 +391,8 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error playing trailer: {e}", xbmc.LOGERROR)
 
+
+
     def log_in(self):
         """
         Handle user login by generating a link code and authenticating with Mubi.
@@ -525,9 +477,27 @@ class NavigationHandler:
 
     def sync_locally(self):
         """
-        Sync all Mubi films locally by fetching all categories and creating STRM and NFO files for each film.
+        Sync all Mubi films locally by fetching all films directly and creating STRM and NFO files for each film.
         This allows the films to be imported into Kodi's standard media library.
+
+        Level 2 Bug Fix: Added concurrency protection to prevent multiple sync operations.
         """
+        # BUG #7 FIX: Check if sync is already in progress
+        with NavigationHandler._sync_lock:
+            if NavigationHandler._sync_in_progress:
+                # User-friendly notification about sync already running
+                xbmcgui.Dialog().notification(
+                    "MUBI",
+                    "Sync already in progress. Please wait for it to complete.",
+                    xbmcgui.NOTIFICATION_INFO,
+                    5000
+                )
+                xbmc.log("Sync operation blocked - another sync already in progress", xbmc.LOGINFO)
+                return None
+
+            # Mark sync as in progress
+            NavigationHandler._sync_in_progress = True
+
         try:
             # Check OMDb API key
             omdb_api_key = self._check_omdb_api_key()
@@ -536,64 +506,86 @@ class NavigationHandler:
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
-            pDialog.create("Syncing with Mubi", "Fetching all categories...")
+            pDialog.create("Syncing with MUBI 1/2", "Initializing...")
 
-            categories = self.mubi.get_film_groups()
-            all_films_library = Library()
-            total_categories = len(categories)
-
-            for idx, category in enumerate(categories):
-                percent = int((idx / total_categories) * 100)
-                pDialog.update(percent, f"Fetching {category['title']}")
-
-                try:
-                    films_in_category = self.mubi.get_film_list(category["id"], category["title"])
-                    for film in films_in_category.films:
-                        all_films_library.add_film(film)
-
-                except Exception as e:
-                    xbmc.log(f"Error fetching films for category '{category['title']}': {e}", xbmc.LOGERROR)
-                    continue
-
+            # Define progress callback for dynamic updates
+            def update_fetch_progress(current_films, total_films, current_page, total_pages):
                 if pDialog.iscanceled():
+                    # Raise an exception to signal cancellation to get_all_films
+                    raise Exception("User canceled sync operation")
+
+                # Calculate percentage based on pages processed (use full 100% for fetching phase)
+                if total_pages > 0:
+                    percent = int((current_page / total_pages) * 100)  # Use full progress bar
+                else:
+                    percent = 50  # Fallback percentage
+
+                # Update dialog with dynamic information - keep it simple without any counts
+                message = "Fetching playable films..."
+                pDialog.update(percent, message)
+
+            # Use the new direct approach to fetch all films with progress tracking
+            xbmc.log("Starting direct film sync using /browse/films endpoint", xbmc.LOGINFO)
+            # For sync, we want only playable films (streamable content)
+            try:
+                all_films_library = self.mubi.get_all_films(playable_only=True, progress_callback=update_fetch_progress)
+            except Exception as e:
+                if "canceled" in str(e).lower():
                     pDialog.close()
-                    xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
+                    xbmc.log("User canceled the sync process during film fetching.", xbmc.LOGDEBUG)
                     return None
+                else:
+                    raise  # Re-raise if it's not a cancellation
+
+            # Update progress dialog for file creation phase
+            filtered_films_count = len(all_films_library.films)
+            pDialog.update(50, f"Fetched {filtered_films_count} films, creating local files...")
+            xbmc.log(f"Successfully fetched {filtered_films_count} films using direct API approach", xbmc.LOGINFO)
+
+            if pDialog.iscanceled():
+                pDialog.close()
+                xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
+                return None
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
+
+            # Close the first progress dialog before starting file creation
+            pDialog.close()
+
+            # Small delay to ensure dialog is fully closed before next phase
+            import time
+            time.sleep(0.1)
+
+            # Start file creation phase (no total count shown to avoid confusion)
             all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
 
-            pDialog.close()
-            xbmcgui.Dialog().notification("MUBI", "Sync completed successfully!", xbmcgui.NOTIFICATION_INFO)
-
-            # Create a monitor instance
+            # Create a monitor instance for library operations
             monitor = LibraryMonitor()
 
-            # Trigger Kodi library clean first and wait for it to complete
+            # Trigger Kodi library clean first and wait for it to complete (blocking)
             self.clean_kodi_library(monitor)
 
-            # After clean is complete, trigger Kodi library update and wait for it to complete
-            self.update_kodi_library(monitor)
+            # After clean is complete, trigger Kodi library update in background (non-blocking)
+            self.update_kodi_library()
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
+        finally:
+            # BUG #7 FIX: Always clear the sync flag, even if an error occurs
+            with NavigationHandler._sync_lock:
+                NavigationHandler._sync_in_progress = False
+                xbmc.log("Sync operation completed - flag cleared", xbmc.LOGDEBUG)
 
 
-    def update_kodi_library(self, monitor):
+    def update_kodi_library(self):
         """
         Triggers a Kodi library update to scan for new movies after the sync process.
+        Library update runs in the background without blocking the UI.
         """
         try:
             xbmc.log("Triggering Kodi library update...", xbmc.LOGDEBUG)
             xbmc.executebuiltin('UpdateLibrary(video)')
-            xbmcgui.Dialog().notification("MUBI", "Kodi library update triggered.", xbmcgui.NOTIFICATION_INFO)
-            
-            # Wait for the update operation to finish
-            xbmc.log("Waiting for library update to complete...", xbmc.LOGDEBUG)
-            while not monitor.scan_finished:
-                if monitor.waitForAbort(1):  # Wait for 1 second intervals
-                    xbmc.log("Abort requested during library update wait.", xbmc.LOGDEBUG)
-                    break
+            xbmc.log("Library update triggered successfully - running in background", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library update: {e}", xbmc.LOGERROR)
 
@@ -601,18 +593,19 @@ class NavigationHandler:
     def clean_kodi_library(self, monitor):
         """
         Triggers a Kodi library clean to remove items from the library that are not found locally.
+        Waits for the clean operation to complete before returning (blocking).
         """
         try:
             xbmc.log("Triggering Kodi library clean...", xbmc.LOGDEBUG)
             xbmc.executebuiltin('CleanLibrary(video)')
-            xbmcgui.Dialog().notification("MUBI", "Kodi library clean triggered.", xbmcgui.NOTIFICATION_INFO)
-            
+
             # Wait for the clean operation to finish
             xbmc.log("Waiting for library clean to complete...", xbmc.LOGDEBUG)
             while not monitor.clean_finished:
                 if monitor.waitForAbort(1):  # Wait for 1 second intervals
                     xbmc.log("Abort requested during library clean wait.", xbmc.LOGDEBUG)
                     break
+            xbmc.log("Library clean completed", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library clean: {e}", xbmc.LOGERROR)
 

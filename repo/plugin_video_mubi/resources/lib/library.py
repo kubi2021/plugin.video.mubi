@@ -41,17 +41,17 @@ class Library:
         # Initialize counters
         newly_added = 0
         failed_to_add = 0
-        total_films = len(self.films)
+        films_to_process = len(self.films)
 
         # Initialize progress dialog
         pDialog = xbmcgui.DialogProgress()
-        pDialog.create("Syncing with MUBI", "Starting the sync...")
+        pDialog.create("Syncing with MUBI 2/2", "Starting the sync...")
 
         try:
             # Process each film and update progress
             for idx, film in enumerate(self.films):
-                percent = int(((idx + 1) / total_films) * 100)  # Ensuring 100% on last film
-                pDialog.update(percent, f"Processing movie {idx + 1} of {total_films}:\n{film.title}")
+                percent = int(((idx + 1) / films_to_process) * 100)  # Ensuring 100% on last film
+                pDialog.update(percent, f"Processing movie {idx + 1} of {films_to_process}:\n{film.title}")
                 
                 # Check if user canceled
                 if pDialog.iscanceled():
@@ -183,8 +183,19 @@ class Library:
             # If NFO was created successfully, proceed to create the STRM file
             xbmc.log(f"Creating STRM file for film '{film.title}'.", xbmc.LOGDEBUG)
             film.create_strm_file(film_path, base_url)
-            xbmc.log(f"Successfully created STRM file for '{film.title}'.", xbmc.LOGDEBUG)
 
+            # BUG #9 FIX: Verify that the STRM file was actually created
+            if not strm_file.exists():
+                xbmc.log(
+                    f"STRM file creation failed for '{film.title}' - file does not exist after creation.",
+                    xbmc.LOGERROR
+                )
+                # Remove the movie folder since STRM creation failed
+                shutil.rmtree(film_path)
+                xbmc.log(f"Removed folder '{film_path}' due to failed STRM creation.", xbmc.LOGDEBUG)
+                return False  # Indicate failure in file creation
+
+            xbmc.log(f"Successfully created STRM file for '{film.title}'.", xbmc.LOGDEBUG)
             return True  # Indicate successful creation of both files
 
         except Exception as e:

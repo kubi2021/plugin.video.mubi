@@ -1,3 +1,14 @@
+"""
+Test suite for NavigationHandler class following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
+"""
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
@@ -92,7 +103,7 @@ class TestNavigationHandler:
         mock_end_dir.assert_called_with(123)
         
         # Verify menu items were added (logged in menu)
-        assert mock_add_item.call_count == 4  # 4 menu items for logged in users
+        assert mock_add_item.call_count == 3  # 3 menu items for logged in users (no more category browsing)
 
     @patch('xbmcplugin.setPluginCategory')
     @patch('xbmcplugin.setContent')
@@ -122,11 +133,10 @@ class TestNavigationHandler:
     def test_get_main_menu_items_logged_in(self, navigation_handler):
         """Test main menu items for logged in users."""
         navigation_handler.session.is_logged_in = True
-        
+
         items = navigation_handler._get_main_menu_items()
-        
-        assert len(items) == 4
-        assert any("Browse Mubi films by category" in item["label"] for item in items)
+
+        assert len(items) == 3  # Updated: no more category browsing
         assert any("Browse your Mubi watchlist" in item["label"] for item in items)
         assert any("Sync all Mubi films locally" in item["label"] for item in items)
         assert any("Log Out" in item["label"] for item in items)
@@ -192,79 +202,9 @@ class TestNavigationHandler:
         assert call_args[2] == mock_list_item_instance  # list item
         assert call_args[3] == False  # is_folder
 
-    @patch('xbmcplugin.setPluginCategory')
-    @patch('xbmcplugin.setContent')
-    @patch('xbmcplugin.endOfDirectory')
-    def test_list_categories(self, mock_end_dir, mock_content, mock_category,
-                           navigation_handler, mock_mubi):
-        """Test listing categories."""
-        # Mock get_film_groups to return some categories
-        mock_mubi.get_film_groups.return_value = [
-            {"id": 1, "title": "Drama", "description": "Drama films", "image": ""},
-            {"id": 2, "title": "Comedy", "description": "Comedy films", "image": ""}
-        ]
 
-        # Mock the _add_category_item method instead of _add_menu_item
-        with patch.object(navigation_handler, '_add_category_item') as mock_add_item:
-            navigation_handler.list_categories()
 
-        mock_category.assert_called_with(123, "Browsing Mubi")
-        mock_content.assert_called_with(123, "videos")
-        mock_mubi.get_film_groups.assert_called_once()
-        # endOfDirectory should be called at the end
-        mock_end_dir.assert_called_with(123)
-        # Should add menu items for each category
-        assert mock_add_item.call_count == 2  # 2 categories in mock
-        
-        # Should add menu items for each category
-        assert mock_add_item.call_count == 2  # 2 categories in mock
 
-    @patch('xbmc.log')
-    def test_list_categories_exception(self, mock_log, navigation_handler, mock_mubi):
-        """Test list categories handles exceptions."""
-        mock_mubi.get_categories.side_effect = Exception("API Error")
-        
-        navigation_handler.list_categories()
-        
-        mock_log.assert_called()
-
-    @patch('xbmcplugin.setPluginCategory')
-    @patch('xbmcplugin.setContent')
-    @patch('xbmcplugin.endOfDirectory')
-    def test_list_videos(self, mock_end_dir, mock_content, mock_category, 
-                        navigation_handler, mock_mubi):
-        """Test listing videos in a category."""
-        # Setup mock films
-        mock_film = Mock()
-        mock_film.title = "Test Movie"
-        mock_film.mubi_id = "123"
-        mock_film.web_url = "http://example.com"
-        mock_film.artwork = "http://example.com/art.jpg"
-        mock_film.metadata = Mock()
-        mock_film.metadata.plot = "Test plot"
-        mock_film.metadata.year = 2023
-        
-        mock_library = Mock()
-        mock_library.films = [mock_film]
-        mock_mubi.get_film_list.return_value = mock_library
-        
-        with patch.object(navigation_handler, '_add_film_item') as mock_add_film:
-            navigation_handler.list_videos("1", "Drama")
-
-        # Note: list_videos doesn't set plugin category, only content
-        mock_content.assert_called_with(123, "videos")
-        mock_mubi.get_film_list.assert_called_with("1", "Drama")
-        mock_add_film.assert_called_once()
-        mock_end_dir.assert_called_with(123)
-
-    @patch('xbmc.log')
-    def test_list_videos_exception(self, mock_log, navigation_handler, mock_mubi):
-        """Test list videos handles exceptions."""
-        mock_mubi.get_film_list.side_effect = Exception("API Error")
-        
-        navigation_handler.list_videos("1", "Drama")
-        
-        mock_log.assert_called()
 
     def test_add_video_item(self, navigation_handler):
         """Test adding a video item."""
@@ -372,29 +312,26 @@ class TestNavigationHandler:
 
     @patch('xbmcgui.DialogProgress')
     def test_sync_locally(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
-        """Test local sync process."""
+        """Test local sync process using new direct film fetching approach."""
         mock_addon.getSetting.return_value = "fake-api-key"
-        
-        # Mock categories and films
-        mock_mubi.get_film_groups.return_value = [{"id": 1, "title": "Drama"}]
+
+        # Mock the new get_all_films method
         mock_library = Mock()
         mock_library.films = []
-        mock_mubi.get_film_list.return_value = mock_library
-        
+        mock_mubi.get_all_films.return_value = mock_library
+
         mock_dialog = mock_dialog_progress.return_value
         mock_dialog.iscanceled.return_value = False
-        
+
         with patch('xbmcvfs.translatePath', return_value="/fake/path"):
             with patch('xbmcgui.Dialog') as mock_notification:
-                with patch('plugin_video_mubi.resources.lib.navigation_handler.Library') as mock_library_class:
-                    mock_library_instance = Mock()
-                    mock_library_class.return_value = mock_library_instance
-                    with patch.object(navigation_handler, 'clean_kodi_library'):
-                        with patch.object(navigation_handler, 'update_kodi_library'):
-                            with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
-                                navigation_handler.sync_locally()
-        
-        mock_mubi.get_film_groups.assert_called_once()
+                with patch.object(navigation_handler, 'clean_kodi_library'):
+                    with patch.object(navigation_handler, 'update_kodi_library'):
+                        with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
+                            navigation_handler.sync_locally()
+
+        # Verify the new direct approach is used
+        mock_mubi.get_all_films.assert_called_once()
         mock_dialog.create.assert_called()
         mock_dialog.close.assert_called()
         # The notification should be called, but due to complex mocking it might not be captured
@@ -403,10 +340,10 @@ class TestNavigationHandler:
     @patch('xbmc.log')
     def test_sync_locally_exception(self, mock_log, navigation_handler, mock_mubi):
         """Test sync locally handles exceptions."""
-        mock_mubi.get_film_groups.side_effect = Exception("API Error")
-        
+        mock_mubi.get_all_films.side_effect = Exception("API Error")
+
         navigation_handler.sync_locally()
-        
+
         mock_log.assert_called()
 
     # Additional tests for better coverage
@@ -428,26 +365,7 @@ class TestNavigationHandler:
             mock_add_film.assert_called_once_with(mock_film)
             mock_end_dir.assert_called_with(123)
 
-    @patch('xbmcgui.ListItem')
-    @patch('xbmcplugin.addDirectoryItem')
-    def test_add_category_item_success(self, mock_add_dir, mock_list_item, navigation_handler):
-        """Test adding a category item successfully."""
-        category = {
-            "id": "123",
-            "title": "Drama",
-            "description": "Drama films",
-            "image": "http://example.com/image.jpg"
-        }
 
-        mock_list_item_instance = Mock()
-        mock_list_item.return_value = mock_list_item_instance
-
-        navigation_handler._add_category_item(category)
-
-        mock_list_item.assert_called_with(label="Drama")
-        mock_list_item_instance.getVideoInfoTag.assert_called()
-        mock_list_item_instance.setArt.assert_called()
-        mock_add_dir.assert_called()
 
     def test_get_url(self, navigation_handler):
         """Test URL generation."""
@@ -559,10 +477,8 @@ class TestNavigationHandler:
 
     def test_update_kodi_library(self, navigation_handler):
         """Test Kodi library update functionality."""
-        mock_monitor = Mock()
-
         with patch('xbmc.executebuiltin') as mock_execute:
-            navigation_handler.update_kodi_library(mock_monitor)
+            navigation_handler.update_kodi_library()
 
             # Should execute update command
             mock_execute.assert_called_with('UpdateLibrary(video)')

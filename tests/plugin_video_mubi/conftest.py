@@ -1,3 +1,14 @@
+"""
+Test configuration and fixtures for MUBI plugin tests following QA guidelines.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
+"""
+
 import sys
 import pytest
 from unittest.mock import MagicMock, Mock
@@ -127,6 +138,11 @@ def mock_metadata():
     metadata.dateadded = "2023-01-01"
     metadata.trailer = "http://example.com/trailer"
     metadata.image = "http://example.com/image.jpg"
+    metadata.mpaa = "PG-13"
+    metadata.artwork_urls = {}
+    metadata.audio_languages = ["English", "French"]
+    metadata.subtitle_languages = ["English", "French", "Spanish"]
+    metadata.media_features = ["HD", "stereo"]
     return metadata
 
 @pytest.fixture
