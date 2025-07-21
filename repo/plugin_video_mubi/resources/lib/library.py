@@ -183,8 +183,19 @@ class Library:
             # If NFO was created successfully, proceed to create the STRM file
             xbmc.log(f"Creating STRM file for film '{film.title}'.", xbmc.LOGDEBUG)
             film.create_strm_file(film_path, base_url)
-            xbmc.log(f"Successfully created STRM file for '{film.title}'.", xbmc.LOGDEBUG)
 
+            # BUG #9 FIX: Verify that the STRM file was actually created
+            if not strm_file.exists():
+                xbmc.log(
+                    f"STRM file creation failed for '{film.title}' - file does not exist after creation.",
+                    xbmc.LOGERROR
+                )
+                # Remove the movie folder since STRM creation failed
+                shutil.rmtree(film_path)
+                xbmc.log(f"Removed folder '{film_path}' due to failed STRM creation.", xbmc.LOGDEBUG)
+                return False  # Indicate failure in file creation
+
+            xbmc.log(f"Successfully created STRM file for '{film.title}'.", xbmc.LOGDEBUG)
             return True  # Indicate successful creation of both files
 
         except Exception as e:

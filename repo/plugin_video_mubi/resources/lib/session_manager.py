@@ -67,19 +67,49 @@ class SessionManager:
         """
         Set the logged-in state and save the token and user ID to settings.
 
+        Level 2 Bug Fix: Atomic authentication state updates to prevent inconsistency.
+
         :param token: Authentication token.
         :param user_id: User ID.
         """
+        # BUG #8 FIX: Store original state for rollback
+        original_token = self.token
+        original_user_id = self.user_id
+        original_is_logged_in = self.is_logged_in
+
         try:
-            self.token = token
-            self.user_id = user_id  # Store the user ID
-            self.is_logged_in = True
+            # BUG #8 FIX: First, try all persistent operations before updating memory state
+            # This ensures we can rollback if any operation fails
             self.plugin.setSetting('token', token)
-            self.plugin.setSetting('userID', user_id)  # Save user ID to settings
+            self.plugin.setSetting('userID', user_id)
             self.plugin.setSettingBool('logged', True)
+
+            # BUG #8 FIX: Only update memory state after all persistent operations succeed
+            self.token = token
+            self.user_id = user_id
+            self.is_logged_in = True
+
             xbmc.log("User logged in successfully.", xbmc.LOGDEBUG)
+
         except Exception as e:
+            # BUG #8 FIX: Atomic rollback - restore original state if any operation failed
+            self.token = original_token
+            self.user_id = original_user_id
+            self.is_logged_in = original_is_logged_in
+
+            # BUG #8 FIX: Also try to clear any partial persistent state that might have been set
+            try:
+                self.plugin.setSetting('token', original_token or '')
+                self.plugin.setSetting('userID', original_user_id or '')
+                self.plugin.setSettingBool('logged', original_is_logged_in)
+            except Exception as rollback_error:
+                xbmc.log(f"Error during authentication rollback: {rollback_error}", xbmc.LOGWARNING)
+
             xbmc.log(f"Error setting logged-in status: {e}", xbmc.LOGERROR)
+            xbmc.log("Authentication state rolled back to maintain consistency", xbmc.LOGINFO)
+
+            # BUG #8 FIX: Re-raise the exception so caller knows the operation failed
+            raise
 
 
     def set_logged_out(self):

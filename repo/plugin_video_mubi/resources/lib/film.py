@@ -228,6 +228,8 @@ class Film:
                 f.write(kodi_movie_url)
         except OSError as error:
             xbmc.log(f"Error while creating STRM file for {self.title}: {error}", xbmc.LOGERROR)
+            # BUG #9 FIX: Re-raise the exception so caller knows the operation failed
+            raise
 
     def create_nfo_file(self, film_path: Path, base_url: str, omdb_api_key: str):
         """Create the .nfo file for the film."""
