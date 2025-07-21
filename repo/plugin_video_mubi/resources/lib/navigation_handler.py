@@ -82,7 +82,6 @@ class NavigationHandler:
         """ Helper method to retrieve main menu items based on login status. """
         if self.session.is_logged_in:
             return [
-                {"label": "Browse Mubi films by category", "description": "Browse Mubi films by category", "action": "list_categories", "is_folder": True},
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
                 {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": True},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
@@ -105,42 +104,7 @@ class NavigationHandler:
             xbmc.log(f"Error adding menu item {item['label']}: {e}", xbmc.LOGERROR)
 
 
-    def list_categories(self):
-        """
-        List categories fetched from the Mubi API.
-        """
-        try:
-            xbmcplugin.setPluginCategory(self.handle, "Browsing Mubi")
-            xbmcplugin.setContent(self.handle, "videos")
 
-            categories = self.mubi.get_film_groups()
-
-            for category in categories:
-                self._add_category_item(category)
-
-            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_NONE)
-            xbmcplugin.endOfDirectory(self.handle)
-
-        except Exception as e:
-            xbmc.log(f"Error listing categories: {e}", xbmc.LOGERROR)
-
-    def _add_category_item(self, category: dict):
-        try:
-            list_item = xbmcgui.ListItem(label=category["title"])
-            info_tag = list_item.getVideoInfoTag()
-            info_tag.setTitle(category["title"])
-            info_tag.setPlot(category["description"])
-            info_tag.setMediaType("video")
-            list_item.setArt({
-                "thumb": category["image"],
-                "poster": category["image"],
-                "banner": category["image"],
-                "fanart": category["image"]
-            })
-            url = self.get_url(action="listing", id=category["id"], category_name=category["title"])
-            xbmcplugin.addDirectoryItem(self.handle, url, list_item, True)
-        except Exception as e:
-            xbmc.log(f"Error adding category item {category['title']}: {e}", xbmc.LOGERROR)
 
 
     def list_watchlist(self):
@@ -162,26 +126,7 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error listing videos: {e}", xbmc.LOGERROR)
 
-    def list_videos(self, id: int, category_name: str):
-        """
-        List videos in a selected category.
 
-        :param id: ID of the category
-        :param category_name: Name of the category
-        """
-        try:
-            xbmcplugin.setContent(self.handle, "videos")
-
-            library = self.mubi.get_film_list(id, category_name)
-
-            for film in library.films:
-                self._add_film_item(film)
-
-            xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_NONE)
-            xbmcplugin.endOfDirectory(self.handle)
-
-        except Exception as e:
-            xbmc.log(f"Error listing videos: {e}", xbmc.LOGERROR)
 
     def _add_film_item(self, film):
         try:
@@ -440,6 +385,8 @@ class NavigationHandler:
             xbmcplugin.setResolvedUrl(self.handle, True, listitem=play_item)
         except Exception as e:
             xbmc.log(f"Error playing trailer: {e}", xbmc.LOGERROR)
+
+
 
     def log_in(self):
         """

@@ -127,6 +127,11 @@ def mock_metadata():
     metadata.dateadded = "2023-01-01"
     metadata.trailer = "http://example.com/trailer"
     metadata.image = "http://example.com/image.jpg"
+    metadata.mpaa = "PG-13"
+    metadata.artwork_urls = {}
+    metadata.audio_languages = ["English", "French"]
+    metadata.subtitle_languages = ["English", "French", "Spanish"]
+    metadata.media_features = ["HD", "stereo"]
     return metadata
 
 @pytest.fixture
