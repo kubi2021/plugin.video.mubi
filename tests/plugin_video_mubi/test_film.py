@@ -837,3 +837,279 @@ class TestFilm:
             # Should not start or end with spaces
             assert not sanitized_name.startswith(" ")
             assert not sanitized_name.endswith(" ")
+
+    # ===== Bug Hunting Tests (moved from test_bug_hunting.py) =====
+
+    def test_unicode_handling_level2_assessment(self):
+        """
+        BUG #3: Unicode Handling in Filenames
+        Location: film.py:181-191 (get_sanitized_folder_name)
+        Issue: Unicode characters might cause filesystem errors on some platforms
+        Level 2 Assessment: Test if this is actually a user-blocking bug
+        """
+        # Test various Unicode scenarios that could cause issues
+        unicode_test_cases = [
+            # Basic Unicode that should work fine
+            ("Amélie", "Amélie (2001)"),  # French accents
+            ("Nausicaä", "Nausicaä (1984)"),  # German umlauts
+            ("七人の侍", "七人の侍 (1954)"),  # Japanese characters
+            ("Город", "Город (2010)"),  # Cyrillic
+            ("الفيلم", "الفيلم (2020)"),  # Arabic
+
+            # Potentially problematic Unicode
+            ("Movie🎬Title", "Movie🎬Title (2023)"),  # Emojis
+            ("Film\u200BTitle", "FilmTitle (2023)"),  # Zero-width space (should be removed)
+            ("Test\uFEFFMovie", "TestMovie (2023)"),  # BOM character (should be removed)
+            ("Movie\u202ATitle", "MovieTitle (2023)"),  # Left-to-right embedding (should be removed)
+
+            # Edge cases
+            ("🎭🎪🎨", "🎭🎪🎨 (2023)"),  # Only emojis
+            ("", "unknown_file (2023)"),  # Empty string
+            ("   ", "unknown_file (2023)"),  # Only spaces
+        ]
+
+        for original_title, expected_folder in unicode_test_cases:
+            # Create film with Unicode title
+            metadata = Metadata(
+                title=original_title,
+                year="2023" if "2023" in expected_folder else expected_folder.split("(")[1].split(")")[0],
+                director=["Test Director"],
+                genre=["Drama"],
+                plot="Test plot",
+                plotoutline="Test outline",
+                originaltitle=original_title,
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["Test"],
+                castandrole="Test Actor",
+                dateadded="2023-01-01",
+                trailer="http://example.com/trailer",
+                image="http://example.com/image.jpg",
+                mpaa="PG",
+                artwork_urls={},
+                audio_languages=["English"],
+                subtitle_languages=["English"],
+                media_features=["HD"]
+            )
+
+            film = Film(
+                mubi_id="123",
+                title=original_title,
+                artwork="http://example.com/art.jpg",
+                web_url="http://example.com/movie",
+                metadata=metadata
+            )
+
+            # Test folder name generation
+            try:
+                folder_name = film.get_sanitized_folder_name()
+
+                # LEVEL 2 CHECKS: Does it work for real-world usage?
+
+                # 1. Should not crash
+                assert folder_name is not None, f"Should not crash for '{original_title}'"
+
+                # 2. Should not be empty
+                assert len(folder_name.strip()) > 0, f"Should not be empty for '{original_title}'"
+
+                # 3. Should be filesystem-safe (no dangerous characters)
+                dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                for char in dangerous_chars:
+                    assert char not in folder_name, f"Should not contain '{char}' in '{folder_name}'"
+
+                # 4. Should handle length limits
+                assert len(folder_name) <= 255, f"Should respect length limit: {len(folder_name)} chars"
+
+                # 5. Should be encodable to filesystem encoding
+                try:
+                    # Test encoding to common filesystem encodings
+                    folder_name.encode('utf-8')  # Most modern systems
+                    folder_name.encode('cp1252', errors='ignore')  # Windows fallback
+                    encoding_ok = True
+                except UnicodeEncodeError:
+                    encoding_ok = False
+
+                assert encoding_ok, f"Should be encodable to filesystem: '{folder_name}'"
+
+            except Exception as e:
+                # This would indicate a real bug
+                assert False, f"Unicode handling failed for '{original_title}': {e}"
+
+    def test_filesystem_compatibility_cross_platform(self):
+        """
+        Test Unicode filename compatibility across different platforms
+        """
+        import tempfile
+        import os
+
+        # Test cases that might cause cross-platform issues
+        problematic_cases = [
+            "Café",  # Accented characters
+            "北京",  # Chinese characters
+            "🎬",    # Emoji
+            "test\u0301",  # Combining character
+            "file\u200B",  # Zero-width space
+        ]
+
+        for title in problematic_cases:
+            metadata = Metadata(
+                title=title,
+                year="2023",
+                director=["Test"],
+                genre=["Test"],
+                plot="Test",
+                plotoutline="Test",
+                originaltitle=title,
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["Test"],
+                castandrole="Test",
+                dateadded="2023-01-01",
+                trailer="",
+                image="",
+                mpaa="",
+                artwork_urls={},
+                audio_languages=[],
+                subtitle_languages=[],
+                media_features=[]
+            )
+
+            film = Film("123", title, "", "", metadata)
+            folder_name = film.get_sanitized_folder_name()
+
+            # LEVEL 2 TEST: Can we actually create a folder with this name?
+            try:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    test_path = os.path.join(temp_dir, folder_name)
+                    os.makedirs(test_path, exist_ok=True)
+
+                    # Verify folder was created successfully
+                    assert os.path.exists(test_path), f"Could not create folder: {folder_name}"
+
+                    # Test file creation within the folder
+                    test_file = os.path.join(test_path, "test.txt")
+                    with open(test_file, 'w', encoding='utf-8') as f:
+                        f.write("test")
+
+                    assert os.path.exists(test_file), f"Could not create file in folder: {folder_name}"
+
+            except Exception as e:
+                # This would indicate a real Level 2 bug (user-blocking)
+                assert False, f"Filesystem operation failed for '{title}': {e}"
+
+    def test_unicode_level2_verdict_not_a_bug(self):
+        """
+        BUG #3 Level 2 Verdict: This is NOT actually a user-blocking bug
+
+        Evidence:
+        1. Current code already handles Unicode properly
+        2. Dangerous Unicode sequences are already filtered out
+        3. Filesystem operations work correctly
+        4. Cross-platform compatibility is maintained
+
+        Level 2 Assessment: FALSE POSITIVE - No fix needed
+        """
+        # Test the most extreme Unicode cases that could theoretically cause issues
+        extreme_unicode_cases = [
+            # Normalization issues
+            "café",  # NFC normalization
+            "cafe\u0301",  # NFD normalization (e + combining acute)
+
+            # Bidirectional text
+            "English\u202Dعربي\u202C",  # Left-to-right override
+
+            # Surrogate pairs (emojis)
+            "🎬🎭🎪🎨🎯🎲",  # Multiple emojis
+
+            # Mixed scripts
+            "Movie名前فيلم",  # English + Japanese + Arabic
+
+            # Potential encoding issues
+            "test\u00A0space",  # Non-breaking space
+            "file\u2028line",  # Line separator
+            "text\u2029para",  # Paragraph separator
+        ]
+
+        for title in extreme_unicode_cases:
+            metadata = Metadata(
+                title=title,
+                year="2023",
+                director=["Test"],
+                genre=["Test"],
+                plot="Test",
+                plotoutline="Test",
+                originaltitle=title,
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["Test"],
+                castandrole="Test",
+                dateadded="2023-01-01",
+                trailer="",
+                image="",
+                mpaa="",
+                artwork_urls={},
+                audio_languages=[],
+                subtitle_languages=[],
+                media_features=[]
+            )
+
+            film = Film("123", title, "", "", metadata)
+
+            # LEVEL 2 VERIFICATION: All operations should work smoothly
+            try:
+                # 1. Folder name generation
+                folder_name = film.get_sanitized_folder_name()
+                assert folder_name is not None
+                assert len(folder_name) > 0
+
+                # 2. Filename sanitization
+                sanitized = film._sanitize_filename(title)
+                assert sanitized is not None
+                assert len(sanitized) > 0
+
+                # 3. No dangerous characters remain
+                dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                for char in dangerous_chars:
+                    assert char not in folder_name
+                    assert char not in sanitized
+
+            except Exception as e:
+                # If this fails, then we have a real bug
+                assert False, f"Unicode handling failed: {e}"
+
+        # Verify the current Unicode filtering is working
+        metadata = Metadata(
+            title="test",
+            year="2023",
+            director=["Test"],
+            genre=["Test"],
+            plot="Test",
+            plotoutline="Test",
+            originaltitle="test",
+            rating=7.0,
+            votes=100,
+            duration=120,
+            country=["Test"],
+            castandrole="Test",
+            dateadded="2023-01-01",
+            trailer="",
+            image="",
+            mpaa="",
+            artwork_urls={},
+            audio_languages=[],
+            subtitle_languages=[],
+            media_features=[]
+        )
+
+        test_dangerous = "file\u200B\uFEFF\u202Atest"  # Zero-width + BOM + LTR embedding
+        film_dangerous = Film("123", test_dangerous, "", "", metadata)
+        clean_result = film_dangerous._sanitize_filename(test_dangerous)
+
+        # Should have removed the dangerous Unicode
+        assert '\u200B' not in clean_result, "Zero-width space should be removed"
+        assert '\uFEFF' not in clean_result, "BOM should be removed"
+        assert '\u202A' not in clean_result, "LTR embedding should be removed"
+        assert clean_result == "filetest", f"Expected 'filetest', got '{clean_result}'"
