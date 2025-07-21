@@ -178,7 +178,12 @@ class TestMetadata:
             'castandrole': "Test Cast",
             'dateadded': "2023-01-01",
             'trailer': "http://example.com/trailer",
-            'image': "http://example.com/image.jpg"
+            'image': "http://example.com/image.jpg",
+            'mpaa': "",
+            'artwork_urls': {},
+            'audio_languages': [],
+            'subtitle_languages': [],
+            'media_features': []
         }
         
         assert result_dict == expected_dict

@@ -155,15 +155,10 @@ class TestAddonEntryPoint:
             session=session
         )
 
-        # Test list categories functionality
-        with patch.object(mubi, 'get_film_groups') as mock_get_groups:
-            mock_get_groups.return_value = [
-                {"id": 1, "title": "Drama"},
-                {"id": 2, "title": "Comedy"}
-            ]
-
-            nav_handler.list_categories()
-            mock_get_groups.assert_called_once()
+        # Test watchlist functionality (replaced category browsing)
+        with patch.object(nav_handler, 'list_watchlist') as mock_list_watchlist:
+            nav_handler.list_watchlist()
+            mock_list_watchlist.assert_called_once()
 
     def test_addon_play_video_e2e(self, mock_kodi_environment):
         """Test play video action simulation."""
@@ -325,7 +320,6 @@ class TestCompleteUserJourneys:
                 title="Journey Test Movie",
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=metadata
             )
             
@@ -401,7 +395,7 @@ class TestCompleteUserJourneys:
                 genre=["Drama"],
                 originaltitle="Returning User Movie"
             )
-            film = Film("return_123", "Returning User Movie", "", "", "Drama", metadata)
+            film = Film("return_123", "Returning User Movie", "", "", metadata)
             
             mubi.library.add_film(film)
             assert len(mubi.library) == 1

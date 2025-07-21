@@ -548,7 +548,6 @@ class TestFilm:
                 title=title,
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com/movie",
-                category="Drama",
                 metadata=metadata
             )
 
