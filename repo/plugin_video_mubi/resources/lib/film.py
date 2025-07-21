@@ -129,6 +129,9 @@ class Film:
         nfo_file = film_path / nfo_file_name
         kodi_trailer_url = f"{base_url}?action=play_trailer&url={self.metadata.trailer}"
 
+        # Download all available artwork locally for offline access
+        artwork_paths = self._download_all_artwork(film_path, film_folder_name)
+
         try:
             imdb_url = ""
             if omdb_api_key:
@@ -140,7 +143,7 @@ class Film:
                     # Still create NFO file without IMDb URL rather than failing completely
                     imdb_url = ""
 
-            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url)
+            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url, artwork_paths)
             with open(nfo_file, "wb") as f:
                 if isinstance(nfo_tree, str):
                     nfo_tree = nfo_tree.encode("utf-8")
@@ -156,7 +159,7 @@ class Film:
 
 
 
-    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str) -> bytes:
+    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str, artwork_paths: dict = None) -> bytes:
         """Generate the NFO XML tree structure, including IMDb URL if available."""
         if not metadata.title:
             raise ValueError("Metadata must contain a title")
@@ -169,12 +172,17 @@ class Film:
         ratings = ET.SubElement(movie, "ratings")
         rating = ET.SubElement(ratings, "rating")
         rating.set("name", "MUBI")
+        rating.set("max", "10")  # Specify 10-point scale for Kodi
         ET.SubElement(rating, "value").text = str(metadata.rating)
         ET.SubElement(rating, "votes").text = str(metadata.votes)
 
         ET.SubElement(movie, "plot").text = metadata.plot
         ET.SubElement(movie, "outline").text = metadata.plotoutline
         ET.SubElement(movie, "runtime").text = str(metadata.duration)
+
+        # Add content rating (age rating)
+        if metadata.mpaa:
+            ET.SubElement(movie, "mpaa").text = metadata.mpaa
 
         if metadata.country:
             ET.SubElement(movie, "country").text = metadata.country[0]
@@ -187,9 +195,54 @@ class Film:
 
         ET.SubElement(movie, "year").text = str(metadata.year)
         ET.SubElement(movie, "trailer").text = kodi_trailer_url
+
+        # Add all available artwork types
+        if artwork_paths is None:
+            artwork_paths = {}
+
+        # Thumbnail/Landscape artwork
         thumb = ET.SubElement(movie, "thumb")
         thumb.set("aspect", "landscape")
-        thumb.text = metadata.image
+        if 'thumb' in artwork_paths and Path(artwork_paths['thumb']).exists():
+            thumb.text = Path(artwork_paths['thumb']).name
+            xbmc.log(f"Using local thumbnail: {Path(artwork_paths['thumb']).name}", xbmc.LOGDEBUG)
+        else:
+            thumb.text = metadata.image
+            xbmc.log(f"Using remote thumbnail URL: {metadata.image}", xbmc.LOGDEBUG)
+
+        # Poster artwork (vertical)
+        if 'poster' in artwork_paths and Path(artwork_paths['poster']).exists():
+            poster = ET.SubElement(movie, "poster")
+            poster.text = Path(artwork_paths['poster']).name
+            xbmc.log(f"Using local poster: {Path(artwork_paths['poster']).name}", xbmc.LOGDEBUG)
+
+
+
+        # Clear logo (transparent title)
+        if 'clearlogo' in artwork_paths and Path(artwork_paths['clearlogo']).exists():
+            clearlogo = ET.SubElement(movie, "clearlogo")
+            clearlogo.text = Path(artwork_paths['clearlogo']).name
+            xbmc.log(f"Using local clearlogo: {Path(artwork_paths['clearlogo']).name}", xbmc.LOGDEBUG)
+
+        # Audio and subtitle language information
+        if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
+            audio_info = ET.SubElement(movie, "audio")
+            for lang in metadata.audio_languages:
+                audio_lang = ET.SubElement(audio_info, "language")
+                audio_lang.text = str(lang)
+
+        if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
+            subtitle_info = ET.SubElement(movie, "subtitles")
+            for lang in metadata.subtitle_languages:
+                subtitle_lang = ET.SubElement(subtitle_info, "language")
+                subtitle_lang.text = str(lang)
+
+        # Media features (4K, stereo, 5.1, etc.)
+        if hasattr(metadata, 'media_features') and metadata.media_features:
+            features_info = ET.SubElement(movie, "mediafeatures")
+            for feature in metadata.media_features:
+                feature_elem = ET.SubElement(features_info, "feature")
+                feature_elem.text = str(feature)
 
 
 
@@ -200,6 +253,145 @@ class Film:
             ET.SubElement(movie, "imdbid").text = imdb_url
 
         return ET.tostring(movie)
+
+    def _download_thumbnail(self, film_path: Path, film_folder_name: str) -> Optional[str]:
+        """
+        Download the thumbnail image locally for offline access.
+
+        :param film_path: Path to the film folder
+        :param film_folder_name: Sanitized folder name for the film
+        :return: Local path to downloaded thumbnail or None if failed
+        """
+        if not self.metadata.image:
+            xbmc.log(f"No thumbnail URL available for '{self.title}'", xbmc.LOGDEBUG)
+            return None
+
+        try:
+            # Determine file extension from URL
+            image_url = self.metadata.image
+            if '.jpg' in image_url.lower():
+                extension = '.jpg'
+            elif '.png' in image_url.lower():
+                extension = '.png'
+            elif '.jpeg' in image_url.lower():
+                extension = '.jpeg'
+            else:
+                extension = '.jpg'  # Default fallback
+
+            # Create local thumbnail filename following Kodi conventions
+            thumbnail_filename = f"{film_folder_name}-thumb{extension}"
+            local_thumbnail_path = film_path / thumbnail_filename
+
+            # Skip download if file already exists
+            if local_thumbnail_path.exists():
+                xbmc.log(f"Thumbnail already exists for '{self.title}': {local_thumbnail_path}", xbmc.LOGDEBUG)
+                return str(local_thumbnail_path)
+
+            # Download the thumbnail
+            xbmc.log(f"Downloading thumbnail for '{self.title}' from {image_url}", xbmc.LOGDEBUG)
+            response = requests.get(image_url, timeout=30, stream=True)
+            response.raise_for_status()
+
+            # Save the thumbnail locally
+            with open(local_thumbnail_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            xbmc.log(f"Successfully downloaded thumbnail for '{self.title}' to {local_thumbnail_path}", xbmc.LOGDEBUG)
+            return str(local_thumbnail_path)
+
+        except Exception as e:
+            xbmc.log(f"Failed to download thumbnail for '{self.title}': {e}", xbmc.LOGWARNING)
+            return None
+
+    def _download_all_artwork(self, film_path: Path, film_folder_name: str) -> dict:
+        """
+        Download all available artwork types locally for offline access.
+
+        :param film_path: Path to the film folder
+        :param film_folder_name: Sanitized folder name for the film
+        :return: Dictionary mapping artwork types to local file paths
+        """
+        artwork_paths = {}
+
+        try:
+            # Get artwork URLs from metadata
+            artwork_urls = self._get_all_artwork_urls()
+
+            for artwork_type, url in artwork_urls.items():
+                if not url:
+                    continue
+
+                try:
+                    # Determine file extension
+                    if '.jpg' in url.lower():
+                        extension = '.jpg'
+                    elif '.png' in url.lower():
+                        extension = '.png'
+                    elif '.jpeg' in url.lower():
+                        extension = '.jpeg'
+                    else:
+                        extension = '.jpg'  # Default fallback
+
+                    # Create filename following Kodi conventions
+                    if artwork_type == 'thumb':
+                        filename = f"{film_folder_name}-thumb{extension}"
+                    elif artwork_type == 'poster':
+                        filename = f"{film_folder_name}-poster{extension}"
+
+                    elif artwork_type == 'clearlogo':
+                        filename = f"{film_folder_name}-clearlogo{extension}"
+                    else:
+                        filename = f"{film_folder_name}-{artwork_type}{extension}"
+
+                    local_path = film_path / filename
+
+                    # Skip download if file already exists
+                    if local_path.exists():
+                        xbmc.log(f"{artwork_type.title()} already exists for '{self.title}': {local_path}", xbmc.LOGDEBUG)
+                        artwork_paths[artwork_type] = str(local_path)
+                        continue
+
+                    # Download the artwork
+                    xbmc.log(f"Downloading {artwork_type} for '{self.title}' from {url}", xbmc.LOGDEBUG)
+                    response = requests.get(url, timeout=30, stream=True)
+                    response.raise_for_status()
+
+                    # Save the artwork locally
+                    with open(local_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+
+                    artwork_paths[artwork_type] = str(local_path)
+                    xbmc.log(f"Successfully downloaded {artwork_type} for '{self.title}' to {local_path}", xbmc.LOGDEBUG)
+
+                except Exception as e:
+                    xbmc.log(f"Failed to download {artwork_type} for '{self.title}': {e}", xbmc.LOGWARNING)
+                    continue
+
+            return artwork_paths
+
+        except Exception as e:
+            xbmc.log(f"Error downloading artwork for '{self.title}': {e}", xbmc.LOGERROR)
+            return {}
+
+    def _get_all_artwork_urls(self) -> dict:
+        """
+        Get all available artwork URLs from metadata.
+
+        :return: Dictionary mapping artwork types to URLs
+        """
+        artwork_urls = {}
+
+        # Get artwork URLs from metadata
+        if hasattr(self.metadata, 'artwork_urls') and self.metadata.artwork_urls:
+            artwork_urls.update(self.metadata.artwork_urls)
+
+        # Always include the main image as thumb
+        if self.metadata.image:
+            artwork_urls['thumb'] = self.metadata.image
+
+        return artwork_urls
 
 
 

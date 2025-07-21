@@ -78,9 +78,7 @@ if __name__ == "__main__":
     elif action == "watchlist":
         xbmc.log(f"Calling list_watchlist with handle: {handle}", xbmc.LOGDEBUG)
         navigation.list_watchlist()
-    elif action == "listing":
-        xbmc.log(f"Calling listing with handle: {handle}", xbmc.LOGDEBUG)
-        navigation.list_videos(params['id'], params['category_name'])
+
     elif action == "play_ext":
         xbmc.log(f"Calling play_ext with handle: {handle}", xbmc.LOGDEBUG)
         try:
