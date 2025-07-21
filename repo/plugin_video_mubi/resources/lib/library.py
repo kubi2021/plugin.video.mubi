@@ -45,7 +45,7 @@ class Library:
 
         # Initialize progress dialog
         pDialog = xbmcgui.DialogProgress()
-        pDialog.create("Syncing with MUBI", "Starting the sync...")
+        pDialog.create("Syncing with MUBI 2/2", "Starting the sync...")
 
         try:
             # Process each film and update progress

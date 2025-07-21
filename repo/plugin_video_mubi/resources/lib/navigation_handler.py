@@ -506,7 +506,7 @@ class NavigationHandler:
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
-            pDialog.create("Syncing with Mubi", "Initializing...")
+            pDialog.create("Syncing with MUBI 1/2", "Initializing...")
 
             # Define progress callback for dynamic updates
             def update_fetch_progress(current_films, total_films, current_page, total_pages):
@@ -520,8 +520,8 @@ class NavigationHandler:
                 else:
                     percent = 25  # Fallback percentage
 
-                # Update dialog with dynamic information
-                message = f"Fetching {total_films} playable films\nPage {current_page} of {total_pages} ({current_films} films loaded)"
+                # Update dialog with dynamic information - only show films loaded, not pages
+                message = f"Fetching {total_films} playable films\n{current_films} films loaded"
                 pDialog.update(percent, message)
 
             # Use the new direct approach to fetch all films with progress tracking
@@ -577,8 +577,7 @@ class NavigationHandler:
         try:
             xbmc.log("Triggering Kodi library update...", xbmc.LOGDEBUG)
             xbmc.executebuiltin('UpdateLibrary(video)')
-            xbmcgui.Dialog().notification("MUBI", "Kodi library update triggered.", xbmcgui.NOTIFICATION_INFO)
-            
+
             # Wait for the update operation to finish
             xbmc.log("Waiting for library update to complete...", xbmc.LOGDEBUG)
             while not monitor.scan_finished:
@@ -596,8 +595,7 @@ class NavigationHandler:
         try:
             xbmc.log("Triggering Kodi library clean...", xbmc.LOGDEBUG)
             xbmc.executebuiltin('CleanLibrary(video)')
-            xbmcgui.Dialog().notification("MUBI", "Kodi library clean triggered.", xbmcgui.NOTIFICATION_INFO)
-            
+
             # Wait for the clean operation to finish
             xbmc.log("Waiting for library clean to complete...", xbmc.LOGDEBUG)
             while not monitor.clean_finished:
