@@ -237,7 +237,6 @@ class TestInputValidationSecurity:
                 mubi_id="123",
                 title=payload,  # Malicious title
                 metadata=mock_metadata,
-                category="test",
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com"
             )
@@ -357,7 +356,6 @@ class TestFileOperationSecurity:
                 mubi_id="123",
                 title=payload,
                 metadata=mock_metadata,
-                category="test",
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com"
             )
@@ -379,7 +377,6 @@ class TestFileOperationSecurity:
                 mubi_id="123",
                 title=payload,
                 metadata=mock_metadata,
-                category="test",
                 artwork="http://example.com/art.jpg",
                 web_url="http://example.com"
             )
@@ -414,7 +411,6 @@ class TestFileOperationSecurity:
                     mubi_id="123",
                     title=malicious_title,
                     metadata=mock_metadata,
-                    category="test",
                     artwork="http://example.com/art.jpg",
                     web_url="http://example.com"
                 )

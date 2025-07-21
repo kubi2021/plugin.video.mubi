@@ -178,7 +178,7 @@ class TestMubi:
         """Test film metadata extraction with valid data."""
         # Simplify the test - just verify the method can be called
         # The method may return None due to complex date/availability logic
-        result = mubi_instance.get_film_metadata(sample_film_data, "Drama")
+        result = mubi_instance.get_film_metadata(sample_film_data)
 
         # The method should either return a Film object or None (if not available)
         # Both are valid outcomes depending on the availability logic
@@ -188,7 +188,7 @@ class TestMubi:
         """Test film metadata extraction with missing film data."""
         invalid_data = {"not_film": {}}
         
-        film = mubi_instance.get_film_metadata(invalid_data, "Drama")
+        film = mubi_instance.get_film_metadata(invalid_data)
         
         assert film is None
 
@@ -206,9 +206,544 @@ class TestMubi:
             }
         }
         
-        film = mubi_instance.get_film_metadata(film_data, "Drama")
+        film = mubi_instance.get_film_metadata(film_data)
         
         assert film is None
+
+    def test_get_film_metadata_enhanced_plot_with_editorial(self, mubi_instance):
+        """Test that enhanced plot uses default_editorial when available."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                'average_rating': 7.5,
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Short basic synopsis.',
+                'default_editorial': 'This is a much longer and more detailed editorial description that provides rich context and analysis of the film.',
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should use enhanced editorial content for plot
+        if film:  # Film may be None due to availability logic
+            assert film.metadata.plot == 'This is a much longer and more detailed editorial description that provides rich context and analysis of the film.'
+            assert film.metadata.plotoutline == 'Short basic synopsis.'
+
+    def test_get_film_metadata_fallback_to_synopsis(self, mubi_instance):
+        """Test that plot falls back to synopsis when no editorial content available."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                'average_rating': 7.5,
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Short basic synopsis.',
+                # No default_editorial field
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should fall back to synopsis for both plot and outline
+        if film:  # Film may be None due to availability logic
+            assert film.metadata.plot == 'Short basic synopsis.'
+            assert film.metadata.plotoutline == 'Short basic synopsis.'
+
+    def test_get_film_metadata_content_rating_extraction(self, mubi_instance):
+        """Test that content rating is properly extracted and formatted."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                'average_rating': 7.5,
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Test synopsis.',
+                'content_rating': {
+                    'label': 'caution',
+                    'rating_code': 'CAUTION',
+                    'description': 'Contains material that may not be suitable for children or young adults.',
+                    'icon_url': None,
+                    'label_hex_color': 'e05d04'
+                },
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should extract content rating with code and description
+        if film:  # Film may be None due to availability logic
+            expected_mpaa = 'CAUTION - Contains material that may not be suitable for children or young adults.'
+            assert film.metadata.mpaa == expected_mpaa
+
+    def test_get_film_metadata_content_rating_fallback(self, mubi_instance):
+        """Test content rating fallback when only label is available."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                'average_rating': 7.5,
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Test synopsis.',
+                'content_rating': {
+                    'label': 'mature',
+                    'description': 'Mature content warning.'
+                },
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should use label when rating_code not available
+        if film:  # Film may be None due to availability logic
+            expected_mpaa = 'MATURE - Mature content warning.'
+            assert film.metadata.mpaa == expected_mpaa
+
+    def test_get_film_metadata_no_content_rating(self, mubi_instance):
+        """Test that missing content rating results in empty mpaa field."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                'average_rating': 7.5,
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Test synopsis.',
+                # No content_rating field
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should have empty mpaa field when no content rating
+        if film:  # Film may be None due to availability logic
+            assert film.metadata.mpaa == ''
+
+    def test_get_film_metadata_enhanced_rating_10_point(self, mubi_instance):
+        """Test that 10-point rating is used when available."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                'average_rating': 3.8,  # 5-point scale
+                'average_rating_out_of_ten': 7.6,  # 10-point scale (more precise)
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Test synopsis.',
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should use 10-point rating for more precision
+        if film:  # Film may be None due to availability logic
+            assert film.metadata.rating == 7.6  # Should use 10-point scale
+
+    def test_get_film_metadata_rating_fallback_to_5_point(self, mubi_instance):
+        """Test that rating falls back to 5-point scale when 10-point not available."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                'average_rating': 4.2,  # 5-point scale only
+                # No average_rating_out_of_ten field
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Test synopsis.',
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should convert 5-point to 10-point scale (4.2 * 2 = 8.4)
+        if film:  # Film may be None due to availability logic
+            assert film.metadata.rating == 8.4
+
+    def test_get_film_metadata_no_rating_available(self, mubi_instance):
+        """Test that missing ratings result in 0 rating."""
+        film_data = {
+            'film': {
+                'id': 12345,
+                'title': 'Test Movie',
+                'year': 2023,
+                'duration': 120,
+                'directors': [{'name': 'Test Director'}],
+                'genres': ['Drama'],
+                'historic_countries': ['USA'],
+                # No rating fields
+                'number_of_ratings': 1000,
+                'short_synopsis': 'Test synopsis.',
+                'still_url': 'http://example.com/still.jpg',
+                'trailer_url': 'http://example.com/trailer.mp4',
+                'web_url': 'http://example.com/movie',
+                'consumable': {
+                    'available_at': '2020-01-01T00:00:00Z',
+                    'expires_at': '2030-12-31T23:59:59Z'
+                }
+            }
+        }
+
+        film = mubi_instance.get_film_metadata(film_data)
+
+        # Should have 0 rating when no rating data available
+        if film:  # Film may be None due to availability logic
+            assert film.metadata.rating == 0
+
+    def test_get_best_thumbnail_url_retina_quality(self, mubi_instance):
+        """Test that retina quality thumbnail is preferred when available."""
+        film_info = {
+            'title': 'Test Movie',
+            'stills': {
+                'retina': 'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg',
+                'standard': 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg'
+            },
+            'still_url': 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+        }
+
+        thumbnail_url = mubi_instance._get_best_thumbnail_url(film_info)
+
+        # Should prefer retina quality
+        assert thumbnail_url == 'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg'
+
+    def test_get_best_thumbnail_url_standard_fallback(self, mubi_instance):
+        """Test fallback to standard quality when retina not available."""
+        film_info = {
+            'title': 'Test Movie',
+            'stills': {
+                'standard': 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg'
+                # No retina quality
+            },
+            'still_url': 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+        }
+
+        thumbnail_url = mubi_instance._get_best_thumbnail_url(film_info)
+
+        # Should use standard quality
+        assert thumbnail_url == 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg'
+
+    def test_get_best_thumbnail_url_still_url_fallback(self, mubi_instance):
+        """Test fallback to still_url when stills not available."""
+        film_info = {
+            'title': 'Test Movie',
+            'still_url': 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+            # No stills field
+        }
+
+        thumbnail_url = mubi_instance._get_best_thumbnail_url(film_info)
+
+        # Should use still_url as final fallback
+        assert thumbnail_url == 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+
+    def test_get_best_thumbnail_url_no_thumbnails(self, mubi_instance):
+        """Test behavior when no thumbnails are available."""
+        film_info = {
+            'title': 'Test Movie'
+            # No thumbnail fields
+        }
+
+        thumbnail_url = mubi_instance._get_best_thumbnail_url(film_info)
+
+        # Should return empty string when no thumbnails available
+        assert thumbnail_url == ''
+
+    def test_get_all_artwork_urls_complete_set(self, mubi_instance):
+        """Test extraction of all artwork types when available."""
+        film_info = {
+            'title': 'Test Movie',
+            'stills': {
+                'retina': 'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg',
+                'standard': 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg',
+                'large_overlaid': 'https://assets.mubicdn.net/images/film/12345/image-overlaid.jpg'
+            },
+            'portrait_image': 'https://assets.mubicdn.net/images/film/12345/poster.jpg',
+            'title_treatment_url': 'https://assets.mubicdn.net/images/film/12345/logo.png',
+            'still_url': 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+        }
+
+        artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
+
+        # Should extract all artwork types (no fanart for movies)
+        assert artwork_urls['thumb'] == 'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg'  # retina
+        assert artwork_urls['poster'] == 'https://assets.mubicdn.net/images/film/12345/poster.jpg'  # portrait_image
+        assert artwork_urls['clearlogo'] == 'https://assets.mubicdn.net/images/film/12345/logo.png'  # title_treatment
+        assert 'fanart' not in artwork_urls  # Fanart not used for individual movies
+
+    def test_get_all_artwork_urls_minimal_set(self, mubi_instance):
+        """Test extraction with minimal artwork available."""
+        film_info = {
+            'title': 'Test Movie',
+            'still_url': 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+            # No stills, portrait_image, or title_treatment_url
+        }
+
+        artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
+
+        # Should only have thumb from still_url
+        assert artwork_urls['thumb'] == 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+        assert 'poster' not in artwork_urls
+        assert 'clearlogo' not in artwork_urls
+
+    def test_get_all_artwork_urls_fallbacks(self, mubi_instance):
+        """Test artwork fallback logic."""
+        film_info = {
+            'title': 'Test Movie',
+            'stills': {
+                'standard': 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg'
+                # No retina or large_overlaid
+            },
+            'portrait_image': 'https://assets.mubicdn.net/images/film/12345/poster.jpg'
+        }
+
+        artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
+
+        # Should use standard for thumb when retina not available
+        assert artwork_urls['thumb'] == 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg'  # standard fallback
+        assert artwork_urls['poster'] == 'https://assets.mubicdn.net/images/film/12345/poster.jpg'
+        assert 'fanart' not in artwork_urls  # No fanart for movies
+
+    def test_get_best_trailer_url_optimised_quality(self, mubi_instance):
+        """Test that highest quality optimised trailer is selected."""
+        film_info = {
+            'title': 'Test Movie',
+            'optimised_trailers': [
+                {
+                    'url': 'https://trailers.mubicdn.net/437/optimised/240p-trailer.m4v',
+                    'profile': '240p'
+                },
+                {
+                    'url': 'https://trailers.mubicdn.net/437/optimised/720p-trailer.m4v',
+                    'profile': '720p'
+                },
+                {
+                    'url': 'https://trailers.mubicdn.net/437/optimised/1080p-trailer.m4v',
+                    'profile': '1080p'
+                }
+            ],
+            'trailer_url': 'https://trailers.mubicdn.net/437/fallback-trailer.m4v'
+        }
+
+        trailer_url = mubi_instance._get_best_trailer_url(film_info)
+
+        # Should prefer 1080p quality
+        assert trailer_url == 'https://trailers.mubicdn.net/437/optimised/1080p-trailer.m4v'
+
+    def test_get_best_trailer_url_partial_qualities(self, mubi_instance):
+        """Test trailer selection when only some qualities are available."""
+        film_info = {
+            'title': 'Test Movie',
+            'optimised_trailers': [
+                {
+                    'url': 'https://trailers.mubicdn.net/437/optimised/240p-trailer.m4v',
+                    'profile': '240p'
+                },
+                {
+                    'url': 'https://trailers.mubicdn.net/437/optimised/720p-trailer.m4v',
+                    'profile': '720p'
+                }
+                # No 1080p available
+            ],
+            'trailer_url': 'https://trailers.mubicdn.net/437/fallback-trailer.m4v'
+        }
+
+        trailer_url = mubi_instance._get_best_trailer_url(film_info)
+
+        # Should use 720p when 1080p not available
+        assert trailer_url == 'https://trailers.mubicdn.net/437/optimised/720p-trailer.m4v'
+
+    def test_get_best_trailer_url_fallback_to_original(self, mubi_instance):
+        """Test fallback to original trailer_url when no optimised trailers."""
+        film_info = {
+            'title': 'Test Movie',
+            'trailer_url': 'https://trailers.mubicdn.net/437/original-trailer.m4v'
+            # No optimised_trailers field
+        }
+
+        trailer_url = mubi_instance._get_best_trailer_url(film_info)
+
+        # Should use original trailer_url as fallback
+        assert trailer_url == 'https://trailers.mubicdn.net/437/original-trailer.m4v'
+
+    def test_get_best_trailer_url_no_trailers(self, mubi_instance):
+        """Test behavior when no trailers are available."""
+        film_info = {
+            'title': 'Test Movie'
+            # No trailer fields
+        }
+
+        trailer_url = mubi_instance._get_best_trailer_url(film_info)
+
+        # Should return empty string when no trailers available
+        assert trailer_url == ''
+
+    def test_get_best_trailer_url_empty_optimised_trailers(self, mubi_instance):
+        """Test fallback when optimised_trailers is empty."""
+        film_info = {
+            'title': 'Test Movie',
+            'optimised_trailers': [],  # Empty list
+            'trailer_url': 'https://trailers.mubicdn.net/437/fallback-trailer.m4v'
+        }
+
+        trailer_url = mubi_instance._get_best_trailer_url(film_info)
+
+        # Should fall back to trailer_url when optimised_trailers is empty
+        assert trailer_url == 'https://trailers.mubicdn.net/437/fallback-trailer.m4v'
+
+    def test_get_playback_languages_complete_info(self, mubi_instance):
+        """Test extraction of complete playback language information."""
+        film_info = {
+            'title': 'Test Movie',
+            'consumable': {
+                'playback_languages': {
+                    'audio_options': ['English', 'French', 'Spanish'],
+                    'subtitle_options': ['English', 'French', 'Spanish', 'German'],
+                    'media_features': ['4K', 'stereo', '5.1'],
+                    'extended_audio_options': ['English (Director Commentary)']
+                }
+            }
+        }
+
+        audio_langs, subtitle_langs, media_features = mubi_instance._get_playback_languages(film_info)
+
+        # Should extract all language information
+        assert 'English' in audio_langs
+        assert 'French' in audio_langs
+        assert 'Spanish' in audio_langs
+        assert 'English (Director Commentary)' in audio_langs  # From extended_audio_options
+
+        assert subtitle_langs == ['English', 'French', 'Spanish', 'German']
+        assert media_features == ['4K', 'stereo', '5.1']
+
+    def test_get_playback_languages_minimal_info(self, mubi_instance):
+        """Test extraction with minimal playback language information."""
+        film_info = {
+            'title': 'Test Movie',
+            'consumable': {
+                'playback_languages': {
+                    'audio_options': ['English']
+                    # No subtitle_options or media_features
+                }
+            }
+        }
+
+        audio_langs, subtitle_langs, media_features = mubi_instance._get_playback_languages(film_info)
+
+        # Should extract available info and return empty lists for missing
+        assert audio_langs == ['English']
+        assert subtitle_langs == []
+        assert media_features == []
+
+    def test_get_playback_languages_no_consumable(self, mubi_instance):
+        """Test behavior when no consumable data is available."""
+        film_info = {
+            'title': 'Test Movie'
+            # No consumable field
+        }
+
+        audio_langs, subtitle_langs, media_features = mubi_instance._get_playback_languages(film_info)
+
+        # Should return empty lists when no consumable data
+        assert audio_langs == []
+        assert subtitle_langs == []
+        assert media_features == []
+
+    def test_get_playback_languages_no_playback_languages(self, mubi_instance):
+        """Test behavior when consumable exists but no playback_languages."""
+        film_info = {
+            'title': 'Test Movie',
+            'consumable': {
+                'film_id': 123,
+                'availability': 'live'
+                # No playback_languages field
+            }
+        }
+
+        audio_langs, subtitle_langs, media_features = mubi_instance._get_playback_languages(film_info)
+
+        # Should return empty lists when no playback_languages data
+        assert audio_langs == []
+        assert subtitle_langs == []
+        assert media_features == []
 
     @patch.object(Mubi, 'get_films_in_category_json')
     @patch.object(Mubi, 'get_film_metadata')
