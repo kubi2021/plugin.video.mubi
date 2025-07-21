@@ -14,16 +14,24 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚
 
+### 🎯 Rich Metadata Experience
+
+This addon goes beyond basic film information to provide a comprehensive metadata experience:
+
 - 🎬 Fetches all movies available on Mubi, including full Mubi ratings and descriptions
 - 👍 Compatible with the Kodi movie library
 - 🛡️ Finds the corresponding movie on IMDb so Kodi scraper can fetch additional metadata
-- 🍿 Play Mubi trailers directly within Kodi
+- 🍿 Automatically selects optimal quality (1080p/720p) Mubi trailers for direct playback within Kodi
 - 📺 Movies are playable directly within Kodi, supporting subtitles and multiple audio streams out of the box using Kodi's features
+- 🎵 Displays available audio languages and formats (stereo, 5.1, Dolby Atmos)
+- 🔤 Shows all available subtitle languages and accessibility options
+- 🎨 Multiple artwork types including posters, thumbnails, and clearlogos
+- 🏆 MPAA ratings and content advisories for informed viewing
+- 🍿 Automatically selects best trailer quality (1080p/720p) for your setup
+- 📊 Media features and quality indicators in film information
 - 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on macOS only)
 - 🈯 Supports display of titles and descriptions in the languages supported by Mubi
 - 🔖 Retrieves and displays your MUBI watchlist within Kodi, allowing quick access to saved films directly from the main interface
-- 🗂️ Mubi collections are automatically converted to Kodi tags, enabling easy navigation of Mubi-curated collections directly within Kodi
-- 🎛️ Skip specific Mubi genres: Configure the addon to ignore movies from certain genres. Go to settings and enter the genres you'd like to skip, separated by semicolons (e.g., horror;comedy).
 
 ## Installation
 
@@ -100,7 +108,7 @@ This project uses a **Kodi repository structure** with automated release managem
 ### Development Workflow
 
 1. **Make Changes**: Edit files in `repo/plugin_video_mubi/`
-2. **Run Tests**: `pytest tests/` (274+ tests must pass)
+2. **Run Tests**: `pytest tests/`
 3. **Create PR**: Submit pull request to `main` branch
 4. **Merge PR**: Normal merge
 5. **Manual Release** (when ready): Go to Actions → "Release Plugin Update" → Run workflow:
@@ -181,11 +189,23 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
-### Jan 20th, 2025
+### Jul 21st, 2025
+- Removed category-based browsing system for simplified user experience
+- Direct film synchronization using MUBI API V4 /browse/films endpoint
+- Faster sync process with fewer API calls and reduced complexity
+- Rich metadata support with audio languages, subtitle languages, and media features
+- Optimal trailer quality selection (1080p/720p) for better viewing experience
+- Multiple artwork types support (posters, thumbnails, clearlogos)
+- Content ratings and MPAA information display
+- Audio format indicators (stereo, 5.1, Dolby Atmos) in film metadata
+- Comprehensive subtitle language and accessibility information
+- REMOVED: Mubi collection tagging (may be re-added in future versions)
+
+### Jul 20th, 2025
 - Migrated to API V4
 - Added modern DRM configuration support for Kodi 22+ with backward compatibility for older versions
 
-### Jan 19th, 2025
+### Jul 19th, 2025
 - Converted project to proper Kodi repository with automated zip generation
 
 ### Jul 14th, 2025
@@ -195,7 +215,7 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 - added the action to clean the local library after the sync. It was already implemented that movies no longer available in Mubi would be removed from the local repositry, but they would still show up in the library. Now it's fixed.
 - fixed a bug that skipped movies with special character in the title.
 - refactoring of library class, included automated testing
-- added the possiblity to skip Mubi genres you don't want to see in your library. Go to settings and enter the genres you'd like to skip, separated by semicolons (e.g., horror;comedy).
+- added the possibility to skip Mubi genres you don't want to see in your library. Go to settings and enter the genres you'd like to skip, separated by semicolons (e.g., horror;comedy).
 
 ### October 27th 2024
 - added support to Mubi watchlist, thanks [GTBoon72](https://github.com/GTBoon72)
@@ -244,10 +264,10 @@ The code was originally forked from user [Jamieu](https://github.com/jamieu/plug
 
 The addon makes use of two APIs during the sync process:
 
-- **Mubi**: This API is used to fetch categories and films.
+- **Mubi**: This API is used to fetch all films directly using the V4 /browse/films endpoint.
 - **OMDb**: Queried for each film to retrieve the IMDb ID, which allows Kodi to pull richer metadata like ratings, cast details, and posters.
 
-The connection to Mubi is generally fast and reliable. However, to prevent overwhelming their servers and to comply with their API usage policies, we limit the number of requests to 60 per minute. This rate limiting may occasionally cause brief pauses during the sync, particularly when processing a large number of categories or films. These pauses are expected and help ensure smooth communication with Mubi's servers.
+The connection to Mubi is generally fast and reliable. To prevent overwhelming their servers, we limit the number of requests to 60 per minute. This rate limiting may occasionally cause brief pauses during the sync when processing a large number of films. These pauses are expected and help ensure smooth communication with Mubi's servers.
 
 The OMDb API plays a crucial role in the sync by providing the IMDb ID for each film. This ID enables Kodi to enhance its local library with additional metadata. Unlike Mubi, OMDb’s connection can be less predictable. While we aim to query OMDb as quickly as possible, its rate limits are not clearly defined.
 
