@@ -506,14 +506,38 @@ class NavigationHandler:
 
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
-            pDialog.create("Syncing with Mubi", "Fetching all films directly...")
+            pDialog.create("Syncing with Mubi", "Initializing...")
 
-            # Use the new direct approach to fetch all films
+            # Define progress callback for dynamic updates
+            def update_fetch_progress(current_films, total_films, current_page, total_pages):
+                if pDialog.iscanceled():
+                    # Raise an exception to signal cancellation to get_all_films
+                    raise Exception("User canceled sync operation")
+
+                # Calculate percentage based on pages processed (more accurate than films)
+                if total_pages > 0:
+                    percent = int((current_page / total_pages) * 50)  # Use 50% for fetching phase
+                else:
+                    percent = 25  # Fallback percentage
+
+                # Update dialog with dynamic information
+                message = f"Fetching {total_films} playable films\nPage {current_page} of {total_pages} ({current_films} films loaded)"
+                pDialog.update(percent, message)
+
+            # Use the new direct approach to fetch all films with progress tracking
             xbmc.log("Starting direct film sync using /browse/films endpoint", xbmc.LOGINFO)
             # For sync, we want only playable films (streamable content)
-            all_films_library = self.mubi.get_all_films(playable_only=True)
+            try:
+                all_films_library = self.mubi.get_all_films(playable_only=True, progress_callback=update_fetch_progress)
+            except Exception as e:
+                if "canceled" in str(e).lower():
+                    pDialog.close()
+                    xbmc.log("User canceled the sync process during film fetching.", xbmc.LOGDEBUG)
+                    return None
+                else:
+                    raise  # Re-raise if it's not a cancellation
 
-            # Update progress dialog
+            # Update progress dialog for file creation phase
             total_films = len(all_films_library.films)
             pDialog.update(50, f"Fetched {total_films} films, creating local files...")
             xbmc.log(f"Successfully fetched {total_films} films using direct API approach", xbmc.LOGINFO)

@@ -1953,6 +1953,115 @@ class TestMubi:
             # API call should have been attempted at least once
             assert mock_api_call.call_count >= 1
 
+    def test_get_all_films_with_progress_callback(self, mubi_instance):
+        """Test get_all_films with progress callback functionality."""
+        # Mock the API response for multiple pages
+        page1_response = {
+            'films': [
+                {
+                    'id': 12345,
+                    'title': 'Test Movie 1',
+                    'original_title': 'Test Original Movie 1',
+                    'year': 2023,
+                    'duration': 120,
+                    'short_synopsis': 'A test movie plot',
+                    'directors': [{'name': 'Test Director'}],
+                    'genres': ['Drama'],
+                    'historic_countries': ['USA'],
+                    'average_rating': 7.5,
+                    'number_of_ratings': 1000,
+                    'still_url': 'http://example.com/still1.jpg',
+                    'trailer_url': 'http://example.com/trailer1.mp4',
+                    'web_url': 'http://mubi.com/films/test-movie-1',
+                    'consumable': {
+                        'available_at': '2023-01-01T00:00:00Z',
+                        'expires_at': '2023-12-31T23:59:59Z'
+                    }
+                }
+            ],
+            'meta': {
+                'next_page': 2,
+                'total_count': 50,
+                'total_pages': 2
+            }
+        }
+
+        page2_response = {
+            'films': [
+                {
+                    'id': 12346,
+                    'title': 'Test Movie 2',
+                    'original_title': 'Test Original Movie 2',
+                    'year': 2023,
+                    'duration': 110,
+                    'short_synopsis': 'Another test movie plot',
+                    'directors': [{'name': 'Test Director 2'}],
+                    'genres': ['Comedy'],
+                    'historic_countries': ['UK'],
+                    'average_rating': 8.0,
+                    'number_of_ratings': 500,
+                    'still_url': 'http://example.com/still2.jpg',
+                    'trailer_url': 'http://example.com/trailer2.mp4',
+                    'web_url': 'http://mubi.com/films/test-movie-2',
+                    'consumable': {
+                        'available_at': '2023-01-01T00:00:00Z',
+                        'expires_at': '2023-12-31T23:59:59Z'
+                    }
+                }
+            ],
+            'meta': {
+                'next_page': None,  # Last page
+                'total_count': 50,
+                'total_pages': 2
+            }
+        }
+
+        # Track progress callback calls
+        progress_calls = []
+
+        def mock_progress_callback(current_films, total_films, current_page, total_pages):
+            progress_calls.append({
+                'current_films': current_films,
+                'total_films': total_films,
+                'current_page': current_page,
+                'total_pages': total_pages
+            })
+
+        with patch.object(mubi_instance, '_make_api_call') as mock_api_call, \
+             patch.object(mubi_instance, 'get_cli_language', return_value='en'):
+
+            # Mock responses for each page
+            def side_effect(*args, **kwargs):
+                params = kwargs.get('params', {})
+                page = params.get('page', 1)
+
+                mock_response = Mock()
+                if page == 1:
+                    mock_response.json.return_value = page1_response
+                elif page == 2:
+                    mock_response.json.return_value = page2_response
+                else:
+                    mock_response.json.return_value = {'films': [], 'meta': {'next_page': None}}
+
+                return mock_response
+
+            mock_api_call.side_effect = side_effect
+
+            # Call get_all_films with progress callback
+            library = mubi_instance.get_all_films(playable_only=True, progress_callback=mock_progress_callback)
+
+            # Verify progress callback was called
+            assert len(progress_calls) >= 1, "Progress callback should have been called"
+
+            # Verify first progress call has correct total
+            first_call = progress_calls[0]
+            assert first_call['total_films'] == 50, "Should report correct total films from API"
+            assert first_call['total_pages'] == 2, "Should report correct total pages from API"
+            assert first_call['current_page'] == 1, "Should report correct current page"
+
+            # Verify API was called for both pages
+            assert mock_api_call.call_count == 2, "Should have called API for both pages"
+
     # ===== Bug Hunting Tests (moved from test_bug_hunting.py) =====
 
     def test_api_response_type_mismatches_level2_behavior(self, mubi_instance):
