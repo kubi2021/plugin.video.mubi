@@ -224,25 +224,34 @@ class Film:
             clearlogo.text = Path(artwork_paths['clearlogo']).name
             xbmc.log(f"Using local clearlogo: {Path(artwork_paths['clearlogo']).name}", xbmc.LOGDEBUG)
 
-        # Audio and subtitle language information
-        if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
-            audio_info = ET.SubElement(movie, "audio")
-            for lang in metadata.audio_languages:
-                audio_lang = ET.SubElement(audio_info, "language")
-                audio_lang.text = str(lang)
+        # Audio and subtitle language information using official Kodi structure
+        # Only add fileinfo/streamdetails if we have audio or subtitle data
+        if ((hasattr(metadata, 'audio_languages') and metadata.audio_languages) or
+            (hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages)):
 
-        if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
-            subtitle_info = ET.SubElement(movie, "subtitles")
-            for lang in metadata.subtitle_languages:
-                subtitle_lang = ET.SubElement(subtitle_info, "language")
-                subtitle_lang.text = str(lang)
+            fileinfo = ET.SubElement(movie, "fileinfo")
+            streamdetails = ET.SubElement(fileinfo, "streamdetails")
 
-        # Media features (4K, stereo, 5.1, etc.)
-        if hasattr(metadata, 'media_features') and metadata.media_features:
-            features_info = ET.SubElement(movie, "mediafeatures")
-            for feature in metadata.media_features:
-                feature_elem = ET.SubElement(features_info, "feature")
-                feature_elem.text = str(feature)
+            # Audio streams - create separate <audio> element for each language
+            if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
+                for lang in metadata.audio_languages:
+                    if lang and str(lang).strip():  # Skip empty/None values
+                        audio_elem = ET.SubElement(streamdetails, "audio")
+                        audio_lang = ET.SubElement(audio_elem, "language")
+                        audio_lang.text = str(lang).strip()
+
+            # Subtitle streams - create separate <subtitle> element for each language
+            if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
+                for lang in metadata.subtitle_languages:
+                    if lang and str(lang).strip():  # Skip empty/None values
+                        subtitle_elem = ET.SubElement(streamdetails, "subtitle")
+                        subtitle_lang = ET.SubElement(subtitle_elem, "language")
+                        subtitle_lang.text = str(lang).strip()
+
+        # Note: Media features like "4K", "HDR", "Dolby Atmos" are not part of the official
+        # Kodi NFO specification. Technical details should go in specific elements like:
+        # <codec>, <width>, <height>, <hdrtype>, <channels> within streamdetails.
+        # For now, we'll omit the custom mediafeatures element to maintain compliance.
 
 
 
