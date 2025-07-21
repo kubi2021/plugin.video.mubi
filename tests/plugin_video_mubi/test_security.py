@@ -241,12 +241,19 @@ class TestInputValidationSecurity:
                 web_url="http://example.com"
             )
             
-            # Sanitized folder name should not contain path traversal
+            # LEVEL 2: Sanitized folder name should not contain path traversal sequences
             sanitized_name = film.get_sanitized_folder_name()
-            assert "../" not in sanitized_name
-            assert "..\\" not in sanitized_name
-            assert "%2e%2e" not in sanitized_name.lower()
-            assert "etc/passwd" not in sanitized_name.lower()
+            assert "../" not in sanitized_name, "Path traversal ../ should be removed"
+            assert "..\\" not in sanitized_name, "Path traversal ..\\ should be removed"
+            assert ".." not in sanitized_name, "Path traversal .. should be removed"
+
+            # LEVEL 2: Verify filesystem-dangerous characters are removed
+            filesystem_dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+            for char in filesystem_dangerous_chars:
+                assert char not in sanitized_name, f"Filesystem-dangerous character '{char}' should be removed"
+
+            # LEVEL 2: URL-encoded sequences are preserved (not filesystem-dangerous)
+            # Level 2 doesn't decode URL sequences - that's Level 3+ behavior
 
 
 class TestAuthenticationSecurity:
@@ -383,13 +390,13 @@ class TestFileOperationSecurity:
 
             sanitized = film._sanitize_filename(payload)
 
-            # Should not contain command injection characters
-            assert ";" not in sanitized
-            assert "|" not in sanitized
-            assert "&" not in sanitized
-            assert "`" not in sanitized
-            assert "$" not in sanitized
-            # Note: Parentheses are allowed in filenames for years like "Movie (2023)"
+            # LEVEL 2: Should not contain filesystem-dangerous characters
+            filesystem_dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+            for char in filesystem_dangerous_chars:
+                assert char not in sanitized, f"Filesystem-dangerous '{char}' should be removed"
+
+            # LEVEL 2: Safe characters are preserved (good UX)
+            # Characters like ; & $ ` # @ ! ~ + = , ( ) ' are safe in filenames
 
     def test_file_creation_security(self, security_fixtures):
         """Test that file creation is secure against path traversal."""
@@ -948,16 +955,17 @@ class TestMetadataSecurityHandling:
                 assert sanitized_name is not None, "Sanitized name should not be None"
                 assert len(sanitized_name) > 0, "Sanitized name should not be empty"
 
-                # Verify path traversal characters are handled
-                # NOTE: Current implementation replaces / and \ but not .. sequences
-                # This is a potential security issue that should be addressed
-                assert '/' not in sanitized_name, f"Forward slashes should be removed: {sanitized_name}"
-                assert '\\' not in sanitized_name, f"Backslashes should be removed: {sanitized_name}"
+                # LEVEL 2: Verify filesystem-dangerous characters are removed
+                filesystem_dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                for char in filesystem_dangerous_chars:
+                    assert char not in sanitized_name, f"Filesystem-dangerous character '{char}' should be removed: {sanitized_name}"
 
-                # Check for dangerous path traversal patterns (security finding)
-                if '../../../etc/passwd' in payload:
-                    # The current sanitization should at least remove the slashes
-                    assert 'etc/passwd' not in sanitized_name, f"Path components should be separated: {sanitized_name}"
+                # LEVEL 2: Verify path traversal sequences are removed
+                assert '..' not in sanitized_name, f"Path traversal sequences should be removed: {sanitized_name}"
+
+                # LEVEL 2: Content preservation (good UX)
+                # Level 2 preserves content like 'etc', 'passwd' as they're just text in movie titles
+                # Only removes filesystem-dangerous patterns, not content-based filtering
 
                 # Verify the sanitized name doesn't contain dangerous path separators
                 # NOTE: Current implementation doesn't filter dangerous path components like 'passwd', 'etc'
@@ -1012,11 +1020,15 @@ class TestMetadataSecurityHandling:
                 # Assert
                 assert sanitized_name is not None, f"Sanitization should not fail with command injection in {field}"
 
-                # Verify dangerous shell characters are removed/escaped
-                # NOTE: Current implementation allows () and ' as they are safe in filenames
-                dangerous_chars = [';', '|', '&', '$', '`', '<', '>', '*', '?', '#', '@', '!', '~']
-                for char in dangerous_chars:
-                    assert char not in sanitized_name, f"Dangerous character '{char}' should be removed from sanitized name"
+                # LEVEL 2: Verify only filesystem-dangerous characters are removed
+                # Level 2 preserves safe characters for good UX
+                filesystem_dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                for char in filesystem_dangerous_chars:
+                    assert char not in sanitized_name, f"Filesystem-dangerous character '{char}' should be removed from sanitized name"
+
+                # LEVEL 2: Verify safe characters are preserved in filenames
+                level2_safe_chars = [';', '&', '$', '`', '#', '@', '!', '~', '+', '=', ',', '(', ')', "'"]
+                # Note: Some safe chars might not appear in test payloads, so we don't assert their presence
 
                 # Test NFO generation doesn't execute commands
                 nfo_content = film._get_nfo_tree(
@@ -1031,16 +1043,16 @@ class TestMetadataSecurityHandling:
                 # Convert bytes to string if necessary
                 nfo_content = self._ensure_string(nfo_content)
 
-                # Verify command injection patterns are handled in NFO
-                # NOTE: SECURITY ISSUE - Current implementation does not escape command injection
-                # patterns in NFO content. This is a serious vulnerability that should be fixed.
-                # The test documents the current behavior but this needs immediate attention.
-                if '$(' in payload:
-                    # Document that command substitution appears in NFO (security issue)
-                    assert nfo_content is not None, "NFO should be generated even with command injection"
-                if '`' in payload:
-                    # Document that backticks appear in NFO (security issue)
-                    assert nfo_content is not None, "NFO should be generated even with backticks"
+                # LEVEL 2: NFO content preserves original titles with normal punctuation
+                # Level 2 only removes control characters from NFO, preserves movie title characters
+                # Verify NFO is valid XML (ElementTree handles XML escaping automatically)
+                assert '<movie>' in nfo_content, "NFO should be valid XML"
+                assert '</movie>' in nfo_content, "NFO should be properly closed"
+
+                # LEVEL 2: Verify no control characters in NFO (security)
+                for i in range(32):
+                    if i not in [9, 10, 13]:  # Allow tab, LF, CR
+                        assert chr(i) not in nfo_content, f"Control character {i} should be removed"
 
     @patch('xbmc.log')
     def test_buffer_overflow_prevention_in_metadata(self, mock_log, malicious_payloads, safe_metadata_template):
@@ -1258,25 +1270,26 @@ class TestMetadataSecurityHandling:
                 # Convert bytes to string if necessary
                 nfo_content = self._ensure_string(nfo_content)
 
-                # Verify SQL injection patterns are handled
-                # NOTE: SECURITY ISSUE - Current implementation does not escape SQL injection
-                # patterns in NFO content. This is a vulnerability that should be addressed.
-                # The test documents the current behavior but this needs attention.
-                if 'DROP TABLE' in payload.upper():
-                    # Document that SQL injection appears in NFO (security issue)
-                    assert nfo_content is not None, "NFO should be generated even with SQL injection"
-                if 'UNION SELECT' in payload.upper():
-                    # Document that SQL injection appears in NFO (security issue)
-                    assert nfo_content is not None, "NFO should be generated even with SQL injection"
+                # LEVEL 2: NFO content preserves original titles (SQL patterns are just text in movie titles)
+                # Level 2 only removes control characters, preserves normal text content
+                # Verify NFO is valid XML (ElementTree handles XML escaping automatically)
+                assert '<movie>' in nfo_content, "NFO should be valid XML"
+                assert '</movie>' in nfo_content, "NFO should be properly closed"
+
+                # LEVEL 2: Verify no control characters in NFO (security)
+                for i in range(32):
+                    if i not in [9, 10, 13]:  # Allow tab, LF, CR
+                        assert chr(i) not in nfo_content, f"Control character {i} should be removed"
 
                 # Test filename sanitization with SQL injection
                 sanitized_name = film.get_sanitized_folder_name()
                 assert sanitized_name is not None, f"Filename sanitization should handle SQL injection in {field}"
 
-                # Verify dangerous SQL characters are removed
-                dangerous_sql_chars = ["'", '"', ';', '--', '/*', '*/']
-                for char in dangerous_sql_chars:
-                    assert char not in sanitized_name, f"SQL character '{char}' should be removed from filename"
+                # LEVEL 2: Verify only filesystem-dangerous characters are removed from filenames
+                filesystem_dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                for char in filesystem_dangerous_chars:
+                    if char in payload:  # Only check if the character was in the original payload
+                        assert char not in sanitized_name, f"Filesystem-dangerous character '{char}' should be removed from filename"
 
     @patch('xbmc.log')
     def test_ldap_injection_prevention_in_metadata(self, mock_log, malicious_payloads, safe_metadata_template):

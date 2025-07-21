@@ -49,13 +49,15 @@ class TestFilm:
 
     def test_film_initialization_missing_required_fields(self):
         """Test film initialization fails with missing required fields."""
-        with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
+        # Level 2: Updated validation - only mubi_id and metadata are required
+        with pytest.raises(ValueError, match="Film must have a mubi_id and metadata"):
             Film(mubi_id="", title="Test", artwork="", web_url="", metadata=None)
 
-        with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
-            Film(mubi_id="123", title="", artwork="", web_url="", metadata=Mock())
+        # Level 2: Empty title is now allowed (gets converted to "Unknown Movie")
+        film_with_empty_title = Film(mubi_id="123", title="", artwork="", web_url="", metadata=Mock())
+        assert film_with_empty_title.title == "Unknown Movie"
 
-        with pytest.raises(ValueError, match="Film must have a mubi_id, title, and metadata"):
+        with pytest.raises(ValueError, match="Film must have a mubi_id and metadata"):
             Film(mubi_id="123", title="Test", artwork="", web_url="", metadata=None)
 
     def test_film_equality(self, mock_metadata):
