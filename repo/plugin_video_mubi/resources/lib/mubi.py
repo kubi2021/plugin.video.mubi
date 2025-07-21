@@ -780,6 +780,11 @@ class Mubi:
         artwork_urls = {}
 
         try:
+            # Handle None or invalid input gracefully
+            if not film_info or not isinstance(film_info, dict):
+                xbmc.log(f"Invalid film_info provided to _get_all_artwork_urls: {type(film_info)}", xbmc.LOGDEBUG)
+                return {}
+
             # Thumbnail/Landscape images from stills
             stills = film_info.get('stills', {})
             if isinstance(stills, dict):
@@ -788,8 +793,6 @@ class Mubi:
                     artwork_urls['thumb'] = stills['retina']
                 elif stills.get('standard'):
                     artwork_urls['thumb'] = stills['standard']
-
-
 
             # Portrait image for poster
             portrait_image = film_info.get('portrait_image')
@@ -812,9 +815,12 @@ class Mubi:
 
         except Exception as e:
             xbmc.log(f"Error extracting artwork URLs: {e}", xbmc.LOGERROR)
-            # Safe fallback
-            still_url = film_info.get('still_url', '')
-            return {'thumb': still_url} if still_url else {}
+            # Safe fallback - handle None film_info gracefully
+            if film_info and isinstance(film_info, dict):
+                still_url = film_info.get('still_url', '')
+                return {'thumb': still_url} if still_url else {}
+            else:
+                return {}
 
     def _get_best_trailer_url(self, film_info: dict) -> str:
         """
