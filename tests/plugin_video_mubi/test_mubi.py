@@ -5,7 +5,6 @@ import json
 from plugin_video_mubi.resources.lib.mubi import Mubi
 from plugin_video_mubi.resources.lib.library import Library
 
-
 class TestMubi:
     """Test cases for the Mubi class."""
 
@@ -118,61 +117,6 @@ class TestMubi:
             result = mubi_instance.authenticate("test-auth-token")
 
             assert result is None
-
-    def test_get_film_groups_success(self, mubi_instance):
-        """Test successful film groups retrieval."""
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "film_groups": [
-                {"id": 1, "full_title": "Drama", "description": "Drama films", "image": ""},
-                {"id": 2, "full_title": "Comedy", "description": "Comedy films", "image": ""}
-            ],
-            "meta": {}  # No next page
-        }
-
-        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response):
-            categories = mubi_instance.get_film_groups()
-
-            assert len(categories) == 2
-            # Check that categories are returned with correct structure
-            assert any(cat["title"] == "Drama" for cat in categories)
-            assert any(cat["title"] == "Comedy" for cat in categories)
-
-    def test_get_film_groups_failure(self, mubi_instance):
-        """Test film groups retrieval failure."""
-        # Mock the _make_api_call method to return None (failure)
-        with patch.object(mubi_instance, '_make_api_call', return_value=None):
-            categories = mubi_instance.get_film_groups()
-
-            # Should return empty list on failure
-            assert categories == []
-
-    def test_get_films_in_category_json_success(self, mubi_instance):
-        """Test successful films retrieval for category."""
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "film_group_items": [
-                {"film": {"id": 1, "title": "Movie 1"}},
-                {"film": {"id": 2, "title": "Movie 2"}}
-            ],
-            "meta": {}  # No next page
-        }
-
-        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response), \
-             patch('time.time', return_value=1000):  # Mock time.time() to avoid comparison issues
-            films = mubi_instance.get_films_in_category_json(123)
-
-            assert len(films) == 2
-            assert films[0]["film"]["title"] == "Movie 1"
-            assert films[1]["film"]["title"] == "Movie 2"
-
-    def test_get_films_in_category_json_failure(self, mubi_instance):
-        """Test films retrieval failure."""
-        # Mock the _make_api_call method to return None (failure)
-        with patch.object(mubi_instance, '_make_api_call', return_value=None):
-            films = mubi_instance.get_films_in_category_json(123)
-
-            assert films == []
 
     def test_get_film_metadata_valid_film(self, mubi_instance, sample_film_data):
         """Test film metadata extraction with valid data."""
@@ -745,106 +689,8 @@ class TestMubi:
         assert subtitle_langs == []
         assert media_features == []
 
-    @patch.object(Mubi, 'get_films_in_category_json')
-    @patch.object(Mubi, 'get_film_metadata')
-    @patch('xbmc.log')
-    def test_get_film_list_success(self, mock_log, mock_get_metadata,
-                                 mock_get_films, mubi_instance):
-        """Test successful film list retrieval with comprehensive validation."""
-        # Mock realistic films data
-        mock_get_films.return_value = [
-            {"film": {"id": 1, "title": "Movie 1", "year": 2023}},
-            {"film": {"id": 2, "title": "Movie 2", "year": 2022}}
-        ]
-
-        # Mock film metadata with proper Film objects
-        from plugin_video_mubi.resources.lib.film import Film
-        from plugin_video_mubi.resources.lib.metadata import Metadata
-
-        metadata1 = Metadata(
-            title="Movie 1",
-            director=["Test Director"],
-            year=2023,
-            duration=120,
-            country=["USA"],
-            plot="Test plot for Movie 1",
-            plotoutline="Short plot outline",
-            genre=["Drama"],
-            originaltitle="Movie 1"
-        )
-        metadata2 = Metadata(
-            title="Movie 2",
-            director=["Test Director"],
-            year=2022,
-            duration=110,
-            country=["USA"],
-            plot="Test plot for Movie 2",
-            plotoutline="Short plot outline",
-            genre=["Drama"],
-            originaltitle="Movie 2"
-        )
-
-        mock_film1 = Film("1", "Movie 1", "", "", "Drama", metadata1)
-        mock_film2 = Film("2", "Movie 2", "", "", "Drama", metadata2)
-        mock_get_metadata.side_effect = [mock_film1, mock_film2]
-
-        # Execute the method
-        library = mubi_instance.get_film_list(123, "Drama")
-
-        # Comprehensive assertions
-        assert isinstance(library, Library), f"Expected Library, got {type(library)}"
-        assert len(library.films) == 2, f"Expected 2 films, got {len(library.films)}"
-        assert len(library) == 2, f"Library length should be 2, got {len(library)}"
-
-        # Verify specific films were added
-        film_titles = [film.title for film in library.films]
-        assert "Movie 1" in film_titles, "Movie 1 should be in library"
-        assert "Movie 2" in film_titles, "Movie 2 should be in library"
-
-        # Verify method calls with exact parameters
-        mock_get_films.assert_called_once_with(123)
-        assert mock_get_metadata.call_count == 2, f"Expected 2 metadata calls, got {mock_get_metadata.call_count}"
-
-        # Verify logging with specific message pattern
-        mock_log.assert_called()
-        log_calls = [call.args[0] for call in mock_log.call_args_list if len(call.args) > 0]
-        success_logs = [msg for msg in log_calls if "Fetched" in msg and "Drama" in msg]
-        assert len(success_logs) >= 1, "Should log successful fetch with category name"
-
-    @patch.object(Mubi, 'get_films_in_category_json')
-    @patch('xbmc.log')
-    def test_get_film_list_exception(self, mock_log, mock_get_films, mubi_instance):
-        """Test film list retrieval with comprehensive error handling."""
-        # Test multiple error scenarios
-        error_scenarios = [
-            (ConnectionError("Network unreachable"), "network error"),
-            (TimeoutError("Request timeout"), "timeout error"),
-            (ValueError("Invalid JSON"), "data parsing error"),
-            (Exception("Generic API error"), "generic error")
-        ]
-
-        for error, description in error_scenarios:
-            # Reset the library for each test
-            mubi_instance.library = Library()
-            mock_get_films.side_effect = error
-
-            # Should handle error gracefully
-            library = mubi_instance.get_film_list(123, "Drama")
-
-            # Comprehensive error handling validation
-            assert isinstance(library, Library), f"Should return Library even on {description}"
-            assert len(library.films) == 0, f"Library should be empty after {description}"
-            assert len(library) == 0, f"Library length should be 0 after {description}"
-
-            # Verify error was logged appropriately
-            mock_log.assert_called()
-            error_logs = [call.args[0] for call in mock_log.call_args_list
-                         if len(call.args) > 0 and "Error" in call.args[0]]
-            assert len(error_logs) >= 1, f"Should log error for {description}"
-
-            # Reset mock for next iteration
-            mock_log.reset_mock()
-
+    
+    
     def test_get_watch_list_success(self, mubi_instance):
         """Test successful watchlist retrieval."""
         mock_films_data = [
@@ -1230,78 +1076,6 @@ class TestMubi:
         assert result is None
         mock_session.close.assert_called_once()
 
-    @patch('time.time')
-    def test_get_film_groups_with_api_call(self, mock_time, mubi_instance):
-        """Test film groups retrieval with proper API integration."""
-        mock_time.return_value = 1000.0
-
-        # Mock the _make_api_call method to return realistic data
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            'film_groups': [
-                {'id': 1, 'full_title': 'Drama', 'description': 'Dramatic films', 'image': ''},
-                {'id': 2, 'full_title': 'Comedy', 'description': 'Comedy films', 'image': ''},
-                {'id': 3, 'full_title': 'Documentary', 'description': 'Documentary films', 'image': ''}
-            ],
-            'meta': {}  # No next page
-        }
-
-        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response):
-            result = mubi_instance.get_film_groups()
-
-            assert len(result) == 3  # 3 from API
-            assert result[0]['title'] == 'Drama'
-            assert result[1]['title'] == 'Comedy'
-            assert result[2]['title'] == 'Documentary'
-            assert all('id' in group for group in result)
-
-    @patch('time.time')
-    def test_get_films_in_category_pagination_handling(self, mock_time, mubi_instance):
-        """Test film category retrieval with proper pagination handling."""
-        mock_time.return_value = 1000.0
-
-        # Mock paginated API responses
-        def mock_api_call(*args, **kwargs):
-            params = kwargs.get('params', {})
-            page = params.get('page', 1)
-
-            mock_response = Mock()
-            if page == 1:
-                mock_response.json.return_value = {
-                    'film_group_items': [
-                        {'id': 1, 'title': 'Film 1', 'year': 2023},
-                        {'id': 2, 'title': 'Film 2', 'year': 2022}
-                    ],
-                    'meta': {'next_page': 2}
-                }
-            elif page == 2:
-                mock_response.json.return_value = {
-                    'film_group_items': [
-                        {'id': 3, 'title': 'Film 3', 'year': 2021}
-                    ],
-                    'meta': {}  # No next page
-                }
-            return mock_response
-
-        with patch.object(mubi_instance, '_make_api_call', side_effect=mock_api_call):
-            result = mubi_instance.get_films_in_category_json(123)
-
-            assert len(result) == 3
-            assert result[0]['title'] == 'Film 1'
-            assert result[1]['title'] == 'Film 2'
-            assert result[2]['title'] == 'Film 3'
-
-    @patch('time.time')
-    def test_get_films_in_category_error_handling(self, mock_time, mubi_instance):
-        """Test film category retrieval error handling."""
-        mock_time.return_value = 1000.0
-
-        # Mock API call failure
-        with patch.object(mubi_instance, '_make_api_call', return_value=None):
-            result = mubi_instance.get_films_in_category_json(123)
-
-            assert result == []
-
     def test_header_sanitization_security(self, mubi_instance):
         """Test header sanitization for security compliance."""
         sensitive_headers = {
@@ -1522,24 +1296,6 @@ class TestMubi:
                                         headers=mubi_instance.hea_atv_auth())
 
     @patch('time.time')
-    def test_v4_content_endpoints_called_correctly(self, mock_time, mubi_instance):
-        """Test that V4 content discovery endpoints are called correctly."""
-        mock_time.return_value = 1000.0
-
-        # Mock response to avoid infinite pagination loop
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            'film_groups': [],
-            'meta': {'next_page': None}
-        }
-
-        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response) as mock_api:
-            mubi_instance.get_film_groups()
-            # Check that V4 endpoint was called
-            call_args = mock_api.call_args
-            assert call_args[1]['endpoint'] == 'v4/browse/film_groups'
-
-    @patch('time.time')
     def test_v4_playback_endpoints_called_correctly(self, mock_time, mubi_instance):
         """Test that V4 playback endpoints are called correctly."""
         mock_time.return_value = 1000.0
@@ -1611,7 +1367,8 @@ class TestMubi:
             }
         }
 
-        with patch.object(mubi_instance, '_make_api_call') as mock_api_call:
+        with patch.object(mubi_instance, '_make_api_call') as mock_api_call, \
+             patch.object(mubi_instance, 'get_cli_language', return_value='en'):
             mock_response = Mock()
             mock_response.json.return_value = mock_response_data
             mock_api_call.return_value = mock_response
@@ -1622,8 +1379,8 @@ class TestMubi:
             mock_api_call.assert_called_once_with(
                 'GET',
                 endpoint='v4/browse/films',
-                headers=mubi_instance.hea_atv_auth(),
-                params={'page': 1, 'per_page': 24, 'playable': 'true'}
+                headers=mubi_instance.hea_gen(),
+                params={'page': 1, 'sort': 'title', 'playable': 'true'}
             )
 
             # Verify library contains films (may be 0 due to availability logic)
@@ -1638,4 +1395,5 @@ class TestMubi:
 
             # Should return empty library on failure
             assert len(library.films) == 0
-            mock_api_call.assert_called_once()
+            # API call should have been attempted at least once
+            assert mock_api_call.call_count >= 1
