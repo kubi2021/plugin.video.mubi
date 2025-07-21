@@ -1,6 +1,13 @@
 """
 End-to-End tests that test complete user journeys through the addon.
 These tests simulate real user interactions with minimal mocking.
+
+Dependencies:
+pip install pytest pytest-mock
+
+Framework: pytest with mocker fixture for isolation
+Structure: All tests follow Arrange-Act-Assert pattern
+Coverage: Happy path, edge cases, and error handling
 """
 import pytest
 import sys

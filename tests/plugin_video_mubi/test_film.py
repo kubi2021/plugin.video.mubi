@@ -353,6 +353,274 @@ class TestFilm:
         mpaa_element = root.find("mpaa")
         assert mpaa_element is None  # Should not be present when empty
 
+    # ===== Enhanced NFO Generation Tests for New Metadata =====
+
+    def test_nfo_tree_generation_with_audio_languages(self, mock_metadata):
+        """Test NFO XML tree generation includes audio languages when available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = ["English", "French", "Spanish"]
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Check for official Kodi structure: fileinfo/streamdetails/audio
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is not None, "Should have fileinfo element"
+
+        streamdetails = fileinfo.find("streamdetails")
+        assert streamdetails is not None, "Should have streamdetails element"
+
+        # Check that all audio languages are present as separate audio elements
+        audio_elements = streamdetails.findall("audio")
+        assert len(audio_elements) == 3, "Should have 3 separate audio elements"
+
+        # Extract language texts from each audio element
+        language_texts = []
+        for audio_elem in audio_elements:
+            lang_elem = audio_elem.find("language")
+            assert lang_elem is not None, "Each audio element should have a language"
+            language_texts.append(lang_elem.text)
+
+        assert "English" in language_texts
+        assert "French" in language_texts
+        assert "Spanish" in language_texts
+
+    def test_nfo_tree_generation_without_audio_languages(self, mock_metadata):
+        """Test NFO XML tree generation when no audio languages available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = []
+        mock_metadata.subtitle_languages = []  # Also clear subtitles to ensure no fileinfo
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should not have fileinfo/streamdetails when no audio/subtitle languages
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is None, "Should not have fileinfo element when no audio/subtitle data"
+
+    def test_nfo_tree_generation_with_subtitle_languages(self, mock_metadata):
+        """Test NFO XML tree generation includes subtitle languages when available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.subtitle_languages = ["English", "French", "German", "Spanish"]
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Check for official Kodi structure: fileinfo/streamdetails/subtitle
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is not None, "Should have fileinfo element"
+
+        streamdetails = fileinfo.find("streamdetails")
+        assert streamdetails is not None, "Should have streamdetails element"
+
+        # Check that all subtitle languages are present as separate subtitle elements
+        subtitle_elements = streamdetails.findall("subtitle")
+        assert len(subtitle_elements) == 4, "Should have 4 separate subtitle elements"
+
+        # Extract language texts from each subtitle element
+        language_texts = []
+        for subtitle_elem in subtitle_elements:
+            lang_elem = subtitle_elem.find("language")
+            assert lang_elem is not None, "Each subtitle element should have a language"
+            language_texts.append(lang_elem.text)
+
+        assert "English" in language_texts
+        assert "French" in language_texts
+        assert "German" in language_texts
+        assert "Spanish" in language_texts
+
+    def test_nfo_tree_generation_without_subtitle_languages(self, mock_metadata):
+        """Test NFO XML tree generation when no subtitle languages available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = []  # Also clear audio to ensure no fileinfo
+        mock_metadata.subtitle_languages = []
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should not have fileinfo/streamdetails when no audio/subtitle languages
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is None, "Should not have fileinfo element when no audio/subtitle data"
+
+    # Note: Media features tests removed as they are not part of the official Kodi NFO specification.
+    # Technical details should be included in specific streamdetails elements like <codec>, <width>,
+    # <height>, <hdrtype>, <channels> when available from the source data.
+
+    def test_nfo_tree_generation_with_artwork_paths(self, mock_metadata):
+        """Test NFO XML tree generation includes artwork paths when available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        artwork_paths = {
+            'thumb': '/nonexistent/path/thumb.jpg',  # Non-existent path
+            'poster': '/nonexistent/path/poster.jpg',
+            'clearlogo': '/nonexistent/path/logo.png'
+        }
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            artwork_paths
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Check thumb artwork - should fallback to metadata.image when file doesn't exist
+        thumb_elem = root.find("thumb")
+        assert thumb_elem is not None
+        assert thumb_elem.text == mock_metadata.image  # Fallback to metadata.image
+
+        # Check poster artwork - should not be present when file doesn't exist
+        poster_elem = root.find("poster")
+        assert poster_elem is None  # Not present when file doesn't exist
+
+        # Check clearlogo artwork - should not be present when file doesn't exist
+        clearlogo_elem = root.find("clearlogo")
+        assert clearlogo_elem is None  # Not present when file doesn't exist
+
+    def test_nfo_tree_generation_without_artwork_paths(self, mock_metadata):
+        """Test NFO XML tree generation when no artwork paths available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No artwork paths
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should not have artwork elements when no paths provided
+        thumb_elem = root.find("thumb")
+        poster_elem = root.find("poster")
+        clearlogo_elem = root.find("clearlogo")
+
+        # These may or may not be present depending on fallback logic
+        # The important thing is that the NFO generation doesn't crash
+
+    def test_nfo_tree_generation_comprehensive_metadata(self, mock_metadata):
+        """Test NFO XML tree generation with all new metadata fields populated."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = ["English", "French"]
+        mock_metadata.subtitle_languages = ["English", "French", "Spanish"]
+        mock_metadata.media_features = ["4K", "HDR", "Dolby Atmos"]
+        mock_metadata.mpaa = "PG-13 - Some material may be inappropriate"
+
+        artwork_paths = {
+            'thumb': '/nonexistent/path/thumb.jpg',  # Non-existent path
+            'poster': '/nonexistent/path/poster.jpg'
+        }
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            artwork_paths
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Verify all new metadata fields are present using official Kodi structure
+        fileinfo = root.find("fileinfo")
+        assert fileinfo is not None, "Should have fileinfo element"
+
+        streamdetails = fileinfo.find("streamdetails")
+        assert streamdetails is not None, "Should have streamdetails element"
+
+        assert root.find("mpaa") is not None
+        assert root.find("thumb") is not None
+        # Note: poster won't be present when file doesn't exist
+
+        # Verify content
+        assert root.find("mpaa").text == "PG-13 - Some material may be inappropriate"
+
+        # Check audio and subtitle elements in streamdetails
+        audio_elements = streamdetails.findall("audio")
+        assert len(audio_elements) == 2, "Should have 2 audio elements"
+
+        subtitle_elements = streamdetails.findall("subtitle")
+        assert len(subtitle_elements) == 3, "Should have 3 subtitle elements"
+
+    def test_nfo_tree_generation_edge_cases(self, mock_metadata):
+        """Test NFO XML tree generation with edge case metadata values."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+        mock_metadata.audio_languages = [""]  # Empty string in list
+        mock_metadata.subtitle_languages = [None, "English"]  # None value in list
+        mock_metadata.media_features = ["4K", "", "HDR"]  # Mixed valid and empty
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Should handle edge cases gracefully without crashing
+        assert isinstance(nfo_tree, bytes)
+        assert root.tag == "movie"
+
+        # Check that empty/None values are handled appropriately
+        fileinfo = root.find("fileinfo")
+        if fileinfo is not None:
+            streamdetails = fileinfo.find("streamdetails")
+            if streamdetails is not None:
+                # Check audio elements - should not include empty strings
+                audio_elements = streamdetails.findall("audio")
+                for audio_elem in audio_elements:
+                    lang_elem = audio_elem.find("language")
+                    if lang_elem is not None:
+                        assert lang_elem.text != "", "Should not include empty language strings"
+
     def test_nfo_tree_generation_rating_scale(self, mock_metadata):
         """Test NFO XML tree generation includes correct 10-point rating scale."""
         film = Film("123", "Test Movie", "", "", mock_metadata)

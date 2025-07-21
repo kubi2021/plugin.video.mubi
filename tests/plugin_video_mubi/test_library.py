@@ -261,6 +261,96 @@ def test_remove_obsolete_files():
         # Check that the current film folder was not removed
         assert current_folder.exists(), "Current film folder should not have been removed."
 
+def test_remove_obsolete_files_with_artwork():
+    """Test that obsolete film folders are completely removed including all artwork files."""
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        plugin_userdata_path = Path(tmpdirname)
+
+        # Create obsolete film folder with various files including artwork
+        obsolete_folder = plugin_userdata_path / "Old Movie (2020)"
+        obsolete_folder.mkdir()
+
+        # Create typical film files that would be in a film folder
+        nfo_file = obsolete_folder / "Old Movie (2020).nfo"
+        strm_file = obsolete_folder / "Old Movie (2020).strm"
+        thumb_file = obsolete_folder / "Old Movie (2020)-thumb.jpg"
+        poster_file = obsolete_folder / "Old Movie (2020)-poster.jpg"
+        clearlogo_file = obsolete_folder / "Old Movie (2020)-clearlogo.png"
+
+        # Create all the files
+        nfo_file.touch()
+        strm_file.touch()
+        thumb_file.touch()
+        poster_file.touch()
+        clearlogo_file.touch()
+
+        # Verify files exist before cleanup
+        assert nfo_file.exists(), "NFO file should exist before cleanup"
+        assert strm_file.exists(), "STRM file should exist before cleanup"
+        assert thumb_file.exists(), "Thumbnail file should exist before cleanup"
+        assert poster_file.exists(), "Poster file should exist before cleanup"
+        assert clearlogo_file.exists(), "Clearlogo file should exist before cleanup"
+
+        # Create a library with no films (so the obsolete folder should be removed)
+        library = Library()
+
+        # Remove obsolete files
+        removed_count = library.remove_obsolete_files(plugin_userdata_path)
+
+        # Assert that the obsolete folder and all its contents were removed
+        assert removed_count == 1, "Should have removed 1 obsolete folder"
+        assert not obsolete_folder.exists(), "Obsolete folder should be completely removed"
+        assert not nfo_file.exists(), "NFO file should be removed with folder"
+        assert not strm_file.exists(), "STRM file should be removed with folder"
+        assert not thumb_file.exists(), "Thumbnail file should be removed with folder"
+        assert not poster_file.exists(), "Poster file should be removed with folder"
+        assert not clearlogo_file.exists(), "Clearlogo file should be removed with folder"
+
+def test_remove_obsolete_files_preserves_current_artwork():
+    """Test that current film folders and their artwork are preserved during cleanup."""
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        plugin_userdata_path = Path(tmpdirname)
+
+        # Create obsolete film folder
+        obsolete_folder = plugin_userdata_path / "Old Movie (2020)"
+        obsolete_folder.mkdir()
+        (obsolete_folder / "Old Movie (2020).nfo").touch()
+        (obsolete_folder / "Old Movie (2020)-thumb.jpg").touch()
+
+        # Create current film and add to library
+        library = Library()
+        metadata = MockMetadata(year=2023)
+        current_film = Film(
+            mubi_id="123456",
+            title="Current Movie",
+            artwork="http://example.com/art.jpg",
+            web_url="http://example.com",
+            metadata=metadata
+        )
+        library.add_film(current_film)
+
+        # Create current film folder with artwork
+        current_folder = plugin_userdata_path / current_film.get_sanitized_folder_name()
+        current_folder.mkdir()
+        current_nfo = current_folder / f"{current_film.get_sanitized_folder_name()}.nfo"
+        current_thumb = current_folder / f"{current_film.get_sanitized_folder_name()}-thumb.jpg"
+        current_poster = current_folder / f"{current_film.get_sanitized_folder_name()}-poster.jpg"
+
+        current_nfo.touch()
+        current_thumb.touch()
+        current_poster.touch()
+
+        # Remove obsolete files
+        removed_count = library.remove_obsolete_files(plugin_userdata_path)
+
+        # Assert obsolete folder was removed but current folder preserved
+        assert removed_count == 1, "Should have removed 1 obsolete folder"
+        assert not obsolete_folder.exists(), "Obsolete folder should be removed"
+        assert current_folder.exists(), "Current film folder should be preserved"
+        assert current_nfo.exists(), "Current film NFO should be preserved"
+        assert current_thumb.exists(), "Current film thumbnail should be preserved"
+        assert current_poster.exists(), "Current film poster should be preserved"
+
 @patch("xbmcaddon.Addon")
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
