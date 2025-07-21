@@ -23,7 +23,8 @@ class TestMetadata:
             castandrole="Actor One as Character One",
             dateadded="2023-01-01",
             trailer="http://example.com/trailer.mp4",
-            image="http://example.com/image.jpg"
+            image="http://example.com/image.jpg",
+            mpaa="PG-13"
         )
         
         assert metadata.title == "Test Movie"
@@ -41,6 +42,7 @@ class TestMetadata:
         assert metadata.dateadded == "2023-01-01"
         assert metadata.trailer == "http://example.com/trailer.mp4"
         assert metadata.image == "http://example.com/image.jpg"
+        assert metadata.mpaa == "PG-13"
 
     def test_metadata_initialization_minimal_fields(self):
         """Test metadata initialization with only required fields."""

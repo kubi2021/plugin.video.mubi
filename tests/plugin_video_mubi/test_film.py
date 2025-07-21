@@ -84,7 +84,7 @@ class TestFilm:
     def test_get_sanitized_folder_name(self, mock_metadata):
         """Test folder name sanitization."""
         # Test with special characters
-        film = Film("123", "Test/Movie: Special*Characters?", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test/Movie: Special*Characters?", "", "", mock_metadata)
         mock_metadata.year = 2023
         
         sanitized = film.get_sanitized_folder_name()
@@ -95,14 +95,14 @@ class TestFilm:
         assert "2023" in sanitized
         
         # Test with normal title
-        film2 = Film("456", "Normal Movie", "", "", "Drama", mock_metadata)
+        film2 = Film("456", "Normal Movie", "", "", mock_metadata)
         sanitized2 = film2.get_sanitized_folder_name()
         assert sanitized2 == "Normal Movie (2023)"
 
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_success(self, mock_get, mock_metadata):
         """Test successful IMDB URL retrieval."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         # Mock successful API response
         mock_response = Mock()
@@ -124,7 +124,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_not_found(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval when movie not found."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         # Mock API response with no results
         mock_response = Mock()
@@ -138,7 +138,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_api_error(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with API error."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Import the mock exception class
         from requests.exceptions import RequestException
@@ -152,7 +152,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_http_errors(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with various HTTP errors."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Test 401 Unauthorized
         mock_response = Mock()
@@ -182,7 +182,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_alternative_titles(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with alternative title generation."""
-        film = Film("123", "Test Movie and Friends", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie and Friends", "", "", mock_metadata)
 
         # Mock API response that fails for first title but succeeds for alternative
         def side_effect(*args, **kwargs):
@@ -210,7 +210,7 @@ class TestFilm:
 
     def test_normalize_title(self, mock_metadata):
         """Test title normalization functionality."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Test removing 'and' as whole word
         normalized = film._normalize_title("Test Movie and Friends")
@@ -226,7 +226,7 @@ class TestFilm:
 
     def test_generate_alternative_titles(self, mock_metadata):
         """Test alternative title generation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         alternatives = film._generate_alternative_titles("Test Movie")
         assert isinstance(alternatives, list)
@@ -235,7 +235,7 @@ class TestFilm:
 
     def test_should_use_original_title(self, mock_metadata):
         """Test original title usage logic."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Same titles should return False
         should_use = film._should_use_original_title("Test Movie", "Test Movie")
@@ -247,7 +247,7 @@ class TestFilm:
 
     def test_is_unauthorized_request(self, mock_metadata):
         """Test unauthorized request detection."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Test with None response
         assert film._is_unauthorized_request(None) == False
@@ -264,7 +264,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_make_omdb_request_success(self, mock_get, mock_metadata):
         """Test successful OMDB request."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         mock_response = Mock()
         mock_response.json.return_value = {'Response': 'True', 'imdbID': 'tt123'}
@@ -279,7 +279,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_make_omdb_request_error(self, mock_get, mock_metadata):
         """Test OMDB request with error."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
 
@@ -290,13 +290,13 @@ class TestFilm:
 
     def test_get_nfo_tree(self, mock_metadata):
         """Test NFO XML tree generation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
-        
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
         nfo_tree = film._get_nfo_tree(
-            mock_metadata, 
-            ["Drama"], 
-            "http://example.com/trailer", 
-            "http://imdb.com/title/tt123"
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
         )
         
         # Parse the XML to verify structure
@@ -311,11 +311,81 @@ class TestFilm:
         # Check genre
         genre_elem = root.find("genre")
         assert genre_elem is not None
-        assert "Drama" in genre_elem.text
+
+    def test_nfo_tree_generation_with_mpaa(self, mock_metadata):
+        """Test NFO XML tree generation includes MPAA rating when available."""
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Set mpaa rating on metadata
+        mock_metadata.mpaa = "PG-13 - Some material may be inappropriate for children under 13"
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
+        )
+
+        # Parse the XML to verify mpaa element is included
+        root = ET.fromstring(nfo_tree)
+
+        mpaa_element = root.find("mpaa")
+        assert mpaa_element is not None
+        assert mpaa_element.text == "PG-13 - Some material may be inappropriate for children under 13"
+
+    def test_nfo_tree_generation_without_mpaa(self, mock_metadata):
+        """Test NFO XML tree generation when no MPAA rating available."""
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Ensure mpaa is empty
+        mock_metadata.mpaa = ""
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
+        )
+
+        # Parse the XML to verify no mpaa element when empty
+        root = ET.fromstring(nfo_tree)
+
+        mpaa_element = root.find("mpaa")
+        assert mpaa_element is None  # Should not be present when empty
+
+    def test_nfo_tree_generation_rating_scale(self, mock_metadata):
+        """Test NFO XML tree generation includes correct 10-point rating scale."""
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Set a specific rating to test and ensure mpaa is a string
+        mock_metadata.rating = 7.6
+        mock_metadata.mpaa = ""  # Ensure mpaa is a string, not a Mock
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            None  # No local thumbnail for this test
+        )
+
+        # Parse the XML to verify rating structure
+        root = ET.fromstring(nfo_tree)
+
+        ratings_element = root.find("ratings")
+        assert ratings_element is not None
+
+        rating_element = ratings_element.find("rating")
+        assert rating_element is not None
+        assert rating_element.get("name") == "MUBI"
+        assert rating_element.get("max") == "10"  # Should specify 10-point scale
+
+        value_element = rating_element.find("value")
+        assert value_element is not None
+        assert value_element.text == "7.6"
 
     def test_create_strm_file(self, mock_metadata):
         """Test STRM file creation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
@@ -335,7 +405,7 @@ class TestFilm:
     @patch.object(Film, '_get_imdb_url')
     def test_create_nfo_file_success(self, mock_get_imdb, mock_sleep, mock_metadata):
         """Test successful NFO file creation."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         mock_get_imdb.return_value = "http://imdb.com/title/tt123"
         
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -355,7 +425,7 @@ class TestFilm:
     @patch.object(Film, '_get_imdb_url')
     def test_create_nfo_file_no_api_key(self, mock_get_imdb, mock_metadata):
         """Test NFO file creation without API key."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
@@ -372,7 +442,7 @@ class TestFilm:
     @patch.object(Film, '_get_imdb_url')
     def test_create_nfo_file_imdb_error(self, mock_get_imdb, mock_metadata):
         """Test NFO file creation when IMDB lookup fails."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
         mock_get_imdb.return_value = None  # Simulate API error
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -392,7 +462,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_401_error_with_retry(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with 401 error and retry logic."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Mock 401 error response
         mock_response = Mock()
@@ -410,7 +480,7 @@ class TestFilm:
     @patch('plugin_video_mubi.resources.lib.film.requests.get')
     def test_get_imdb_url_request_exception(self, mock_get, mock_metadata):
         """Test IMDB URL retrieval with request exception."""
-        film = Film("123", "Test Movie", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Mock request exception
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
@@ -423,7 +493,7 @@ class TestFilm:
     def test_sanitized_folder_name_edge_cases(self, mock_metadata):
         """Test folder name sanitization with edge cases."""
         # Test with special characters
-        film = Film("123", "Test/Movie\\With:Special*Characters?", "", "", "Drama", mock_metadata)
+        film = Film("123", "Test/Movie\\With:Special*Characters?", "", "", mock_metadata)
         folder_name = film.get_sanitized_folder_name()
 
         # Should not contain invalid characters
@@ -433,7 +503,7 @@ class TestFilm:
 
         # Test with very long title
         long_title = "A" * 300  # Very long title
-        film2 = Film("123", long_title, "", "", "Drama", mock_metadata)
+        film2 = Film("123", long_title, "", "", mock_metadata)
         folder_name2 = film2.get_sanitized_folder_name()
 
         # Should be truncated to reasonable length
