@@ -62,7 +62,6 @@ class TestRealComponentIntegration:
             title="Integration Test Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            category="Drama",
             metadata=sample_film_metadata
         )
 
@@ -113,7 +112,6 @@ class TestRealComponentIntegration:
         # Test the private _get_nfo_tree method directly
         nfo_tree = sample_film._get_nfo_tree(
             metadata=sample_film.metadata,
-            categories=sample_film.categories,
             kodi_trailer_url="http://test.com/trailer",
             imdb_url="http://imdb.com/title/tt1234567"
         )
