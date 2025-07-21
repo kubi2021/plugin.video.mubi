@@ -551,7 +551,6 @@ class NavigationHandler:
             all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
 
             pDialog.close()
-            xbmcgui.Dialog().notification("MUBI", f"Sync completed successfully! {total_films} films synced.", xbmcgui.NOTIFICATION_INFO)
 
             # Create a monitor instance
             monitor = LibraryMonitor()
