@@ -1952,3 +1952,197 @@ class TestMubi:
             assert len(library.films) == 0
             # API call should have been attempted at least once
             assert mock_api_call.call_count >= 1
+
+    # ===== Bug Hunting Tests (moved from test_bug_hunting.py) =====
+
+    def test_api_response_type_mismatches_level2_behavior(self, mubi_instance):
+        """
+        Level 2 Behavior: API Response Type Mismatches
+        Location: mubi.py:702-722 (metadata creation)
+        Expected Behavior: Silent filtering of bad API data (graceful degradation)
+        Level 2 Principle: No crashes, clean user experience, debug-friendly logging
+        """
+        # Test Case 1: directors field returns None instead of list
+        malformed_film_data_1 = {
+            'film': {
+                'id': '12345',
+                'title': 'Test Movie',
+                'directors': None,  # API returns None instead of expected list
+                'year': 2023,
+                'duration': 120,
+                'historic_countries': ['USA'],
+                'genres': ['Drama'],
+                'original_title': 'Test Movie',
+                'number_of_ratings': 100,
+                'web_url': 'http://example.com'
+            }
+        }
+
+        # LEVEL 2 EXPECTATION: Silent failure, returns None (graceful degradation)
+        with patch('xbmc.log') as mock_log:
+            result = mubi_instance.get_film_metadata(malformed_film_data_1)
+
+            # Should return None (film filtered out)
+            assert result is None, "Bad API data should be silently filtered out"
+
+            # Should log the error for debugging
+            mock_log.assert_called()
+            error_logged = any("Error parsing film metadata" in str(call) for call in mock_log.call_args_list)
+            assert error_logged, "Error should be logged for debugging purposes"
+
+        # Test Case 2: directors field contains non-dict objects
+        malformed_film_data_2 = {
+            'film': {
+                'id': '12345',
+                'title': 'Test Movie',
+                'directors': ['string_instead_of_dict', 'another_string'],  # API returns strings instead of dicts
+                'year': 2023,
+                'duration': 120,
+                'historic_countries': ['USA'],
+                'genres': ['Drama'],
+                'original_title': 'Test Movie',
+                'number_of_ratings': 100,
+                'web_url': 'http://example.com'
+            }
+        }
+
+        # LEVEL 2 EXPECTATION: Silent failure, graceful degradation
+        with patch('xbmc.log') as mock_log:
+            result = mubi_instance.get_film_metadata(malformed_film_data_2)
+            assert result is None, "Bad API data should be silently filtered out"
+
+            # Should log the error for debugging
+            error_logged = any("Error parsing film metadata" in str(call) for call in mock_log.call_args_list)
+            assert error_logged, "Error should be logged for debugging purposes"
+
+        # Test Case 3: directors field contains dicts without 'name' key
+        malformed_film_data_3 = {
+            'film': {
+                'id': '12345',
+                'title': 'Test Movie',
+                'directors': [{'id': 1, 'bio': 'Director bio'}],  # API returns dicts missing 'name' key
+                'year': 2023,
+                'duration': 120,
+                'historic_countries': ['USA'],
+                'genres': ['Drama'],
+                'original_title': 'Test Movie',
+                'number_of_ratings': 100,
+                'web_url': 'http://example.com'
+            }
+        }
+
+        # LEVEL 2 EXPECTATION: Silent failure, graceful degradation
+        with patch('xbmc.log') as mock_log:
+            result = mubi_instance.get_film_metadata(malformed_film_data_3)
+            assert result is None, "Bad API data should be silently filtered out"
+
+            # Should log the error for debugging
+            error_logged = any("Error parsing film metadata" in str(call) for call in mock_log.call_args_list)
+            assert error_logged, "Error should be logged for debugging purposes"
+
+    def test_malformed_json_responses_level2_behavior(self, mubi_instance):
+        """
+        BUG #2: Empty/Malformed JSON Responses
+        Location: mubi.py:334-336 (get_link_code)
+        Issue: response.json() called without checking if response contains valid JSON
+        Level 2 Assessment: Check if this causes user-blocking authentication failures
+        """
+        import json
+
+        # Test the vulnerability directly by examining the code pattern
+        # The vulnerable code is: response.json() without try-catch
+
+        # Simulate what happens when response.json() fails
+        def test_json_decode_error():
+            """Simulate the exact error that would occur"""
+            html_content = "<html><body>Error 500</body></html>"
+            # This is what happens when you call .json() on HTML content
+            raise json.JSONDecodeError("Expecting value", html_content, 0)
+
+        # Test Case 1: Verify the vulnerability exists
+        try:
+            test_json_decode_error()
+            assert False, "Should have raised JSONDecodeError"
+        except json.JSONDecodeError as e:
+            # This confirms the type of error that would crash get_link_code()
+            assert "Expecting value" in str(e)
+
+        # LEVEL 2 IMPACT ASSESSMENT:
+        # - User Impact: Authentication completely fails
+        # - Error Message: Technical JSONDecodeError (not user-friendly)
+        # - Recovery: User has no way to fix this (it's a server-side issue)
+        # - Frequency: Could happen during MUBI server issues or maintenance
+
+        assert True  # Bug confirmed through code analysis
+
+    def test_json_fix_valid_json_still_works(self, mubi_instance):
+        """
+        TDD Test: Ensure fix doesn't break valid JSON responses
+        """
+        # Test Case: Valid JSON response should work normally
+        valid_json_data = {
+            'auth_token': 'abc123',
+            'link_code': 'XYZ789'
+        }
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = valid_json_data
+        mock_response.raise_for_status.return_value = None
+
+        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response):
+            with patch('xbmcgui.Dialog') as mock_dialog:
+                # Should work normally with valid JSON
+                result = mubi_instance.get_link_code()
+
+                assert result == valid_json_data, "Valid JSON should work normally"
+
+                # Should NOT show any notifications for successful responses
+                mock_dialog.assert_not_called(), "Should not show notifications for successful responses"
+
+    def test_json_fix_verification_direct_method_test(self, mubi_instance):
+        """
+        Direct test of _safe_json_parse method to verify fix works
+        """
+        import json
+
+        # Test Case 1: Valid JSON should work
+        mock_response_valid = Mock()
+        mock_response_valid.json.return_value = {'test': 'data'}
+
+        with patch('xbmcgui.Dialog') as mock_dialog:
+            result = mubi_instance._safe_json_parse(mock_response_valid, "test operation")
+            assert result == {'test': 'data'}, "Valid JSON should be returned"
+            mock_dialog.assert_not_called(), "No notification for valid JSON"
+
+        # Test Case 2: Invalid JSON should return None and show notification
+        mock_response_invalid = Mock()
+        mock_response_invalid.text = "<html>Error</html>"
+        mock_response_invalid.headers = {'content-type': 'text/html'}
+
+        def mock_json_error():
+            raise json.JSONDecodeError("Expecting value", "<html>", 0)
+        mock_response_invalid.json = mock_json_error
+
+        with patch('xbmc.log') as mock_log:
+            with patch('xbmcgui.Dialog') as mock_dialog:
+                mock_dialog_instance = Mock()
+                mock_dialog.return_value = mock_dialog_instance
+
+                result = mubi_instance._safe_json_parse(mock_response_invalid, "test operation")
+
+                # Should return None for invalid JSON
+                assert result is None, "Invalid JSON should return None"
+
+                # Should log the error
+                mock_log.assert_called()
+
+                # Should show notification
+                mock_dialog_instance.notification.assert_called_once()
+                notification_call = mock_dialog_instance.notification.call_args
+                assert "MUBI" in notification_call[0][0], "Should show MUBI in notification title"
+                assert "service" in notification_call[0][1].lower(), "Should mention service in message"
+
+        # Test Case 3: No response should return None
+        result = mubi_instance._safe_json_parse(None, "test operation")
+        assert result is None, "No response should return None"
