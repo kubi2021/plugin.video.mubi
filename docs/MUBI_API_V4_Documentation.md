@@ -101,6 +101,34 @@ The API uses Bearer token authentication. Tokens are obtained through the device
 - All sort options (`popularity`, `release_date`, `title`, `rating`) return the same total count
 - This explains why category-based sync was getting 400+ films while direct API was getting only 45
 
+### Enhanced Metadata Implementation
+
+**Plot Description Enhancement**:
+The addon now uses enhanced editorial content for richer film descriptions:
+
+```python
+# Enhanced plot logic
+default_editorial = film_info.get('default_editorial', '')
+short_synopsis = film_info.get('short_synopsis', '')
+
+if default_editorial:
+    plot = default_editorial  # Rich editorial content
+else:
+    plot = short_synopsis     # Fallback to basic synopsis
+
+plotoutline = short_synopsis  # Always use synopsis for outline
+```
+
+**Benefits**:
+- **Richer descriptions**: Editorial content provides professional film analysis
+- **Better user experience**: More detailed plot information in Kodi
+- **Graceful fallback**: Uses synopsis when editorial content unavailable
+- **Dual content**: Plot gets editorial, outline gets synopsis for different UI contexts
+
+**Example Comparison**:
+- **Synopsis**: "A handbag sits alone on a rock in Tuscany."
+- **Editorial**: "Returning to the whimsical love for fashion that shone in Caprice, Joanna Hogg finds an improbable protagonist in a designer handbag in this short film. Complemented by lavishly tactile, immersive imagery, the luxury item speaks with wry humor not only to the fickleness of trends, but fate itself."
+
 ### Browse Films
 **Endpoint**: `GET /browse/films`
 **Headers**: Standard web headers (see header section below)
@@ -260,7 +288,8 @@ GET /v4/browse/films?sort=title&playable=true&page=1
 - `original_title`: Original language title
 - `year`: Release year
 - `duration`: Runtime in minutes
-- `short_synopsis`: Plot description
+- `short_synopsis`: Basic plot description
+- `default_editorial`: **Enhanced editorial content** (richer than synopsis)
 - `genres`: Array of genre strings
 - `historic_countries`: Production countries
 - `directors`: Array of director objects with name and slug
