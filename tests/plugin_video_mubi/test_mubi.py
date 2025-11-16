@@ -1631,6 +1631,246 @@ class TestMubi:
         assert result is None
         mock_session.close.assert_called_once()
 
+    @patch('xbmc.executebuiltin')
+    @patch('xbmcgui.Dialog')
+    def test_check_and_handle_invalid_token_code_8(self, mock_dialog, mock_executebuiltin, mubi_instance):
+        """Test that invalid token with code 8 triggers logout."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "code": 8,
+            "message": "Invalid login token",
+            "user_message": "Your session has expired or is invalid. Please sign in again.",
+            "fatal": False
+        }
+
+        # Set up initial logged-in state
+        mubi_instance.session_manager.is_logged_in = True
+        mubi_instance.session_manager.token = "old-token"
+
+        # Configure the mock to actually update attributes when set_logged_out is called
+        def mock_set_logged_out():
+            mubi_instance.session_manager.is_logged_in = False
+            mubi_instance.session_manager.token = None
+        mubi_instance.session_manager.set_logged_out = mock_set_logged_out
+
+        # Mock dialog
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        # Act
+        mubi_instance._check_and_handle_invalid_token(mock_response)
+
+        # Assert
+        assert mubi_instance.session_manager.is_logged_in is False
+        assert mubi_instance.session_manager.token is None
+        mock_dialog_instance.notification.assert_called_once()
+        mock_executebuiltin.assert_called_once_with('Container.Refresh')
+
+    @patch('xbmc.executebuiltin')
+    @patch('xbmcgui.Dialog')
+    def test_check_and_handle_invalid_token_expired_message(
+        self, mock_dialog, mock_executebuiltin, mubi_instance
+    ):
+        """Test that expired token message triggers logout."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "message": "Token has expired",
+            "user_message": "Your session has expired. Please log in again."
+        }
+
+        # Set up initial logged-in state
+        mubi_instance.session_manager.is_logged_in = True
+        mubi_instance.session_manager.token = "old-token"
+
+        # Configure the mock to actually update attributes when set_logged_out is called
+        def mock_set_logged_out():
+            mubi_instance.session_manager.is_logged_in = False
+            mubi_instance.session_manager.token = None
+        mubi_instance.session_manager.set_logged_out = mock_set_logged_out
+
+        # Mock dialog
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        # Act
+        mubi_instance._check_and_handle_invalid_token(mock_response)
+
+        # Assert
+        assert mubi_instance.session_manager.is_logged_in is False
+        assert mubi_instance.session_manager.token is None
+        mock_dialog_instance.notification.assert_called_once()
+
+    @patch('xbmc.executebuiltin')
+    @patch('xbmcgui.Dialog')
+    def test_check_and_handle_invalid_token_invalid_message(
+        self, mock_dialog, mock_executebuiltin, mubi_instance
+    ):
+        """Test that invalid token message triggers logout."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "message": "Invalid token provided",
+            "user_message": "Authentication failed. Please sign in again."
+        }
+
+        # Set up initial logged-in state
+        mubi_instance.session_manager.is_logged_in = True
+        mubi_instance.session_manager.token = "old-token"
+
+        # Configure the mock to actually update attributes when set_logged_out is called
+        def mock_set_logged_out():
+            mubi_instance.session_manager.is_logged_in = False
+            mubi_instance.session_manager.token = None
+        mubi_instance.session_manager.set_logged_out = mock_set_logged_out
+
+        # Mock dialog
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        # Act
+        mubi_instance._check_and_handle_invalid_token(mock_response)
+
+        # Assert
+        assert mubi_instance.session_manager.is_logged_in is False
+        assert mubi_instance.session_manager.token is None
+
+    def test_check_and_handle_invalid_token_valid_response(self, mubi_instance):
+        """Test that valid responses don't trigger logout."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "data": "some valid data",
+            "status": "success"
+        }
+
+        # Set up initial logged-in state
+        mubi_instance.session_manager.is_logged_in = True
+        mubi_instance.session_manager.token = "valid-token"
+
+        # Act
+        mubi_instance._check_and_handle_invalid_token(mock_response)
+
+        # Assert - should remain logged in
+        assert mubi_instance.session_manager.is_logged_in is True
+        assert mubi_instance.session_manager.token == "valid-token"
+
+    def test_check_and_handle_invalid_token_json_parse_error(self, mubi_instance):
+        """Test that JSON parse errors are handled gracefully."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+
+        # Set up initial logged-in state
+        mubi_instance.session_manager.is_logged_in = True
+        mubi_instance.session_manager.token = "valid-token"
+
+        # Act - should not raise exception
+        mubi_instance._check_and_handle_invalid_token(mock_response)
+
+        # Assert - should remain logged in since we couldn't parse the error
+        assert mubi_instance.session_manager.is_logged_in is True
+        assert mubi_instance.session_manager.token == "valid-token"
+
+    @patch('time.time')
+    @patch('xbmc.executebuiltin')
+    @patch('xbmcgui.Dialog')
+    @patch('requests.Session')
+    def test_make_api_call_detects_invalid_token_401(
+        self, mock_session_class, mock_dialog, mock_executebuiltin, mock_time, mubi_instance
+    ):
+        """Test that 401 status code triggers invalid token check."""
+        mock_time.return_value = 1000.0
+
+        # Mock session and response
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 401
+        mock_response.headers = {}
+        mock_response.text = '{"code": 8, "message": "Invalid login token"}'
+        mock_response.json.return_value = {
+            "code": 8,
+            "message": "Invalid login token",
+            "user_message": "Your session has expired."
+        }
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Unauthorized")
+        mock_session.request.return_value = mock_response
+
+        # Set up logged-in state
+        mubi_instance.session_manager.is_logged_in = True
+        mubi_instance.session_manager.token = "old-token"
+
+        # Configure the mock to actually update attributes when set_logged_out is called
+        def mock_set_logged_out():
+            mubi_instance.session_manager.is_logged_in = False
+            mubi_instance.session_manager.token = None
+        mubi_instance.session_manager.set_logged_out = mock_set_logged_out
+
+        # Mock dialog
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        # Act
+        result = mubi_instance._make_api_call('GET', endpoint='test')
+
+        # Assert
+        assert result is None  # API call should fail
+        assert mubi_instance.session_manager.is_logged_in is False  # Should be logged out
+        mock_dialog_instance.notification.assert_called_once()
+
+    @patch('time.time')
+    @patch('xbmc.executebuiltin')
+    @patch('xbmcgui.Dialog')
+    @patch('requests.Session')
+    def test_make_api_call_detects_invalid_token_422(
+        self, mock_session_class, mock_dialog, mock_executebuiltin, mock_time, mubi_instance
+    ):
+        """Test that 422 status code triggers invalid token check."""
+        mock_time.return_value = 1000.0
+
+        # Mock session and response
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 422
+        mock_response.headers = {}
+        mock_response.text = '{"code": 8, "message": "Invalid login token"}'
+        mock_response.json.return_value = {
+            "code": 8,
+            "message": "Invalid login token",
+            "user_message": "Your session has expired or is invalid. Please sign in again."
+        }
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "Unprocessable Entity"
+        )
+        mock_session.request.return_value = mock_response
+
+        # Set up logged-in state
+        mubi_instance.session_manager.is_logged_in = True
+        mubi_instance.session_manager.token = "old-token"
+
+        # Configure the mock to actually update attributes when set_logged_out is called
+        def mock_set_logged_out():
+            mubi_instance.session_manager.is_logged_in = False
+            mubi_instance.session_manager.token = None
+        mubi_instance.session_manager.set_logged_out = mock_set_logged_out
+
+        # Mock dialog
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        # Act
+        result = mubi_instance._make_api_call('GET', endpoint='test')
+
+        # Assert
+        assert result is None  # API call should fail
+        assert mubi_instance.session_manager.is_logged_in is False  # Should be logged out
+        mock_dialog_instance.notification.assert_called_once()
+
     def test_header_sanitization_security(self, mubi_instance):
         """Test header sanitization for security compliance."""
         sensitive_headers = {

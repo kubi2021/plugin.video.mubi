@@ -141,11 +141,11 @@ class Mubi:
         # Log API call details
         xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
         xbmc.log(f"Headers: {headers}", xbmc.LOGDEBUG)
-        
+
         # Log parameters if they exist
         if params:
             xbmc.log(f"Parameters: {params}", xbmc.LOGDEBUG)
-        
+
         # Log JSON body if it exists
         if json:
             xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
@@ -191,6 +191,10 @@ class Mubi:
             # Log the response status
             xbmc.log(f"Response status code: {response.status_code}", xbmc.LOGDEBUG)
 
+            # Check for invalid token before raising HTTPError
+            if response.status_code in [401, 422]:
+                self._check_and_handle_invalid_token(response)
+
             # Raise an HTTPError for bad responses (4xx and 5xx)
             response.raise_for_status()
 
@@ -218,6 +222,48 @@ class Mubi:
         finally:
             session.close()
             xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
+
+    def _check_and_handle_invalid_token(self, response):
+        """
+        Check if the API response indicates an invalid or expired token.
+        If so, automatically log out the user and show a notification.
+
+        :param response: HTTP response object
+        """
+        try:
+            # Try to parse the response as JSON
+            response_data = response.json()
+
+            # Check for invalid token indicators
+            # MUBI API returns code 8 for "Invalid login token"
+            if response_data.get('code') == 8 or \
+               'invalid' in response_data.get('message', '').lower() and 'token' in response_data.get('message', '').lower() or \
+               'expired' in response_data.get('user_message', '').lower():
+
+                xbmc.log("Invalid or expired token detected. Logging out user.", xbmc.LOGWARNING)
+
+                # Log out the user
+                self.session_manager.set_logged_out()
+
+                # Show user-friendly notification
+                try:
+                    dialog = xbmcgui.Dialog()
+                    user_message = response_data.get('user_message', 'Your session has expired. Please sign in again.')
+                    dialog.notification(
+                        "MUBI - Session Expired",
+                        user_message,
+                        xbmcgui.NOTIFICATION_WARNING,
+                        5000  # 5 second notification
+                    )
+
+                    # Refresh the container to show the login option
+                    xbmc.executebuiltin('Container.Refresh')
+                except Exception as notification_error:
+                    xbmc.log(f"Failed to show session expired notification: {notification_error}", xbmc.LOGWARNING)
+
+        except Exception as e:
+            # If we can't parse the response, just log and continue
+            xbmc.log(f"Could not check for invalid token: {e}", xbmc.LOGDEBUG)
 
     def _safe_json_parse(self, response, operation_name="API operation"):
         """
