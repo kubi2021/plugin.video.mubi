@@ -298,21 +298,28 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None  # No local thumbnail for this test
+            None,  # No local thumbnail for this test
+            "123"  # mubi_id
         )
-        
+
         # Parse the XML to verify structure
         root = ET.fromstring(nfo_tree)
         assert root.tag == "movie"
-        
+
         # Check required elements exist
         assert root.find("title").text == "Test Movie"
         assert root.find("year").text == "2023"
         assert root.find("plot").text == "Test plot"
-        
+
         # Check genre
         genre_elem = root.find("genre")
         assert genre_elem is not None
+
+        # BUG #33 FIX: Verify MUBI unique ID is present
+        uniqueid_mubi = root.find("uniqueid[@type='mubi']")
+        assert uniqueid_mubi is not None, "MUBI unique ID should be present"
+        assert uniqueid_mubi.text == "123", "MUBI ID should match film ID"
+        assert uniqueid_mubi.get("default") == "true", "MUBI ID should be default"
 
     def test_nfo_tree_generation_with_mpaa(self, mock_metadata):
         """Test NFO XML tree generation includes MPAA rating when available."""
@@ -325,7 +332,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None  # No local thumbnail for this test
+            None,  # No local thumbnail for this test
+            "123"  # mubi_id
         )
 
         # Parse the XML to verify mpaa element is included
@@ -346,7 +354,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None  # No local thumbnail for this test
+            None,  # No local thumbnail for this test
+            "123"  # mubi_id
         )
 
         # Parse the XML to verify no mpaa element when empty
@@ -368,7 +377,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None
+            None,
+            "123"  # mubi_id
         )
 
         # Assert
@@ -408,7 +418,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None
+            None,
+            "123"  # mubi_id
         )
 
         # Assert
@@ -429,7 +440,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None
+            None,
+            "123"  # mubi_id
         )
 
         # Assert
@@ -470,7 +482,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None
+            None,
+            "123"  # mubi_id
         )
 
         # Assert
@@ -499,7 +512,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            artwork_paths
+            artwork_paths,
+            "123"  # mubi_id
         )
 
         # Assert
@@ -528,7 +542,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None  # No artwork paths
+            None,  # No artwork paths
+            "123"  # mubi_id
         )
 
         # Assert
@@ -561,7 +576,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            artwork_paths
+            artwork_paths,
+            "123"  # mubi_id
         )
 
         # Assert
@@ -601,7 +617,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None
+            None,
+            "123"  # mubi_id
         )
 
         # Assert
@@ -635,7 +652,8 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            None  # No local thumbnail for this test
+            None,  # No local thumbnail for this test
+            "123"  # mubi_id
         )
 
         # Parse the XML to verify rating structure

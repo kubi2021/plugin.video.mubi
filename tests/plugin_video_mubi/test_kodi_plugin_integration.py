@@ -706,7 +706,8 @@ class TestDirectoryHandling:
                 test_metadata,
                 "http://example.com/trailer",
                 "http://imdb.com/title/tt123456",
-                None
+                None,
+                film.mubi_id  # mubi_id for BUG #33 fix
             )
 
             # Parse NFO and extract title

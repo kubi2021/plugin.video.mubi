@@ -122,7 +122,8 @@ class TestRealComponentIntegration:
         nfo_tree = sample_film._get_nfo_tree(
             metadata=sample_film.metadata,
             kodi_trailer_url="http://test.com/trailer",
-            imdb_url="http://imdb.com/title/tt1234567"
+            imdb_url="http://imdb.com/title/tt1234567",
+            mubi_id=sample_film.mubi_id
         )
 
         assert nfo_tree is not None
@@ -142,6 +143,11 @@ class TestRealComponentIntegration:
         year_elem = root.find("year")
         assert year_elem is not None
         assert year_elem.text == "2023"
+
+        # BUG #33 FIX: Verify MUBI unique ID is present
+        uniqueid_mubi = root.find("uniqueid[@type='mubi']")
+        assert uniqueid_mubi is not None, "MUBI unique ID should be present"
+        assert uniqueid_mubi.text == sample_film.mubi_id
 
 
 

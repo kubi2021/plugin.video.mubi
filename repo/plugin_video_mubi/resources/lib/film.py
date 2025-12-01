@@ -253,7 +253,7 @@ class Film:
                     # Still create NFO file without IMDb URL rather than failing completely
                     imdb_url = ""
 
-            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url, artwork_paths)
+            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url, artwork_paths, self.mubi_id)
             with open(nfo_file, "wb") as f:
                 if isinstance(nfo_tree, str):
                     nfo_tree = nfo_tree.encode("utf-8")
@@ -269,8 +269,8 @@ class Film:
 
 
 
-    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str, artwork_paths: dict = None) -> bytes:
-        """Generate the NFO XML tree structure, including IMDb URL if available."""
+    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str, artwork_paths: dict = None, mubi_id: str = None) -> bytes:
+        """Generate the NFO XML tree structure, including IMDb URL and MUBI unique ID if available."""
         if not metadata.title:
             raise ValueError("Metadata must contain a title")
 
@@ -279,6 +279,14 @@ class Film:
         # SECURITY FIX: Sanitize all text content before adding to XML
         ET.SubElement(movie, "title").text = self._sanitize_xml_content(metadata.title)
         ET.SubElement(movie, "originaltitle").text = self._sanitize_xml_content(metadata.originaltitle)
+
+        # BUG #33 FIX: Add MUBI unique ID to prevent Kodi from matching with other plugins' movies
+        # This ensures MUBI movies are treated as separate entries from Jellyfin/Emby/etc.
+        if mubi_id:
+            uniqueid_mubi = ET.SubElement(movie, "uniqueid")
+            uniqueid_mubi.set("type", "mubi")
+            uniqueid_mubi.set("default", "true")
+            uniqueid_mubi.text = self._sanitize_xml_content(str(mubi_id))
 
         ratings = ET.SubElement(movie, "ratings")
         rating = ET.SubElement(ratings, "rating")
@@ -371,10 +379,17 @@ class Film:
 
         ET.SubElement(movie, "dateadded").text = self._sanitize_xml_content(str(metadata.dateadded))
 
-        # Add IMDb URL if available
+        # Add IMDb ID if available using modern uniqueid format
         if imdb_url:
-            # SECURITY FIX: Sanitize IMDb URL to prevent injection
-            ET.SubElement(movie, "imdbid").text = self._sanitize_xml_content(imdb_url)
+            # Extract IMDb ID from URL (e.g., "https://www.imdb.com/title/tt1234567/" -> "tt1234567")
+            imdb_id = imdb_url.rstrip('/').split('/')[-1] if '/title/' in imdb_url else imdb_url
+            uniqueid_imdb = ET.SubElement(movie, "uniqueid")
+            uniqueid_imdb.set("type", "imdb")
+            # Only set default="true" if MUBI ID is not present
+            if not mubi_id:
+                uniqueid_imdb.set("default", "true")
+            # SECURITY FIX: Sanitize IMDb ID to prevent injection
+            uniqueid_imdb.text = self._sanitize_xml_content(imdb_id)
 
         return ET.tostring(movie)
 

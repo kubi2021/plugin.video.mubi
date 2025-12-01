@@ -166,9 +166,11 @@ def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
         nfo_file = film_path / f"{film_folder_name}.nfo"
         strm_file = film_path / f"{film_folder_name}.strm"
 
-        # Simulate existing files by creating them
+        # Simulate existing files by creating them with proper NFO structure
+        # BUG #33 FIX: NFO file must have MUBI unique ID to be considered valid
         film_path.mkdir(parents=True, exist_ok=True)
-        nfo_file.touch()
+        nfo_content = f'<?xml version="1.0" encoding="UTF-8"?><movie><title>Existing Movie</title><uniqueid type="mubi" default="true">789012</uniqueid></movie>'
+        nfo_file.write_text(nfo_content, encoding='utf-8')
         strm_file.touch()
 
         # Run prepare_files_for_film
@@ -182,6 +184,61 @@ def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
         # Assert that create_nfo_file and create_strm_file were not called
         mock_create_nfo.assert_not_called()
         mock_create_strm.assert_not_called()
+
+
+@patch.object(Film, "create_nfo_file")
+@patch.object(Film, "create_strm_file")
+def test_prepare_files_regenerates_nfo_without_mubi_uniqueid(mock_create_strm, mock_create_nfo):
+    """
+    BUG #33 FIX: Test that NFO files without MUBI unique ID are regenerated.
+    This ensures existing installations get updated NFO files to prevent
+    Kodi from matching MUBI movies with other plugins' movies.
+    """
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        plugin_userdata_path = Path(tmpdirname)
+        library = Library()
+
+        # Create a Film object
+        metadata = MockMetadata(year=2023)
+        film = Film(
+            mubi_id="789012",
+            title="Old NFO Movie",
+            artwork="http://example.com/art.jpg",
+            web_url="http://example.com",
+            metadata=metadata
+        )
+        library.add_film(film)
+
+        # Prepare paths
+        film_folder_name = film.get_sanitized_folder_name()
+        film_path = plugin_userdata_path / film_folder_name
+        nfo_file = film_path / f"{film_folder_name}.nfo"
+        strm_file = film_path / f"{film_folder_name}.strm"
+
+        # Create NFO file WITHOUT MUBI unique ID (old format)
+        film_path.mkdir(parents=True, exist_ok=True)
+        old_nfo_content = '<?xml version="1.0" encoding="UTF-8"?><movie><title>Old NFO Movie</title><imdbid>tt1234567</imdbid></movie>'
+        nfo_file.write_text(old_nfo_content, encoding='utf-8')
+        strm_file.touch()
+
+        # Mock create_nfo_file to create file with new format
+        def create_nfo_side_effect(film_path_arg, base_url_arg, omdb_api_key_arg):
+            new_nfo = film_path_arg / f"{film_folder_name}.nfo"
+            new_content = f'<?xml version="1.0" encoding="UTF-8"?><movie><title>Old NFO Movie</title><uniqueid type="mubi" default="true">789012</uniqueid></movie>'
+            new_nfo.write_text(new_content, encoding='utf-8')
+
+        mock_create_nfo.side_effect = create_nfo_side_effect
+
+        # Run prepare_files_for_film
+        base_url = "plugin://plugin.video.mubi/"
+        omdb_api_key = "fake_api_key"
+        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+
+        # Assert that prepare_files_for_film returned True (regenerated)
+        assert result is True, "prepare_files_for_film should regenerate NFO when missing MUBI unique ID."
+
+        # Assert that create_nfo_file was called (to regenerate)
+        mock_create_nfo.assert_called_once()
 
 
 @patch.object(Film, "create_nfo_file")

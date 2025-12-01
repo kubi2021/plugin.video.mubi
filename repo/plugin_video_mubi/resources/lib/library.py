@@ -8,6 +8,7 @@ import os
 import shutil
 from typing import Set
 import re
+import xml.etree.ElementTree as ET
 
 class Library:
     def __init__(self):
@@ -127,6 +128,28 @@ class Library:
         # Check that film has all necessary attributes
         return film.mubi_id and film.title and film.metadata
 
+    def _nfo_has_mubi_uniqueid(self, nfo_file: Path) -> bool:
+        """
+        Check if an NFO file contains the MUBI unique ID.
+        BUG #33 FIX: NFO files without MUBI unique ID need to be regenerated
+        to prevent Kodi from matching with other plugins' movies.
+
+        :param nfo_file: Path to the NFO file.
+        :return: True if the NFO file contains <uniqueid type="mubi">, False otherwise.
+        """
+        try:
+            tree = ET.parse(nfo_file)
+            root = tree.getroot()
+
+            # Look for <uniqueid type="mubi"> element
+            for uniqueid in root.findall('uniqueid'):
+                if uniqueid.get('type') == 'mubi':
+                    return True
+            return False
+        except (ET.ParseError, FileNotFoundError, PermissionError) as e:
+            xbmc.log(f"Error parsing NFO file '{nfo_file}': {e}", xbmc.LOGWARNING)
+            return False
+
     def prepare_files_for_film(
         self, film: Film, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]
     ) -> Optional[bool]:
@@ -139,7 +162,7 @@ class Library:
         :param base_url: The base URL for the STRM file.
         :param plugin_userdata_path: The path where film folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
-        :return: 
+        :return:
             - True if both NFO and STRM files were created successfully.
             - False if file creation failed.
             - None if files already exist and were skipped.
@@ -154,8 +177,14 @@ class Library:
         try:
             # Check if both STRM and NFO files already exist
             if strm_file.exists() and nfo_file.exists():
-                xbmc.log(f"Skipping film '{film.title}' - files already exist.", xbmc.LOGDEBUG)
-                return None  # Files already exist; no action needed
+                # BUG #33 FIX: Check if NFO file has MUBI unique ID
+                # If not, regenerate the NFO file to prevent Kodi from matching with other plugins
+                if self._nfo_has_mubi_uniqueid(nfo_file):
+                    xbmc.log(f"Skipping film '{film.title}' - files already exist with MUBI unique ID.", xbmc.LOGDEBUG)
+                    return None  # Files already exist with correct format; no action needed
+                else:
+                    xbmc.log(f"Regenerating NFO for '{film.title}' - missing MUBI unique ID (BUG #33 fix).", xbmc.LOGINFO)
+                    # Continue to regenerate the NFO file
         except PermissionError as e:
             xbmc.log(f"PermissionError when accessing files for film '{film.title}': {e}", xbmc.LOGERROR)
             return False  # Indicate failure due to permission error
