@@ -559,13 +559,20 @@ class NavigationHandler:
             # Start file creation phase (no total count shown to avoid confusion)
             all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
 
-            # Create a monitor instance for library operations
-            monitor = LibraryMonitor()
+            # Check if auto clean library is enabled in settings
+            auto_clean_enabled = self.plugin.getSetting('auto_clean_library') == 'true'
 
-            # Trigger Kodi library clean first and wait for it to complete (blocking)
-            self.clean_kodi_library(monitor)
+            if auto_clean_enabled:
+                # Create a monitor instance for library operations
+                monitor = LibraryMonitor()
 
-            # After clean is complete, trigger Kodi library update in background (non-blocking)
+                # Trigger Kodi library clean first and wait for it to complete (blocking)
+                self.clean_kodi_library(monitor)
+                xbmc.log("Auto clean library is enabled - library cleaned", xbmc.LOGINFO)
+            else:
+                xbmc.log("Auto clean library is disabled - skipping clean", xbmc.LOGDEBUG)
+
+            # Trigger Kodi library update in background (non-blocking)
             self.update_kodi_library()
 
         except Exception as e:

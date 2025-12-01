@@ -15,4 +15,8 @@
     <category label="Genres to skip">
         <setting id="skip_genres" label="Genres to skip (separate multiple genres with semicolons)" type="text" default=""/>
     </category>
+
+    <category label="Library">
+        <setting id="auto_clean_library" label="Automatically clean library after sync" type="bool" default="false"/>
+    </category>
 </settings>
