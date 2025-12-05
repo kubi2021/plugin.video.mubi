@@ -88,7 +88,7 @@ class NavigationHandler:
         if self.session.is_logged_in:
             return [
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
-                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": True},
+                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": False},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
             ]
         else:

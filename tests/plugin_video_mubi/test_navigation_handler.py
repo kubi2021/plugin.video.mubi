@@ -141,6 +141,11 @@ class TestNavigationHandler:
         assert any("Sync all Mubi films locally" in item["label"] for item in items)
         assert any("Log Out" in item["label"] for item in items)
 
+        # Verify sync_locally is NOT a folder to prevent infinite loop bug
+        # When sync_locally is a folder, Kodi re-triggers it on container refresh
+        sync_item = next(item for item in items if "sync_locally" in item["action"])
+        assert sync_item["is_folder"] is False, "sync_locally must not be a folder to prevent infinite loop"
+
     def test_get_main_menu_items_logged_out(self, navigation_handler):
         """Test main menu items for logged out users."""
         navigation_handler.session.is_logged_in = False

@@ -99,11 +99,13 @@ if __name__ == "__main__":
         xbmc.log(f"Calling sync_locally with handle: {handle}", xbmc.LOGDEBUG)
         try:
             navigation.sync_locally()
-            # End directory listing for Kodi
-            xbmcplugin.endOfDirectory(handle, succeeded=True)
+            # Sync is a one-shot action, not a directory listing.
+            # Refresh the container to return to the main menu after sync completes.
+            xbmc.executebuiltin('Container.Refresh')
         except Exception as e:
             xbmc.log(f"Error in sync_locally action: {e}", xbmc.LOGERROR)
-            xbmcplugin.endOfDirectory(handle, succeeded=False)
+            # On error, still refresh to return to main menu
+            xbmc.executebuiltin('Container.Refresh')
     elif action == "play_mubi_video":
         xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)
         film_id = params.get('film_id')
