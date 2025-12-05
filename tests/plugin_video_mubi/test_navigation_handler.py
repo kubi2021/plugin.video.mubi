@@ -670,3 +670,285 @@ class TestNavigationHandler:
         # Should show error dialog and not proceed
         mock_dialog.assert_called_once()
         mock_dialog_instance.ok.assert_called_once_with("MUBI", "Invalid or unsafe URL provided.")
+
+
+class TestKodi20Features:
+    """Test cases for Kodi 20+ (Nexus) specific features."""
+
+    @pytest.fixture
+    def mock_mubi(self):
+        """Fixture providing a mock Mubi instance."""
+        return Mock()
+
+    @pytest.fixture
+    def mock_session(self):
+        """Fixture providing a mock SessionManager instance."""
+        session = Mock()
+        session.is_logged_in = True
+        session.token = "test-token"
+        return session
+
+    @pytest.fixture
+    def navigation_handler(self, mock_addon, mock_mubi, mock_session):
+        """Fixture providing a NavigationHandler instance."""
+        return NavigationHandler(
+            handle=123,
+            base_url="plugin://plugin.video.mubi/",
+            mubi=mock_mubi,
+            session=mock_session
+        )
+
+    def _create_mock_film_with_metadata(self, **kwargs):
+        """Helper to create a mock film with complete metadata."""
+        mock_film = Mock()
+        mock_film.title = kwargs.get('title', "Test Movie")
+        mock_film.mubi_id = kwargs.get('mubi_id', "123")
+
+        # Create metadata with spec to ensure hasattr works correctly
+        mock_metadata = Mock()
+        # Set all possible attributes to None by default
+        mock_metadata.originaltitle = None
+        mock_metadata.genre = None
+        mock_metadata.plot = None
+        mock_metadata.year = None
+        mock_metadata.duration = None
+        mock_metadata.director = None
+        mock_metadata.cast = None
+        mock_metadata.rating = None
+        mock_metadata.votes = None
+        mock_metadata.imdb_id = None
+        mock_metadata.country = None
+        mock_metadata.premiered = None
+        mock_metadata.mpaa = None
+        mock_metadata.content_warnings = None
+        mock_metadata.tagline = None
+        mock_metadata.audio_languages = None
+        mock_metadata.audio_channels = None
+        mock_metadata.subtitle_languages = None
+        mock_metadata.image = kwargs.get('image', "http://example.com/image.jpg")
+
+        # Override with provided values
+        for key, value in kwargs.items():
+            if hasattr(mock_metadata, key):
+                setattr(mock_metadata, key, value)
+
+        mock_film.metadata = mock_metadata
+        return mock_film
+
+    def test_add_film_item_with_countries(self, navigation_handler):
+        """Test that setCountries is called for Kodi 20+ (Nexus)."""
+        mock_film = self._create_mock_film_with_metadata(
+            country=["France", "Italy"]
+        )
+
+        with patch('xbmcgui.ListItem') as mock_list_item, \
+             patch('xbmcplugin.addDirectoryItem'):
+            mock_info_tag = Mock()
+            mock_list_item.return_value.getVideoInfoTag.return_value = mock_info_tag
+
+            navigation_handler._add_film_item(mock_film)
+
+            mock_info_tag.setCountries.assert_called_once_with(["France", "Italy"])
+
+    def test_add_film_item_with_premiered(self, navigation_handler):
+        """Test that setPremiered is called for Kodi 20+ (Nexus)."""
+        mock_film = self._create_mock_film_with_metadata(
+            premiered="2025-11-14"
+        )
+
+        with patch('xbmcgui.ListItem') as mock_list_item, \
+             patch('xbmcplugin.addDirectoryItem'):
+            mock_info_tag = Mock()
+            mock_list_item.return_value.getVideoInfoTag.return_value = mock_info_tag
+
+            navigation_handler._add_film_item(mock_film)
+
+            mock_info_tag.setPremiered.assert_called_once_with("2025-11-14")
+
+    def test_add_film_item_with_mpaa(self, navigation_handler):
+        """Test that setMpaa is called for Kodi 20+ (Nexus)."""
+        mock_film = self._create_mock_film_with_metadata(
+            mpaa="PG-13"
+        )
+
+        with patch('xbmcgui.ListItem') as mock_list_item, \
+             patch('xbmcplugin.addDirectoryItem'):
+            mock_info_tag = Mock()
+            mock_list_item.return_value.getVideoInfoTag.return_value = mock_info_tag
+
+            navigation_handler._add_film_item(mock_film)
+
+            mock_info_tag.setMpaa.assert_called_once_with("PG-13")
+
+    def test_add_film_item_with_content_warnings_as_tags(self, navigation_handler):
+        """Test that setTags is called with content warnings for Kodi 20+ (Nexus)."""
+        mock_film = self._create_mock_film_with_metadata(
+            content_warnings=["violence", "language"]
+        )
+
+        with patch('xbmcgui.ListItem') as mock_list_item, \
+             patch('xbmcplugin.addDirectoryItem'):
+            mock_info_tag = Mock()
+            mock_list_item.return_value.getVideoInfoTag.return_value = mock_info_tag
+
+            navigation_handler._add_film_item(mock_film)
+
+            mock_info_tag.setTags.assert_called_once_with(["violence", "language"])
+
+    def test_add_film_item_with_tagline(self, navigation_handler):
+        """Test that setTagLine is called for Kodi 20+ (Nexus)."""
+        mock_film = self._create_mock_film_with_metadata(
+            tagline="A masterpiece of cinema"
+        )
+
+        with patch('xbmcgui.ListItem') as mock_list_item, \
+             patch('xbmcplugin.addDirectoryItem'):
+            mock_info_tag = Mock()
+            mock_list_item.return_value.getVideoInfoTag.return_value = mock_info_tag
+
+            navigation_handler._add_film_item(mock_film)
+
+            mock_info_tag.setTagLine.assert_called_once_with("A masterpiece of cinema")
+
+    def test_add_stream_details_audio_streams(self, navigation_handler):
+        """Test that addAudioStream is called for each audio language."""
+        mock_info_tag = Mock()
+        mock_metadata = Mock()
+        mock_metadata.audio_languages = ["French", "English"]
+        mock_metadata.audio_channels = ["5.1", "stereo"]
+
+        with patch('xbmc.AudioStreamDetail') as mock_audio_stream:
+            mock_audio_stream.return_value = Mock()
+            navigation_handler._add_stream_details(mock_info_tag, mock_metadata)
+
+            # Should create AudioStreamDetail for each language
+            assert mock_audio_stream.call_count == 2
+            # Verify first audio stream (5.1 -> 6 channels)
+            mock_audio_stream.assert_any_call(channels=6, language="French")
+            # Verify second audio stream (stereo -> 2 channels)
+            mock_audio_stream.assert_any_call(channels=2, language="English")
+            # Should call addAudioStream for each
+            assert mock_info_tag.addAudioStream.call_count == 2
+
+    def test_add_stream_details_subtitle_streams(self, navigation_handler):
+        """Test that addSubtitleStream is called for each subtitle language."""
+        mock_info_tag = Mock()
+        mock_metadata = Mock()
+        mock_metadata.audio_languages = []
+        mock_metadata.subtitle_languages = ["English", "Spanish", "German"]
+
+        with patch('xbmc.SubtitleStreamDetail') as mock_subtitle_stream:
+            mock_subtitle_stream.return_value = Mock()
+            navigation_handler._add_stream_details(mock_info_tag, mock_metadata)
+
+            # Should create SubtitleStreamDetail for each language
+            assert mock_subtitle_stream.call_count == 3
+            mock_subtitle_stream.assert_any_call(language="English")
+            mock_subtitle_stream.assert_any_call(language="Spanish")
+            mock_subtitle_stream.assert_any_call(language="German")
+            # Should call addSubtitleStream for each
+            assert mock_info_tag.addSubtitleStream.call_count == 3
+
+    def test_add_stream_details_channel_conversion(self, navigation_handler):
+        """Test channel format conversion (5.1 -> 6, 7.1 -> 8, etc.)."""
+        mock_info_tag = Mock()
+        mock_metadata = Mock()
+        mock_metadata.audio_languages = ["Lang1", "Lang2", "Lang3", "Lang4"]
+        mock_metadata.audio_channels = ["5.1", "7.1", "mono", "2.0"]
+
+        with patch('xbmc.AudioStreamDetail') as mock_audio_stream:
+            mock_audio_stream.return_value = Mock()
+            navigation_handler._add_stream_details(mock_info_tag, mock_metadata)
+
+            # Verify channel conversions
+            mock_audio_stream.assert_any_call(channels=6, language="Lang1")   # 5.1 -> 6
+            mock_audio_stream.assert_any_call(channels=8, language="Lang2")   # 7.1 -> 8
+            mock_audio_stream.assert_any_call(channels=1, language="Lang3")   # mono -> 1
+            mock_audio_stream.assert_any_call(channels=2, language="Lang4")   # 2.0 -> 2
+
+    def test_add_stream_details_empty_languages(self, navigation_handler):
+        """Test stream details handling when no languages are available."""
+        mock_info_tag = Mock()
+        mock_metadata = Mock()
+        mock_metadata.audio_languages = []
+        mock_metadata.subtitle_languages = []
+
+        # Should not crash and should not call any stream methods
+        navigation_handler._add_stream_details(mock_info_tag, mock_metadata)
+
+        mock_info_tag.addAudioStream.assert_not_called()
+        mock_info_tag.addSubtitleStream.assert_not_called()
+
+    def test_add_stream_details_skips_empty_strings(self, navigation_handler):
+        """Test that empty/whitespace-only languages are skipped."""
+        mock_info_tag = Mock()
+        mock_metadata = Mock()
+        mock_metadata.audio_languages = ["French", "", "  ", None]
+        mock_metadata.audio_channels = ["5.1", "stereo", "mono", "2.0"]
+
+        with patch('xbmc.AudioStreamDetail') as mock_audio_stream:
+            mock_audio_stream.return_value = Mock()
+            navigation_handler._add_stream_details(mock_info_tag, mock_metadata)
+
+            # Should only create for valid languages (only "French")
+            assert mock_audio_stream.call_count == 1
+            mock_audio_stream.assert_called_with(channels=6, language="French")
+
+    def test_add_stream_details_exception_handling(self, navigation_handler):
+        """Test that exceptions in stream details are handled gracefully."""
+        mock_info_tag = Mock()
+        mock_metadata = Mock()
+        mock_metadata.audio_languages = ["French"]
+        mock_metadata.audio_channels = ["5.1"]
+
+        with patch('xbmc.AudioStreamDetail', side_effect=Exception("Test error")), \
+             patch('xbmc.log') as mock_log:
+            # Should not raise exception
+            navigation_handler._add_stream_details(mock_info_tag, mock_metadata)
+
+            # Should log the error
+            mock_log.assert_called()
+
+    def test_add_film_item_all_kodi20_features(self, navigation_handler):
+        """Test that all Kodi 20+ features are set when metadata is complete."""
+        mock_film = self._create_mock_film_with_metadata(
+            title="Complete Test Movie",
+            mubi_id="456",
+            originaltitle="Original Title",
+            genre=["Drama", "Comedy"],
+            plot="Test plot",
+            year=2024,
+            duration=120,
+            director=["Director Name"],
+            rating=8.5,
+            votes=1000,
+            country=["France", "USA"],
+            premiered="2024-01-15",
+            mpaa="R",
+            content_warnings=["violence"],
+            tagline="Great movie tagline",
+            audio_languages=["English"],
+            audio_channels=["5.1"],
+            subtitle_languages=["Spanish"],
+            image="http://example.com/image.jpg"
+        )
+
+        with patch('xbmcgui.ListItem') as mock_list_item, \
+             patch('xbmcplugin.addDirectoryItem'), \
+             patch('xbmc.AudioStreamDetail') as mock_audio, \
+             patch('xbmc.SubtitleStreamDetail') as mock_subtitle:
+            mock_info_tag = Mock()
+            mock_list_item.return_value.getVideoInfoTag.return_value = mock_info_tag
+            mock_audio.return_value = Mock()
+            mock_subtitle.return_value = Mock()
+
+            navigation_handler._add_film_item(mock_film)
+
+            # Verify all Kodi 20+ features were called
+            mock_info_tag.setCountries.assert_called_once_with(["France", "USA"])
+            mock_info_tag.setPremiered.assert_called_once_with("2024-01-15")
+            mock_info_tag.setMpaa.assert_called_once_with("R")
+            mock_info_tag.setTags.assert_called_once_with(["violence"])
+            mock_info_tag.setTagLine.assert_called_once_with("Great movie tagline")
+            mock_info_tag.addAudioStream.assert_called()
+            mock_info_tag.addSubtitleStream.assert_called()

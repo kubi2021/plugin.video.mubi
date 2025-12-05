@@ -177,6 +177,34 @@ class NavigationHandler:
             if hasattr(film.metadata, 'imdb_id') and film.metadata.imdb_id:
                 info_tag.setUniqueID(film.metadata.imdb_id, 'imdb')
 
+            # Kodi 20+ (Nexus) features: Countries
+            if hasattr(film.metadata, 'country') and film.metadata.country:
+                countries = film.metadata.country
+                if isinstance(countries, str):
+                    countries = [countries]
+                info_tag.setCountries(countries)  # Expects a list
+
+            # Kodi 20+ (Nexus) features: Premiered date (preferred over year)
+            if hasattr(film.metadata, 'premiered') and film.metadata.premiered:
+                info_tag.setPremiered(film.metadata.premiered)
+
+            # Kodi 20+ (Nexus) features: Content rating (MPAA)
+            if hasattr(film.metadata, 'mpaa') and film.metadata.mpaa:
+                info_tag.setMpaa(film.metadata.mpaa)
+
+            # Kodi 20+ (Nexus) features: Content warnings as tags
+            if hasattr(film.metadata, 'content_warnings') and film.metadata.content_warnings:
+                tags = [str(w).strip() for w in film.metadata.content_warnings if w and str(w).strip()]
+                if tags:
+                    info_tag.setTags(tags)
+
+            # Kodi 20+ (Nexus) features: Press quote as tagline
+            if hasattr(film.metadata, 'tagline') and film.metadata.tagline:
+                info_tag.setTagLine(film.metadata.tagline)
+
+            # Kodi 20+ (Nexus) features: Audio and subtitle stream details
+            self._add_stream_details(info_tag, film.metadata)
+
             info_tag.setMediaType('movie')
 
             # Set artwork
@@ -202,6 +230,51 @@ class NavigationHandler:
             xbmc.log(f"Error adding film item {film.title}: {e}", xbmc.LOGERROR)
             import traceback
             xbmc.log(traceback.format_exc(), xbmc.LOGERROR)
+
+    def _add_stream_details(self, info_tag, metadata):
+        """
+        Add audio and subtitle stream details to InfoTagVideo (Kodi 20+ feature).
+
+        Uses xbmc.AudioStreamDetail and xbmc.SubtitleStreamDetail for proper stream info.
+        """
+        try:
+            # Add audio streams with language and channel information
+            if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
+                audio_channels = getattr(metadata, 'audio_channels', [])
+                for i, lang in enumerate(metadata.audio_languages):
+                    if lang and str(lang).strip():
+                        # Determine channel count from audio_channels if available
+                        channels = 2  # Default to stereo
+                        if i < len(audio_channels) and audio_channels[i]:
+                            channel_str = str(audio_channels[i]).strip().lower()
+                            if channel_str == '5.1':
+                                channels = 6
+                            elif channel_str == '7.1':
+                                channels = 8
+                            elif channel_str in ('stereo', '2.0'):
+                                channels = 2
+                            elif channel_str in ('mono', '1.0'):
+                                channels = 1
+
+                        # Create AudioStreamDetail (Kodi 20+)
+                        audio_stream = xbmc.AudioStreamDetail(
+                            channels=channels,
+                            language=str(lang).strip()
+                        )
+                        info_tag.addAudioStream(audio_stream)
+
+            # Add subtitle streams with language information
+            if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
+                for lang in metadata.subtitle_languages:
+                    if lang and str(lang).strip():
+                        # Create SubtitleStreamDetail (Kodi 20+)
+                        subtitle_stream = xbmc.SubtitleStreamDetail(
+                            language=str(lang).strip()
+                        )
+                        info_tag.addSubtitleStream(subtitle_stream)
+
+        except Exception as e:
+            xbmc.log(f"Error adding stream details: {e}", xbmc.LOGDEBUG)
 
 
 
