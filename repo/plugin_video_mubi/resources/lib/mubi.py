@@ -827,44 +827,6 @@ class Mubi:
             # Extract playback language information
             audio_languages, subtitle_languages, media_features = self._get_playback_languages(film_info)
 
-            # Extract premiered date from consumable.available_at (ISO format -> yyyy-mm-dd)
-            premiered = ''
-            consumable = film_info.get('consumable', {})
-            if consumable:
-                available_at = consumable.get('available_at', '')
-                if available_at:
-                    # Parse ISO datetime format: "2025-11-14T08:00:00Z" -> "2025-11-14"
-                    try:
-                        premiered = available_at.split('T')[0]
-                        xbmc.log(f"Premiered date for '{film_info.get('title', 'Unknown')}': {premiered}", xbmc.LOGDEBUG)
-                    except (IndexError, AttributeError):
-                        premiered = ''
-
-            # Extract content warnings as library tags
-            content_warnings = []
-            warnings_list = film_info.get('content_warnings', [])
-            if warnings_list:
-                content_warnings = [w.get('name', '') for w in warnings_list if w.get('name')]
-                if content_warnings:
-                    xbmc.log(f"Content warnings for '{film_info.get('title', 'Unknown')}': {content_warnings}", xbmc.LOGDEBUG)
-
-            # Extract press_quote as tagline
-            tagline = film_info.get('press_quote', '') or ''
-
-            # Extract audio channel info from extended_audio_options (e.g., "French (5.1)" -> "5.1")
-            audio_channels = []
-            if consumable:
-                playback_langs = consumable.get('playback_languages', {})
-                extended_audio = playback_langs.get('extended_audio_options', [])
-                for audio_opt in extended_audio:
-                    # Parse format like "French (5.1)" or "English (stereo)"
-                    if '(' in audio_opt and ')' in audio_opt:
-                        channel_info = audio_opt.split('(')[-1].rstrip(')')
-                        if channel_info and channel_info not in audio_channels:
-                            audio_channels.append(channel_info)
-                if audio_channels:
-                    xbmc.log(f"Audio channels for '{film_info.get('title', 'Unknown')}': {audio_channels}", xbmc.LOGDEBUG)
-
             metadata = Metadata(
                 title=film_info.get('title', ''),
                 director=[d['name'] for d in film_info.get('directors', [])],
@@ -884,11 +846,7 @@ class Mubi:
                 artwork_urls=artwork_urls,  # Add all artwork URLs
                 audio_languages=audio_languages,  # Available audio languages
                 subtitle_languages=subtitle_languages,  # Available subtitle languages
-                media_features=media_features,  # Media features (4K, stereo, 5.1, etc.)
-                premiered=premiered,  # MUBI premiere date
-                content_warnings=content_warnings,  # Content warnings as library tags
-                tagline=tagline,  # Press quote as tagline
-                audio_channels=audio_channels  # Audio channel info (5.1, stereo, etc.)
+                media_features=media_features  # Media features (4K, stereo, 5.1, etc.)
             )
 
             return Film(
@@ -941,8 +899,13 @@ class Mubi:
     def _get_all_artwork_urls(self, film_info: dict) -> dict:
         """
         Extract all available artwork URLs from MUBI film data.
-        Supports: thumb (landscape), poster (portrait), clearlogo (title treatment).
-        Note: Fanart is not used for individual movies.
+        Supports: thumb (landscape), poster (portrait), fanart (background), clearlogo (title treatment).
+
+        Priority sources:
+        - thumb: stills.retina > stills.standard > still_url
+        - poster: artworks[cover_artwork_vertical] > portrait_image
+        - fanart: artworks[centered_background]
+        - clearlogo: title_treatment_url
 
         :param film_info: Dictionary containing film data
         :return: Dictionary mapping artwork types to URLs
@@ -964,21 +927,45 @@ class Mubi:
                 elif stills.get('standard'):
                     artwork_urls['thumb'] = stills['standard']
 
-            # Portrait image for poster
-            portrait_image = film_info.get('portrait_image')
-            if portrait_image:
-                artwork_urls['poster'] = portrait_image
-
-            # Title treatment for clear logo
-            title_treatment = film_info.get('title_treatment_url')
-            if title_treatment:
-                artwork_urls['clearlogo'] = title_treatment
-
             # Fallback to still_url if no stills available
             if 'thumb' not in artwork_urls:
                 still_url = film_info.get('still_url')
                 if still_url:
                     artwork_urls['thumb'] = still_url
+
+            # Extract artwork from artworks[] array - better quality poster and fanart
+            artworks = film_info.get('artworks', [])
+            if isinstance(artworks, list):
+                for artwork in artworks:
+                    if not isinstance(artwork, dict):
+                        continue
+
+                    artwork_format = artwork.get('format', '')
+                    image_url = artwork.get('image_url', '')
+
+                    if not image_url:
+                        continue
+
+                    # Poster from cover_artwork_vertical (vertical/portrait format)
+                    if artwork_format == 'cover_artwork_vertical' and 'poster' not in artwork_urls:
+                        artwork_urls['poster'] = image_url
+                        xbmc.log(f"Found poster from cover_artwork_vertical for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
+
+                    # Fanart from centered_background (large background image)
+                    elif artwork_format == 'centered_background' and 'fanart' not in artwork_urls:
+                        artwork_urls['fanart'] = image_url
+                        xbmc.log(f"Found fanart from centered_background for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
+
+            # Fallback: Portrait image for poster if not found in artworks[]
+            if 'poster' not in artwork_urls:
+                portrait_image = film_info.get('portrait_image')
+                if portrait_image:
+                    artwork_urls['poster'] = portrait_image
+
+            # Title treatment for clear logo
+            title_treatment = film_info.get('title_treatment_url')
+            if title_treatment:
+                artwork_urls['clearlogo'] = title_treatment
 
             xbmc.log(f"Extracted artwork URLs for '{film_info.get('title', 'Unknown')}': {list(artwork_urls.keys())}", xbmc.LOGDEBUG)
             return artwork_urls

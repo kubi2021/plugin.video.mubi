@@ -339,18 +339,25 @@ class Film:
             xbmc.log(f"Using remote thumbnail URL: {metadata.image}", xbmc.LOGDEBUG)
 
         # Poster artwork (vertical)
-        if 'poster' in artwork_paths and Path(artwork_paths['poster']).exists():
+        if artwork_paths and 'poster' in artwork_paths and Path(artwork_paths['poster']).exists():
             poster = ET.SubElement(movie, "poster")
             poster.text = Path(artwork_paths['poster']).name
             xbmc.log(f"Using local poster: {Path(artwork_paths['poster']).name}", xbmc.LOGDEBUG)
 
-
+        # Fanart artwork (background)
+        if artwork_paths and 'fanart' in artwork_paths and Path(artwork_paths['fanart']).exists():
+            fanart = ET.SubElement(movie, "fanart")
+            fanart_thumb = ET.SubElement(fanart, "thumb")
+            fanart_thumb.text = Path(artwork_paths['fanart']).name
+            xbmc.log(f"Using local fanart: {Path(artwork_paths['fanart']).name}", xbmc.LOGDEBUG)
 
         # Clear logo (transparent title)
-        if 'clearlogo' in artwork_paths and Path(artwork_paths['clearlogo']).exists():
+        if (artwork_paths and 'clearlogo' in artwork_paths
+                and Path(artwork_paths['clearlogo']).exists()):
             clearlogo = ET.SubElement(movie, "clearlogo")
             clearlogo.text = Path(artwork_paths['clearlogo']).name
-            xbmc.log(f"Using local clearlogo: {Path(artwork_paths['clearlogo']).name}", xbmc.LOGDEBUG)
+            clearlogo_name = Path(artwork_paths['clearlogo']).name
+            xbmc.log(f"Using local clearlogo: {clearlogo_name}", xbmc.LOGDEBUG)
 
         # Audio and subtitle language information using official Kodi structure
         # Only add fileinfo/streamdetails if we have audio or subtitle data

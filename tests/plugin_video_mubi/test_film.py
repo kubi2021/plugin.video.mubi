@@ -518,6 +518,49 @@ class TestFilm:
         clearlogo_elem = root.find("clearlogo")
         assert clearlogo_elem is None  # Not present when file doesn't exist
 
+        # Check fanart artwork - should not be present when file doesn't exist
+        fanart_elem = root.find("fanart")
+        assert fanart_elem is None  # Not present when file doesn't exist
+
+    def test_nfo_tree_generation_with_fanart(self, mock_metadata, tmp_path):
+        """Test NFO XML tree generation includes fanart when available."""
+        # Arrange
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        # Create actual temp files for the test
+        fanart_file = tmp_path / "Test-Movie-2023-fanart.png"
+        fanart_file.write_bytes(b"fake fanart data")
+        poster_file = tmp_path / "Test-Movie-2023-poster.png"
+        poster_file.write_bytes(b"fake poster data")
+
+        artwork_paths = {
+            'fanart': str(fanart_file),
+            'poster': str(poster_file)
+        }
+
+        # Act
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            "http://example.com/trailer",
+            "http://imdb.com/title/tt123",
+            artwork_paths
+        )
+
+        # Assert
+        root = ET.fromstring(nfo_tree)
+
+        # Check fanart artwork - should be present with nested thumb element
+        fanart_elem = root.find("fanart")
+        assert fanart_elem is not None
+        fanart_thumb = fanart_elem.find("thumb")
+        assert fanart_thumb is not None
+        assert fanart_thumb.text == "Test-Movie-2023-fanart.png"
+
+        # Check poster artwork - should be present
+        poster_elem = root.find("poster")
+        assert poster_elem is not None
+        assert poster_elem.text == "Test-Movie-2023-poster.png"
+
     def test_nfo_tree_generation_without_artwork_paths(self, mock_metadata):
         """Test NFO XML tree generation when no artwork paths available."""
         # Arrange

@@ -674,16 +674,33 @@ class TestMubi:
             },
             'portrait_image': 'https://assets.mubicdn.net/images/film/12345/poster.jpg',
             'title_treatment_url': 'https://assets.mubicdn.net/images/film/12345/logo.png',
-            'still_url': 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg'
+            'still_url': 'https://assets.mubicdn.net/images/film/12345/image-w320.jpg',
+            'artworks': [
+                {
+                    'format': 'cover_artwork_vertical',
+                    'image_url': 'https://images.mubicdn.net/images/artworks/12345/poster.png'
+                },
+                {
+                    'format': 'centered_background',
+                    'image_url': 'https://images.mubicdn.net/images/artworks/12345/fanart.png'
+                }
+            ]
         }
 
         artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
 
-        # Should extract all artwork types (no fanart for movies)
-        assert artwork_urls['thumb'] == 'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg'  # retina
-        assert artwork_urls['poster'] == 'https://assets.mubicdn.net/images/film/12345/poster.jpg'  # portrait_image
-        assert artwork_urls['clearlogo'] == 'https://assets.mubicdn.net/images/film/12345/logo.png'  # title_treatment
-        assert 'fanart' not in artwork_urls  # Fanart not used for individual movies
+        # Should extract all artwork types including fanart
+        # retina stills for thumb
+        assert artwork_urls['thumb'] == \
+            'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg'
+        # cover_artwork_vertical takes priority over portrait_image
+        assert artwork_urls['poster'] == \
+            'https://images.mubicdn.net/images/artworks/12345/poster.png'
+        assert artwork_urls['clearlogo'] == \
+            'https://assets.mubicdn.net/images/film/12345/logo.png'
+        # fanart from centered_background
+        assert artwork_urls['fanart'] == \
+            'https://images.mubicdn.net/images/artworks/12345/fanart.png'
 
     def test_get_all_artwork_urls_minimal_set(self, mubi_instance):
         """Test extraction with minimal artwork available."""
@@ -701,7 +718,7 @@ class TestMubi:
         assert 'clearlogo' not in artwork_urls
 
     def test_get_all_artwork_urls_fallbacks(self, mubi_instance):
-        """Test artwork fallback logic."""
+        """Test artwork fallback logic - portrait_image used when no artworks."""
         film_info = {
             'title': 'Test Movie',
             'stills': {
@@ -709,14 +726,90 @@ class TestMubi:
                 # No retina or large_overlaid
             },
             'portrait_image': 'https://assets.mubicdn.net/images/film/12345/poster.jpg'
+            # No artworks array - should fallback to portrait_image for poster
         }
 
         artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
 
         # Should use standard for thumb when retina not available
-        assert artwork_urls['thumb'] == 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg'  # standard fallback
-        assert artwork_urls['poster'] == 'https://assets.mubicdn.net/images/film/12345/poster.jpg'
-        assert 'fanart' not in artwork_urls  # No fanart for movies
+        thumb_url = 'https://assets.mubicdn.net/images/film/12345/image-w640.jpg'
+        assert artwork_urls['thumb'] == thumb_url  # standard fallback
+        poster_url = 'https://assets.mubicdn.net/images/film/12345/poster.jpg'
+        assert artwork_urls['poster'] == poster_url  # portrait_image fallback
+        assert 'fanart' not in artwork_urls  # No centered_background in artworks
+
+    def test_get_all_artwork_urls_artworks_array_extraction(self, mubi_instance):
+        """Test extraction of poster and fanart from artworks[] array."""
+        film_info = {
+            'title': 'Test Movie',
+            'stills': {
+                'retina': 'https://assets.mubicdn.net/images/film/12345/thumb.jpg'
+            },
+            'artworks': [
+                {
+                    'format': 'tile_artwork',
+                    'image_url': 'https://images.mubicdn.net/images/artworks/123/tile.png'
+                },
+                {
+                    'format': 'cover_artwork_vertical',
+                    'locale': 'en-US',
+                    'image_url': 'https://images.mubicdn.net/images/artworks/123/vert.png'
+                },
+                {
+                    'format': 'centered_background',
+                    'locale': None,
+                    'image_url': 'https://images.mubicdn.net/images/artworks/123/bg.png'
+                },
+                {
+                    'format': 'cover_artwork_horizontal',
+                    'image_url': 'https://images.mubicdn.net/images/artworks/123/horiz.png'
+                }
+            ]
+        }
+
+        artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
+
+        # thumb from stills
+        assert artwork_urls['thumb'] == \
+            'https://assets.mubicdn.net/images/film/12345/thumb.jpg'
+        # poster from cover_artwork_vertical
+        assert artwork_urls['poster'] == \
+            'https://images.mubicdn.net/images/artworks/123/vert.png'
+        # fanart from centered_background
+        assert artwork_urls['fanart'] == \
+            'https://images.mubicdn.net/images/artworks/123/bg.png'
+        # clearlogo not present (no title_treatment_url)
+        assert 'clearlogo' not in artwork_urls
+
+    def test_get_all_artwork_urls_artworks_array_invalid_entries(self, mubi_instance):
+        """Test handling of invalid entries in artworks[] array."""
+        film_info = {
+            'title': 'Test Movie',
+            'still_url': 'https://assets.mubicdn.net/images/film/12345/fallback.jpg',
+            'artworks': [
+                None,  # Invalid - None entry
+                "invalid_string",  # Invalid - not a dict
+                {'format': 'cover_artwork_vertical'},  # Missing image_url
+                {'image_url': 'https://example.com/img.png'},  # Missing format
+                {
+                    'format': 'cover_artwork_vertical',
+                    'image_url': ''  # Empty image_url
+                },
+                {
+                    'format': 'centered_background',
+                    'image_url': 'https://images.mubicdn.net/images/valid.png'
+                }
+            ]
+        }
+
+        artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
+
+        # Should only extract valid fanart, skip invalid entries
+        assert artwork_urls['thumb'] == \
+            'https://assets.mubicdn.net/images/film/12345/fallback.jpg'
+        assert 'poster' not in artwork_urls  # No valid cover_artwork_vertical
+        assert artwork_urls['fanart'] == \
+            'https://images.mubicdn.net/images/valid.png'
 
     # ===== Enhanced Artwork URL Extraction Edge Case Tests =====
 
