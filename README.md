@@ -189,6 +189,15 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
+### Dec 5th, 2025
+- Enhanced NFO metadata with Kodi 20+ tags: `<premiered>`, `<tag>` (content warnings), `<tagline>` (press quotes)
+- Added support for multiple `<country>` tags instead of just the first country
+- Added `<channels>` audio channel information from MUBI's extended audio options
+- Expanded artwork extraction: poster from `cover_artwork_vertical`, fanart from `centered_background`
+- Kodi 20+ (Nexus) live browsing enhancements with full InfoTagVideo API support
+- Added audio and subtitle stream details for live browsing (matching NFO metadata parity)
+- Updated `xbmc.python` requirement to 3.0.1 for Kodi 20+ compatibility
+
 ### Jul 21st, 2025
 - Removed category-based browsing system for simplified user experience
 - Direct film synchronization using MUBI API V4 /browse/films endpoint
