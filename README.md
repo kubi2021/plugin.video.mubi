@@ -196,6 +196,7 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 - Expanded artwork extraction: poster from `cover_artwork_vertical`, fanart from `centered_background`
 - Kodi 20+ (Nexus) live browsing enhancements with full InfoTagVideo API support
 - Added audio and subtitle stream details for live browsing (matching NFO metadata parity)
+- Fixed sync loop bug: sync no longer repeats infinitely when there are no new movies
 
 ### Jul 21st, 2025
 - Removed category-based browsing system for simplified user experience
