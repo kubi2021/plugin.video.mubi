@@ -827,6 +827,44 @@ class Mubi:
             # Extract playback language information
             audio_languages, subtitle_languages, media_features = self._get_playback_languages(film_info)
 
+            # Extract premiered date from consumable.available_at (ISO format -> yyyy-mm-dd)
+            premiered = ''
+            consumable = film_info.get('consumable', {})
+            if consumable:
+                available_at = consumable.get('available_at', '')
+                if available_at:
+                    # Parse ISO datetime format: "2025-11-14T08:00:00Z" -> "2025-11-14"
+                    try:
+                        premiered = available_at.split('T')[0]
+                        xbmc.log(f"Premiered date for '{film_info.get('title', 'Unknown')}': {premiered}", xbmc.LOGDEBUG)
+                    except (IndexError, AttributeError):
+                        premiered = ''
+
+            # Extract content warnings as library tags
+            content_warnings = []
+            warnings_list = film_info.get('content_warnings', [])
+            if warnings_list:
+                content_warnings = [w.get('name', '') for w in warnings_list if w.get('name')]
+                if content_warnings:
+                    xbmc.log(f"Content warnings for '{film_info.get('title', 'Unknown')}': {content_warnings}", xbmc.LOGDEBUG)
+
+            # Extract press_quote as tagline
+            tagline = film_info.get('press_quote', '') or ''
+
+            # Extract audio channel info from extended_audio_options (e.g., "French (5.1)" -> "5.1")
+            audio_channels = []
+            if consumable:
+                playback_langs = consumable.get('playback_languages', {})
+                extended_audio = playback_langs.get('extended_audio_options', [])
+                for audio_opt in extended_audio:
+                    # Parse format like "French (5.1)" or "English (stereo)"
+                    if '(' in audio_opt and ')' in audio_opt:
+                        channel_info = audio_opt.split('(')[-1].rstrip(')')
+                        if channel_info and channel_info not in audio_channels:
+                            audio_channels.append(channel_info)
+                if audio_channels:
+                    xbmc.log(f"Audio channels for '{film_info.get('title', 'Unknown')}': {audio_channels}", xbmc.LOGDEBUG)
+
             metadata = Metadata(
                 title=film_info.get('title', ''),
                 director=[d['name'] for d in film_info.get('directors', [])],
@@ -846,7 +884,11 @@ class Mubi:
                 artwork_urls=artwork_urls,  # Add all artwork URLs
                 audio_languages=audio_languages,  # Available audio languages
                 subtitle_languages=subtitle_languages,  # Available subtitle languages
-                media_features=media_features  # Media features (4K, stereo, 5.1, etc.)
+                media_features=media_features,  # Media features (4K, stereo, 5.1, etc.)
+                premiered=premiered,  # MUBI premiere date
+                content_warnings=content_warnings,  # Content warnings as library tags
+                tagline=tagline,  # Press quote as tagline
+                audio_channels=audio_channels  # Audio channel info (5.1, stereo, etc.)
             )
 
             return Film(

@@ -24,7 +24,11 @@ class Metadata:
         artwork_urls: Optional[dict] = None,
         audio_languages: Optional[List[str]] = None,
         subtitle_languages: Optional[List[str]] = None,
-        media_features: Optional[List[str]] = None
+        media_features: Optional[List[str]] = None,
+        premiered: Optional[str] = "",
+        content_warnings: Optional[List[str]] = None,
+        tagline: Optional[str] = "",
+        audio_channels: Optional[List[str]] = None
     ):
         try:
             self.title = title
@@ -47,6 +51,10 @@ class Metadata:
             self.audio_languages = audio_languages or []  # Available audio languages
             self.subtitle_languages = subtitle_languages or []  # Available subtitle languages
             self.media_features = media_features or []  # Media features (4K, stereo, 5.1, etc.)
+            self.premiered = premiered or ""  # MUBI premiere date (yyyy-mm-dd)
+            self.content_warnings = content_warnings or []  # Content warnings as library tags
+            self.tagline = tagline or ""  # Press quote as tagline
+            self.audio_channels = audio_channels or []  # Audio channel info (e.g., "5.1", "stereo")
         except Exception as e:
             xbmc.log(f"Error initializing Metadata object: {e}", xbmc.LOGERROR)
 
@@ -59,7 +67,7 @@ class Metadata:
     def as_dict(self) -> dict:
         """
         Convert metadata to a dictionary format.
-        
+
         :return: Dictionary containing metadata fields.
         """
         try:
@@ -83,7 +91,11 @@ class Metadata:
                 'artwork_urls': self.artwork_urls,
                 'audio_languages': self.audio_languages,
                 'subtitle_languages': self.subtitle_languages,
-                'media_features': self.media_features
+                'media_features': self.media_features,
+                'premiered': self.premiered,
+                'content_warnings': self.content_warnings,
+                'tagline': self.tagline,
+                'audio_channels': self.audio_channels
             }
         except Exception as e:
             xbmc.log(f"Error converting Metadata to dict: {e}", xbmc.LOGERROR)

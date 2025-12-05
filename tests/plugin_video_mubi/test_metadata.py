@@ -194,9 +194,13 @@ class TestMetadata:
             'artwork_urls': {},
             'audio_languages': [],
             'subtitle_languages': [],
-            'media_features': []
+            'media_features': [],
+            'premiered': "",
+            'content_warnings': [],
+            'tagline': "",
+            'audio_channels': []
         }
-        
+
         assert result_dict == expected_dict
 
     def test_metadata_as_dict_minimal(self):

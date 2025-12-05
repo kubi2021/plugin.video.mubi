@@ -295,8 +295,14 @@ class Film:
         if metadata.mpaa:
             ET.SubElement(movie, "mpaa").text = self._sanitize_xml_content(metadata.mpaa)
 
+        # Add tagline from press_quote (if available)
+        if hasattr(metadata, 'tagline') and metadata.tagline:
+            ET.SubElement(movie, "tagline").text = self._sanitize_xml_content(metadata.tagline)
+
+        # Support multiple country tags (previously only used first)
         if metadata.country:
-            ET.SubElement(movie, "country").text = self._sanitize_xml_content(metadata.country[0])
+            for country in metadata.country:
+                ET.SubElement(movie, "country").text = self._sanitize_xml_content(country)
 
         for genre in metadata.genre:
             ET.SubElement(movie, "genre").text = self._sanitize_xml_content(genre)
@@ -305,6 +311,16 @@ class Film:
             ET.SubElement(movie, "director").text = self._sanitize_xml_content(director)
 
         ET.SubElement(movie, "year").text = str(metadata.year)
+
+        # Add premiered date (Kodi v20+ prefers this over deprecated <year>)
+        if hasattr(metadata, 'premiered') and metadata.premiered:
+            ET.SubElement(movie, "premiered").text = self._sanitize_xml_content(metadata.premiered)
+
+        # Add content warnings as library tags
+        if hasattr(metadata, 'content_warnings') and metadata.content_warnings:
+            for warning in metadata.content_warnings:
+                if warning and str(warning).strip():
+                    ET.SubElement(movie, "tag").text = self._sanitize_xml_content(str(warning).strip())
         # SECURITY FIX: Sanitize trailer URL to prevent injection
         ET.SubElement(movie, "trailer").text = self._sanitize_xml_content(kodi_trailer_url)
 
@@ -345,13 +361,32 @@ class Film:
             streamdetails = ET.SubElement(fileinfo, "streamdetails")
 
             # Audio streams - create separate <audio> element for each language
+            # Include channel information if available
             if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
-                for lang in metadata.audio_languages:
+                audio_channels = getattr(metadata, 'audio_channels', [])
+                for i, lang in enumerate(metadata.audio_languages):
                     if lang and str(lang).strip():  # Skip empty/None values
                         audio_elem = ET.SubElement(streamdetails, "audio")
                         audio_lang = ET.SubElement(audio_elem, "language")
                         # SECURITY FIX: Sanitize language content
                         audio_lang.text = self._sanitize_xml_content(str(lang).strip())
+
+                        # Add channel info if available (convert "5.1" -> 6, "stereo" -> 2)
+                        if i < len(audio_channels) and audio_channels[i]:
+                            channel_str = str(audio_channels[i]).strip().lower()
+                            channels_elem = ET.SubElement(audio_elem, "channels")
+                            # Convert channel format to number
+                            if channel_str == '5.1':
+                                channels_elem.text = '6'
+                            elif channel_str == '7.1':
+                                channels_elem.text = '8'
+                            elif channel_str in ('stereo', '2.0'):
+                                channels_elem.text = '2'
+                            elif channel_str in ('mono', '1.0'):
+                                channels_elem.text = '1'
+                            else:
+                                # Keep original value if not a recognized format
+                                channels_elem.text = self._sanitize_xml_content(channel_str)
 
             # Subtitle streams - create separate <subtitle> element for each language
             if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
@@ -361,11 +396,6 @@ class Film:
                         subtitle_lang = ET.SubElement(subtitle_elem, "language")
                         # SECURITY FIX: Sanitize language content
                         subtitle_lang.text = self._sanitize_xml_content(str(lang).strip())
-
-        # Note: Media features like "4K", "HDR", "Dolby Atmos" are not part of the official
-        # Kodi NFO specification. Technical details should go in specific elements like:
-        # <codec>, <width>, <height>, <hdrtype>, <channels> within streamdetails.
-        # For now, we'll omit the custom mediafeatures element to maintain compliance.
 
 
 

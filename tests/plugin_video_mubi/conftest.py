@@ -143,6 +143,11 @@ def mock_metadata():
     metadata.audio_languages = ["English", "French"]
     metadata.subtitle_languages = ["English", "French", "Spanish"]
     metadata.media_features = ["HD", "stereo"]
+    # New NFO fields
+    metadata.premiered = "2023-01-15"
+    metadata.content_warnings = ["violence", "language"]
+    metadata.tagline = "A test movie tagline"
+    metadata.audio_channels = ["5.1", "stereo"]
     return metadata
 
 @pytest.fixture
