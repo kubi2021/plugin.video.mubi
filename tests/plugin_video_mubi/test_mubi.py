@@ -2256,18 +2256,19 @@ class TestMubi:
         }
 
         with patch.object(mubi_instance, '_make_api_call') as mock_api_call, \
-             patch.object(mubi_instance, 'get_cli_language', return_value='en'):
+             patch.object(mubi_instance, 'get_cli_language', return_value='en'), \
+             patch.object(mubi_instance, '_get_random_user_agent', return_value='Mozilla/5.0 (Test Browser)'):
             mock_response = Mock()
             mock_response.json.return_value = mock_response_data
             mock_api_call.return_value = mock_response
 
             library = mubi_instance.get_all_films()
 
-            # Verify API was called correctly
+            # Verify API was called correctly with anonymous headers (no auth token)
             mock_api_call.assert_called_once_with(
                 'GET',
                 endpoint='v4/browse/films',
-                headers=mubi_instance.hea_gen(),
+                headers=mubi_instance.hea_gen_anonymous(),
                 params={'page': 1, 'sort': 'title', 'playable': 'true'}
             )
 

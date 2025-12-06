@@ -396,6 +396,49 @@ class Mubi:
         headers['Authorization'] = f'Bearer {token}'
         return headers
 
+    # Common browser User-Agents for rotation to avoid fingerprinting
+    COMMON_USER_AGENTS = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+    ]
+
+    def _get_random_user_agent(self):
+        """
+        Returns a random User-Agent from the pool of common browser UAs.
+        Used to reduce fingerprinting on anonymous requests.
+
+        :return: Random User-Agent string.
+        :rtype: str
+        """
+        return random.choice(self.COMMON_USER_AGENTS)
+
+    def hea_gen_anonymous(self):
+        """
+        Generates anonymous web headers for API requests that don't require authentication.
+        Used for browsing the catalogue without sending user credentials.
+        Uses a random User-Agent on each call to reduce fingerprinting.
+
+        :return: Headers dictionary without Authorization token.
+        :rtype: dict
+        """
+        base_url = 'https://mubi.com'
+
+        return {
+            'Referer': base_url,
+            'Origin': base_url,
+            'User-Agent': self._get_random_user_agent(),
+            'Client': 'web',
+            'Client-Accept-Video-Codecs': 'h265,vp9,h264',
+            'Client-Country': self.session_manager.client_country,
+            'accept-language': self.get_cli_language()
+        }
+
     def hea_gen(self):
         """
         Generates web headers required for API requests with authorization (similar to heaGen() in inspiration code).
@@ -498,7 +541,6 @@ class Mubi:
         """
         try:
             endpoint = 'v4/browse/films'
-            headers = self.hea_gen()  # Use web headers for best results
             all_films_library = Library()
             page = 1
             total_films_fetched = 0
@@ -510,6 +552,16 @@ class Mubi:
             xbmc.log(f"Starting to fetch all films from {endpoint} using sort=title (filtering out series)", xbmc.LOGINFO)
 
             while True:
+                # Add random delay between requests (0.5-2.0 seconds) to appear more human-like
+                # Skip delay for the first page
+                if page > 1:
+                    delay = random.uniform(0.5, 2.0)
+                    xbmc.log(f"Adding {delay:.2f}s delay before fetching page {page}", xbmc.LOGDEBUG)
+                    time.sleep(delay)
+
+                # Generate fresh headers for each request (rotates User-Agent)
+                headers = self.hea_gen_anonymous()
+
                 # Use sort=title to get the full catalog
                 params = {
                     'page': page,
