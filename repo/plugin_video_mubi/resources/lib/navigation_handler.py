@@ -392,30 +392,42 @@ class NavigationHandler:
 
 
 
-    def play_mubi_video(self, film_id: str = None, web_url: str = None):
+    def play_mubi_video(self, film_id: str = None, web_url: str = None, country: str = None):
         """
         Play a Mubi video using the secure URL and DRM handling.
         If playback fails, prompt the user to open the video in an external web browser.
 
         :param film_id: Video ID
         :param web_url: Web URL of the film
+        :param country: Country where the film is available (used for error messages only)
         """
         try:
             xbmc.log(f"play_mubi_video called with handle: {self.handle}", xbmc.LOGDEBUG)
+            xbmc.log(f"Film available in country: {country or 'unknown'}", xbmc.LOGINFO)
 
             if film_id is None:
-                xbmc.log(f"Error: film_id is missing", xbmc.LOGERROR)
+                xbmc.log("Error: film_id is missing", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", "Error: film_id is missing.", xbmcgui.NOTIFICATION_ERROR)
                 return
 
-            # Get secure stream info from Mubi API
-            stream_info = self.mubi.get_secure_stream_info(film_id)
+            # Get secure stream info from Mubi API (uses user's actual country for API)
+            # Pass film_country for error messaging only
+            stream_info = self.mubi.get_secure_stream_info(film_id, film_country=country)
             xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
 
             if 'error' in stream_info:
-                xbmc.log(f"Error in stream info: {stream_info['error']}", xbmc.LOGERROR)
-                xbmcgui.Dialog().notification("MUBI", f"Error: {stream_info['error']}", xbmcgui.NOTIFICATION_ERROR)
-                raise Exception("Error in stream info")
+                error_msg = stream_info['error']
+                xbmc.log(f"Error in stream info: {error_msg}", xbmc.LOGERROR)
+
+                # Check if this is a geo-restriction error (contains VPN message)
+                if 'VPN' in error_msg:
+                    # Show a dialog for geo-restriction, no browser option
+                    xbmcgui.Dialog().ok("MUBI", error_msg)
+                    return  # Exit without offering browser option
+                else:
+                    # For other errors, raise exception to trigger browser option
+                    xbmcgui.Dialog().notification("MUBI", f"Error: {error_msg}", xbmcgui.NOTIFICATION_ERROR)
+                    raise Exception("Error in stream info")
 
             # Select the best stream URL
             best_stream_url = self.mubi.select_best_stream(stream_info)
@@ -439,12 +451,10 @@ class NavigationHandler:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
 
-            # Prompt the user
+            # Prompt the user to open in browser (only for non-geo-restriction errors)
             if web_url:
                 if xbmcgui.Dialog().yesno("MUBI", "Failed to play the video. Do you want to open it in a web browser?"):
                     self.play_video_ext(web_url)
-                else:
-                    pass  # User chose not to open in web browser
             else:
                 xbmcgui.Dialog().notification("MUBI", "Unable to open in web browser. Web URL is missing.", xbmcgui.NOTIFICATION_ERROR)
 
@@ -581,20 +591,30 @@ class NavigationHandler:
             pDialog = xbmcgui.DialogProgress()
             pDialog.create("Syncing with MUBI 1/2", "Initializing...")
 
+            # Country code to full name mapping for display
+            COUNTRY_NAMES = {
+                'CH': 'Switzerland', 'DE': 'Germany', 'US': 'United States',
+                'GB': 'United Kingdom', 'FR': 'France', 'JP': 'Japan',
+                'DONE': 'Processing'
+            }
+
             # Define progress callback for dynamic updates
-            def update_fetch_progress(current_films, total_films, current_page, total_pages):
+            def update_fetch_progress(current_films, total_films, current_country, total_countries, country_code):
                 if pDialog.iscanceled():
                     # Raise an exception to signal cancellation to get_all_films
                     raise Exception("User canceled sync operation")
 
-                # Calculate percentage based on pages processed (use full 100% for fetching phase)
-                if total_pages > 0:
-                    percent = int((current_page / total_pages) * 100)  # Use full progress bar
-                else:
-                    percent = 50  # Fallback percentage
+                # Calculate percentage based on countries processed
+                percent = int((current_country / total_countries) * 100) if total_countries > 0 else 0
 
-                # Update dialog with dynamic information - keep it simple without any counts
-                message = "Fetching playable films..."
+                # Get country display name
+                country_name = COUNTRY_NAMES.get(country_code, country_code)
+
+                # Update dialog with country information
+                if country_code == 'DONE':
+                    message = f"Fetched {current_films} films from {total_countries} countries\nProcessing..."
+                else:
+                    message = f"Fetching from {country_name} ({current_country}/{total_countries})\n{current_films} unique films so far"
                 pDialog.update(percent, message)
 
             # Use the new direct approach to fetch all films with progress tracking
@@ -622,6 +642,10 @@ class NavigationHandler:
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
 
+            # Get user's country for STRM file generation
+            user_country = self.mubi.session_manager.client_country
+            xbmc.log(f"User country for STRM files: {user_country}", xbmc.LOGINFO)
+
             # Close the first progress dialog before starting file creation
             pDialog.close()
 
@@ -630,7 +654,9 @@ class NavigationHandler:
             time.sleep(0.1)
 
             # Start file creation phase (no total count shown to avoid confusion)
-            all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
+            all_films_library.sync_locally(
+                self.base_url, plugin_userdata_path, omdb_api_key, user_country
+            )
 
             # Create a monitor instance for library operations
             monitor = LibraryMonitor()

@@ -193,11 +193,11 @@ class TestRealComponentIntegration:
                     film_path.mkdir(parents=True, exist_ok=True)
                     nfo_file = film_path / f"{sample_film.get_sanitized_folder_name()}.nfo"
                     nfo_file.touch()
-                
-                def create_strm_side_effect(film_path, base_url):
+
+                def create_strm_side_effect(film_path, base_url, user_country=None):
                     strm_file = film_path / f"{sample_film.get_sanitized_folder_name()}.strm"
                     strm_file.touch()
-                
+
                 mock_nfo.side_effect = create_nfo_side_effect
                 mock_strm.side_effect = create_strm_side_effect
                 

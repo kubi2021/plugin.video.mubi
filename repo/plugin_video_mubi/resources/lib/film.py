@@ -16,7 +16,8 @@ from pathlib import Path
 
 
 class Film:
-    def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata):
+    def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata,
+                 available_countries: list = None):
         if not mubi_id or not metadata:
             raise ValueError("Film must have a mubi_id and metadata")
 
@@ -29,6 +30,8 @@ class Film:
         self.artwork = artwork
         self.web_url = web_url
         self.metadata = metadata
+        # List of country codes where this film is available (e.g., ['CH', 'DE', 'US'])
+        self.available_countries = available_countries or []
 
     def __eq__(self, other):
         if not isinstance(other, Film):
@@ -205,8 +208,13 @@ class Film:
         return folder_name
 
 
-    def create_strm_file(self, film_path: Path, base_url: str):
-        """Create the .strm file for the film."""
+    def create_strm_file(self, film_path: Path, base_url: str, user_country: str = None):
+        """Create the .strm file for the film.
+
+        :param film_path: Path to the film folder.
+        :param base_url: Base URL for the plugin.
+        :param user_country: User's country code (used to determine playback country).
+        """
         from urllib.parse import urlencode
 
         # Use sanitized folder name for consistent file naming
@@ -214,12 +222,22 @@ class Film:
         film_file_name = f"{film_folder_name}.strm"
         film_strm_file = film_path / film_file_name
 
+        # Determine the best country for playback:
+        # 1. If film is available in user's country, use user's country
+        # 2. Otherwise, use the first available country
+        playback_country = self._get_playback_country(user_country)
+
         # Build the query parameters
         query_params = {
             'action': 'play_mubi_video',
             'film_id': self.mubi_id,
             'web_url': self.web_url
         }
+
+        # Add country parameter if we have availability info
+        if playback_country:
+            query_params['country'] = playback_country
+
         encoded_params = urlencode(query_params)
         kodi_movie_url = f"{base_url}?{encoded_params}"
 
@@ -230,6 +248,22 @@ class Film:
             xbmc.log(f"Error while creating STRM file for {self.title}: {error}", xbmc.LOGERROR)
             # BUG #9 FIX: Re-raise the exception so caller knows the operation failed
             raise
+
+    def _get_playback_country(self, user_country: str = None) -> str:
+        """Determine the best country for playback.
+
+        :param user_country: User's country code.
+        :return: Country code to use for playback, or None if unknown.
+        """
+        if not self.available_countries:
+            return None
+
+        # If user's country is available, prefer it
+        if user_country and user_country in self.available_countries:
+            return user_country
+
+        # Otherwise, use the first available country
+        return self.available_countries[0] if self.available_countries else None
 
     def create_nfo_file(self, film_path: Path, base_url: str, omdb_api_key: str):
         """Create the .nfo file for the film."""

@@ -63,24 +63,24 @@ class TestMubi:
 
             assert country == "PL"  # Default fallback
 
-    def test_get_cli_language_success(self, mubi_instance):
-        """Test successful client language retrieval."""
-        # Mock the _make_api_call method to return a response with text
-        mock_response = Mock()
-        mock_response.text = 'some html with "Accept-Language":"en-US" in it'
+    def test_get_cli_language_returns_default(self, mubi_instance):
+        """Test client language returns default 'en' value.
 
-        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response):
-            language = mubi_instance.get_cli_language()
+        Note: get_cli_language was refactored to return a cached/default value
+        instead of making HTTP requests to avoid CAPTCHA issues during multi-country sync.
+        """
+        language = mubi_instance.get_cli_language()
+        assert language == "en"  # Default fallback
 
-            assert language == "en-US"
+    def test_get_cli_language_uses_cached_value(self, mubi_instance):
+        """Test client language uses cached session value if available."""
+        # Mock session manager with cached language
+        mubi_instance.session_manager.client_language = "de-DE"
+        language = mubi_instance.get_cli_language()
+        assert language == "de-DE"
 
-    def test_get_cli_language_failure(self, mubi_instance):
-        """Test client language retrieval failure."""
-        # Mock the _make_api_call method to return None (failure)
-        with patch.object(mubi_instance, '_make_api_call', return_value=None):
-            language = mubi_instance.get_cli_language()
-
-            assert language == "en"  # Default fallback
+        # Clean up
+        del mubi_instance.session_manager.client_language
 
     def test_get_link_code_success(self, mubi_instance):
         """Test successful link code generation."""
@@ -1504,9 +1504,9 @@ class TestMubi:
 
     def test_get_secure_stream_info_success(self, mubi_instance):
         """Test successful secure stream info retrieval."""
-        # Mock the viewing response (can fail, it's optional)
-        viewing_response = Mock()
-        viewing_response.status_code = 200
+        # Mock the direct requests.post call for viewing availability check
+        viewing_post_response = Mock()
+        viewing_post_response.status_code = 200
 
         # Mock the preroll response (optional)
         preroll_response = Mock()
@@ -1522,41 +1522,85 @@ class TestMubi:
             ]
         }
 
-        with patch.object(mubi_instance, '_make_api_call', side_effect=[viewing_response, preroll_response, secure_response]):
-            with patch('plugin_video_mubi.resources.lib.mubi.generate_drm_license_key', return_value="license-key"):
-                result = mubi_instance.get_secure_stream_info("12345")
+        with patch('requests.post', return_value=viewing_post_response):
+            with patch.object(mubi_instance, '_make_api_call', side_effect=[preroll_response, secure_response]):
+                with patch('plugin_video_mubi.resources.lib.mubi.generate_drm_license_key', return_value="license-key"):
+                    result = mubi_instance.get_secure_stream_info("12345")
 
-                assert "stream_url" in result
-                assert result["stream_url"] == "https://example.com/stream.m3u8"
-                assert "license_key" in result
+                    assert "stream_url" in result
+                    assert result["stream_url"] == "https://example.com/stream.m3u8"
+                    assert "license_key" in result
 
     def test_get_secure_stream_info_secure_url_failure(self, mubi_instance):
         """Test secure stream info when secure URL request fails."""
-        # Mock responses: viewing and preroll succeed, but secure URL fails
-        viewing_response = Mock()
-        viewing_response.status_code = 200
+        # Mock the direct requests.post call for viewing availability check
+        viewing_post_response = Mock()
+        viewing_post_response.status_code = 200
 
         preroll_response = Mock()
         preroll_response.status_code = 200
 
-        # Secure URL request fails
-        with patch.object(mubi_instance, '_make_api_call', side_effect=[viewing_response, preroll_response, None]):
+        # Secure URL request fails (returns None)
+        with patch('requests.post', return_value=viewing_post_response):
+            with patch.object(mubi_instance, '_make_api_call', side_effect=[preroll_response, None]):
+                result = mubi_instance.get_secure_stream_info("12345")
+
+                assert "error" in result
+                assert "service temporarily unavailable" in result["error"].lower()
+
+    def test_get_secure_stream_info_geo_restriction_with_country(self, mubi_instance):
+        """Test geo-restriction error shows VPN message with film country."""
+        # Mock the viewing availability check returning 422 geo-restriction error
+        geo_error_response = Mock()
+        geo_error_response.status_code = 422
+        geo_error_response.json.return_value = {
+            'code': 50,
+            'message': 'Film not authorized',
+            'user_message': 'This film is not currently authorized in your location'
+        }
+
+        with patch('requests.post', return_value=geo_error_response):
+            result = mubi_instance.get_secure_stream_info("12345", film_country="US")
+
+            assert "error" in result
+            assert "VPN" in result["error"]
+            assert "the United States" in result["error"]
+            assert "not available in your country" in result["error"].lower()
+
+    def test_get_secure_stream_info_geo_restriction_without_country(self, mubi_instance):
+        """Test geo-restriction error shows VPN message without specific country."""
+        # Mock the viewing availability check returning 422 geo-restriction error
+        geo_error_response = Mock()
+        geo_error_response.status_code = 422
+        geo_error_response.json.return_value = {
+            'code': 50,
+            'message': 'Film not authorized',
+            'user_message': 'This film is not currently authorized in your location'
+        }
+
+        with patch('requests.post', return_value=geo_error_response):
             result = mubi_instance.get_secure_stream_info("12345")
 
             assert "error" in result
-            assert "service temporarily unavailable" in result["error"].lower()
+            assert "VPN" in result["error"]
+            assert "not available in your country" in result["error"].lower()
 
     def test_get_secure_stream_info_stream_failure(self, mubi_instance):
         """Test secure stream info when stream request fails."""
-        # Mock successful viewing but failed stream
-        viewing_response = Mock()
-        viewing_response.json.return_value = {"status": "success"}
+        # Mock the direct requests.post call for viewing availability check
+        viewing_post_response = Mock()
+        viewing_post_response.status_code = 200
 
-        with patch.object(mubi_instance, '_make_api_call', side_effect=[viewing_response, None]):
-            result = mubi_instance.get_secure_stream_info("12345")
+        # Mock preroll succeeds but secure URL fails
+        preroll_response = Mock()
+        preroll_response.status_code = 200
 
-            assert "error" in result
-            assert "stream" in result["error"].lower()
+        with patch('requests.post', return_value=viewing_post_response):
+            with patch.object(mubi_instance, '_make_api_call', side_effect=[preroll_response, None]):
+                result = mubi_instance.get_secure_stream_info("12345")
+
+                assert "error" in result
+                assert "unavailable" in result["error"].lower()
 
     def test_get_secure_stream_info_exception(self, mubi_instance):
         """Test secure stream info with exception."""
@@ -2202,30 +2246,32 @@ class TestMubi:
             'urls': []
         }
 
-        with patch.object(mubi_instance, '_make_api_call',
-                          side_effect=[viewing_response, preroll_response,
-                                       secure_response]) as mock_api:
-            result = mubi_instance.get_secure_stream_info('12345')
+        # Mock the direct requests.post call for viewing availability check
+        with patch('requests.post', return_value=viewing_response) as mock_post:
+            with patch.object(mubi_instance, '_make_api_call',
+                              side_effect=[preroll_response,
+                                           secure_response]) as mock_api:
+                result = mubi_instance.get_secure_stream_info('12345')
 
-            # Verify all three V4 endpoints were called
-            assert mock_api.call_count == 3
+                # Verify viewing endpoint was called via requests.post
+                assert mock_post.call_count == 1
+                assert 'v4/films/12345/viewing' in mock_post.call_args[0][0]
 
-            # Check viewing endpoint
-            first_call = mock_api.call_args_list[0]
-            assert 'v4/films/12345/viewing' in first_call[1]['full_url']
+                # Verify preroll and secure URL were called via _make_api_call
+                assert mock_api.call_count == 2
 
-            # Check preroll endpoint
-            second_call = mock_api.call_args_list[1]
-            assert 'v4/prerolls/viewings' in second_call[1]['full_url']
+                # Check preroll endpoint
+                first_call = mock_api.call_args_list[0]
+                assert 'v4/prerolls/viewings' in first_call[1]['full_url']
 
-            # Check secure URL endpoint
-            third_call = mock_api.call_args_list[2]
-            assert 'v4/films/12345/viewing/secure_url' in third_call[1]['full_url']
+                # Check secure URL endpoint
+                second_call = mock_api.call_args_list[1]
+                assert 'v4/films/12345/viewing/secure_url' in second_call[1]['full_url']
 
-            assert 'stream_url' in result
+                assert 'stream_url' in result
 
     def test_get_all_films_success(self, mubi_instance):
-        """Test successful retrieval of all films using direct API approach."""
+        """Test successful retrieval of all films using multi-country sync."""
         # Mock the API response for /browse/films
         mock_response_data = {
             'films': [
@@ -2264,13 +2310,19 @@ class TestMubi:
 
             library = mubi_instance.get_all_films()
 
-            # Verify API was called correctly with anonymous headers (no auth token)
-            mock_api_call.assert_called_once_with(
-                'GET',
-                endpoint='v4/browse/films',
-                headers=mubi_instance.hea_gen_anonymous(),
-                params={'page': 1, 'sort': 'title', 'playable': 'true'}
-            )
+            # Verify API was called for each country in SYNC_COUNTRIES
+            expected_countries = mubi_instance.SYNC_COUNTRIES
+            assert mock_api_call.call_count == len(expected_countries), \
+                f"Should call API once per country ({len(expected_countries)} countries)"
+
+            # Verify each country was queried
+            call_countries = [
+                call[1]['headers']['Client-Country']
+                for call in mock_api_call.call_args_list
+                if 'headers' in call[1]
+            ]
+            assert set(call_countries) == set(expected_countries), \
+                f"Should query all configured countries: {expected_countries}"
 
             # Verify library contains films (may be 0 due to availability logic)
             assert len(library.films) >= 0  # Films may be filtered out by availability logic
@@ -2288,9 +2340,9 @@ class TestMubi:
             assert mock_api_call.call_count >= 1
 
     def test_get_all_films_with_progress_callback(self, mubi_instance):
-        """Test get_all_films with progress callback functionality."""
-        # Mock the API response for multiple pages
-        page1_response = {
+        """Test get_all_films with progress callback for multi-country sync."""
+        # Mock the API response - single page per country
+        single_page_response = {
             'films': [
                 {
                     'id': 12345,
@@ -2314,87 +2366,52 @@ class TestMubi:
                 }
             ],
             'meta': {
-                'next_page': 2,
-                'total_count': 50,
-                'total_pages': 2
-            }
-        }
-
-        page2_response = {
-            'films': [
-                {
-                    'id': 12346,
-                    'title': 'Test Movie 2',
-                    'original_title': 'Test Original Movie 2',
-                    'year': 2023,
-                    'duration': 110,
-                    'short_synopsis': 'Another test movie plot',
-                    'directors': [{'name': 'Test Director 2'}],
-                    'genres': ['Comedy'],
-                    'historic_countries': ['UK'],
-                    'average_rating': 8.0,
-                    'number_of_ratings': 500,
-                    'still_url': 'http://example.com/still2.jpg',
-                    'trailer_url': 'http://example.com/trailer2.mp4',
-                    'web_url': 'http://mubi.com/films/test-movie-2',
-                    'consumable': {
-                        'available_at': '2023-01-01T00:00:00Z',
-                        'expires_at': '2023-12-31T23:59:59Z'
-                    }
-                }
-            ],
-            'meta': {
-                'next_page': None,  # Last page
-                'total_count': 50,
-                'total_pages': 2
+                'next_page': None,  # No more pages
+                'total_count': 1,
+                'total_pages': 1
             }
         }
 
         # Track progress callback calls
         progress_calls = []
 
-        def mock_progress_callback(current_films, total_films, current_page, total_pages):
+        def mock_progress_callback(current_films, total_films, current_country, total_countries, country_code):
+            """Updated callback signature for multi-country sync."""
             progress_calls.append({
                 'current_films': current_films,
                 'total_films': total_films,
-                'current_page': current_page,
-                'total_pages': total_pages
+                'current_country': current_country,
+                'total_countries': total_countries,
+                'country_code': country_code
             })
 
         with patch.object(mubi_instance, '_make_api_call') as mock_api_call, \
              patch.object(mubi_instance, 'get_cli_language', return_value='en'):
 
-            # Mock responses for each page
-            def side_effect(*args, **kwargs):
-                params = kwargs.get('params', {})
-                page = params.get('page', 1)
-
-                mock_response = Mock()
-                if page == 1:
-                    mock_response.json.return_value = page1_response
-                elif page == 2:
-                    mock_response.json.return_value = page2_response
-                else:
-                    mock_response.json.return_value = {'films': [], 'meta': {'next_page': None}}
-
-                return mock_response
-
-            mock_api_call.side_effect = side_effect
+            # Mock responses for API calls - same single-page response for all countries
+            mock_response = Mock()
+            mock_response.json.return_value = single_page_response
+            mock_api_call.return_value = mock_response
 
             # Call get_all_films with progress callback
             library = mubi_instance.get_all_films(playable_only=True, progress_callback=mock_progress_callback)
 
-            # Verify progress callback was called
-            assert len(progress_calls) >= 1, "Progress callback should have been called"
+            # Verify progress callback was called for each country + final processing
+            expected_countries = mubi_instance.SYNC_COUNTRIES
+            assert len(progress_calls) >= len(expected_countries), \
+                f"Progress callback should be called for each country ({len(expected_countries)})"
 
-            # Verify first progress call has correct total
+            # Verify first progress call has correct country info
             first_call = progress_calls[0]
-            assert first_call['total_films'] == 50, "Should report correct total films from API"
-            assert first_call['total_pages'] == 2, "Should report correct total pages from API"
-            assert first_call['current_page'] == 1, "Should report correct current page"
+            assert first_call['current_country'] == 1, "First call should be for country 1"
+            assert first_call['total_countries'] == len(expected_countries), \
+                f"Should report correct total countries ({len(expected_countries)})"
+            assert first_call['country_code'] == expected_countries[0], \
+                f"First country should be {expected_countries[0]}"
 
-            # Verify API was called for both pages
-            assert mock_api_call.call_count == 2, "Should have called API for both pages"
+            # Verify API was called for all countries (1 page each)
+            assert mock_api_call.call_count == len(expected_countries), \
+                f"Should have called API for all {len(expected_countries)} countries"
 
     # ===== Bug Hunting Tests (moved from test_bug_hunting.py) =====
 
