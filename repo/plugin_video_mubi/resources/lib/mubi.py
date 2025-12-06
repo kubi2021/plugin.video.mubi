@@ -22,7 +22,6 @@ import random
 from urllib.parse import urljoin
 from urllib.parse import urlencode
 import time
-import threading
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -33,12 +32,6 @@ from .playback import generate_drm_license_key
 
 
 class Mubi:
-
-    # Class-level variables for rate limiting
-    _lock = threading.Lock()
-    _last_call_time = 0
-    _calls_made = 0
-    _call_history = []
 
     # Country code to full name mapping for user-friendly messages
     COUNTRY_NAMES = {
@@ -160,19 +153,8 @@ class Mubi:
         if json:
             xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
 
-        # Rate limiting: Max 60 calls per minute
-        with self._lock:
-            current_time = time.time()
-            self._call_history = [t for t in self._call_history if current_time - t < 60]
-            if len(self._call_history) >= 60:
-                wait_time = 60 - (current_time - self._call_history[0])
-                xbmc.log(f"Rate limit reached. Sleeping for {wait_time:.2f} seconds.", xbmc.LOGINFO)
-                time.sleep(wait_time)
-                self._call_history = [t for t in self._call_history if current_time - t < 60]
-
-            self._call_history.append(time.time())
-
         # Set up retries with exponential backoff for transient errors
+        # Note: 429 (Too Many Requests) is handled separately below with Retry-After
         session = requests.Session()
         retries = Retry(
             total=3,
@@ -184,54 +166,84 @@ class Mubi:
         session.mount('https://', adapter)
         session.mount('http://', adapter)
 
-        try:
-            # Log the final request details (including params)
-            xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
+        # Retry loop for rate limiting (429 responses)
+        max_rate_limit_retries = 3
+        for attempt in range(max_rate_limit_retries + 1):
+            try:
+                # Log the final request details (including params)
+                xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
 
-            response = session.request(
-                method,
-                url,
-                headers=headers,
-                params=params,  # Pass query parameters explicitly here
-                data=data,
-                json=json,
-                timeout=10  # Set a reasonable timeout
-            )
+                response = session.request(
+                    method,
+                    url,
+                    headers=headers,
+                    params=params,
+                    data=data,
+                    json=json,
+                    timeout=10
+                )
 
-            # Log the response status
-            xbmc.log(f"Response status code: {response.status_code}", xbmc.LOGDEBUG)
+                # Log the response status
+                xbmc.log(f"Response status code: {response.status_code}", xbmc.LOGDEBUG)
 
-            # Check for invalid token before raising HTTPError
-            if response.status_code in [401, 422]:
-                self._check_and_handle_invalid_token(response)
+                # Handle rate limiting (429 Too Many Requests)
+                if response.status_code == 429:
+                    if attempt < max_rate_limit_retries:
+                        # Check for Retry-After header (can be seconds or HTTP date)
+                        retry_after = response.headers.get('Retry-After')
+                        if retry_after:
+                            try:
+                                wait_time = int(retry_after)
+                            except ValueError:
+                                # Might be an HTTP date, default to exponential backoff
+                                wait_time = 2 ** attempt
+                        else:
+                            # No Retry-After header, use exponential backoff
+                            wait_time = 2 ** attempt
 
-            # Raise an HTTPError for bad responses (4xx and 5xx)
-            response.raise_for_status()
+                        xbmc.log(
+                            f"Rate limited (429). Waiting {wait_time}s before retry "
+                            f"(attempt {attempt + 1}/{max_rate_limit_retries})",
+                            xbmc.LOGWARNING
+                        )
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        xbmc.log("Rate limit retries exhausted", xbmc.LOGERROR)
+                        response.raise_for_status()
 
-            # Log full response content safely
-            response_content = response.text
-            # xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
+                # Check for invalid token before raising HTTPError
+                if response.status_code in [401, 422]:
+                    self._check_and_handle_invalid_token(response)
 
-            return response
+                # Raise an HTTPError for bad responses (4xx and 5xx)
+                response.raise_for_status()
 
-        except requests.exceptions.HTTPError as http_err:
-            xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
-            if response is not None:
-                xbmc.log(f"Response Headers: {response.headers}", xbmc.LOGERROR)
-                xbmc.log(f"Response Content: {response.text}", xbmc.LOGERROR)
-            return None
+                session.close()
+                return response
 
-        except requests.exceptions.RequestException as req_err:
-            xbmc.log(f"Request exception occurred: {req_err}", xbmc.LOGERROR)
-            return None
+            except requests.exceptions.HTTPError as http_err:
+                xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
+                if response is not None:
+                    xbmc.log(f"Response Headers: {response.headers}", xbmc.LOGERROR)
+                    xbmc.log(f"Response Content: {response.text}", xbmc.LOGERROR)
+                session.close()
+                return None
 
-        except Exception as err:
-            xbmc.log(f"An unexpected error occurred: {err}", xbmc.LOGERROR)
-            return None
+            except requests.exceptions.RequestException as req_err:
+                xbmc.log(f"Request exception occurred: {req_err}", xbmc.LOGERROR)
+                session.close()
+                return None
 
-        finally:
-            session.close()
-            xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
+            except Exception as err:
+                xbmc.log(f"An unexpected error occurred: {err}", xbmc.LOGERROR)
+                session.close()
+                return None
+
+        # If we exhausted all retries without returning, close session and return None
+        session.close()
+        xbmc.log("All retry attempts exhausted.", xbmc.LOGERROR)
+        return None
 
     def _check_and_handle_invalid_token(self, response):
         """
@@ -548,15 +560,18 @@ class Mubi:
         else:
             return False
     def _fetch_films_for_country(
-        self, country_code: str, playable_only: bool = True, page_callback=None
+        self, country_code: str, playable_only: bool = True, page_callback=None,
+        global_film_ids: set = None
     ) -> tuple[set, dict, int, int]:
         """
         Fetches all films for a specific country from the MUBI API.
 
         :param country_code: ISO 3166-1 alpha-2 country code (e.g., 'CH', 'DE', 'US')
         :param playable_only: If True, only fetch currently playable films.
-        :param page_callback: Optional callback called after each page with (new_films_this_page).
+        :param page_callback: Optional callback called after each page with (globally_new_films).
                               Returns False if cancelled.
+        :param global_film_ids: Set of film IDs already discovered from previous countries.
+                                Used to count truly new films for progress display.
         :return: Tuple of (film_ids set, film_data dict {id: film_data}, total_count, pages_fetched)
         """
         endpoint = 'v4/browse/films'
@@ -566,15 +581,12 @@ class Mubi:
         pages_fetched = 0
         total_count = 0
 
+        # For counting truly new films (not seen in any previous country)
+        known_global_ids = global_film_ids or set()
+
         xbmc.log(f"[{country_code}] Starting to fetch films", xbmc.LOGINFO)
 
         while True:
-            # Add random delay between requests (0.5-2.0 seconds)
-            if page > 1:
-                delay = random.uniform(0.5, 2.0)
-                xbmc.log(f"[{country_code}] Adding {delay:.2f}s delay before page {page}", xbmc.LOGDEBUG)
-                time.sleep(delay)
-
             # Generate headers with specific country
             headers = self.hea_gen_anonymous(country_code=country_code)
 
@@ -606,19 +618,21 @@ class Mubi:
                 xbmc.log(f"[{country_code}] API reports {total_count} films across {total_pages} pages", xbmc.LOGINFO)
 
             # Process films
-            new_films_this_page = 0
+            globally_new_films = 0  # Films not seen in ANY country yet
             for film_entry in films:
                 film_id = film_entry.get('id')
                 if film_id and film_id not in film_ids:
                     film_ids.add(film_id)
                     film_data_map[film_id] = film_entry
-                    new_films_this_page += 1
+                    # Count as globally new only if not seen in previous countries
+                    if film_id not in known_global_ids:
+                        globally_new_films += 1
 
             xbmc.log(f"[{country_code}] Page {page}: {len(films)} films (unique so far: {len(film_ids)})", xbmc.LOGDEBUG)
 
-            # Call page callback if provided
+            # Call page callback with globally new films count
             if page_callback:
-                should_continue = page_callback(new_films_this_page)
+                should_continue = page_callback(globally_new_films)
                 if should_continue is False:
                     xbmc.log(f"[{country_code}] Cancelled by user", xbmc.LOGINFO)
                     break
@@ -716,16 +730,11 @@ class Mubi:
                         xbmc.log(f"Progress callback exception (user cancel): {e}", xbmc.LOGINFO)
                         return all_films_library
 
-                # Add delay between countries (except first)
-                if country_idx > 1:
-                    delay = random.uniform(1.0, 3.0)
-                    xbmc.log(f"Adding {delay:.2f}s delay before syncing {country}", xbmc.LOGDEBUG)
-                    time.sleep(delay)
-
                 film_ids, film_data, total_count, pages = self._fetch_films_for_country(
                     country_code=country,
                     playable_only=playable_only,
-                    page_callback=page_cb
+                    page_callback=page_cb,
+                    global_film_ids=all_film_ids  # Pass global set for accurate progress
                 )
 
                 # Check if user cancelled during fetch

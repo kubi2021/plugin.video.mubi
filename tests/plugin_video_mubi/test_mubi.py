@@ -1390,27 +1390,30 @@ class TestMubi:
 
     # Additional tests for better coverage
     @patch('requests.Session')
-    @patch('time.time')
-    def test_make_api_call_rate_limiting(self, mock_time, mock_session, mubi_instance):
-        """Test API call rate limiting."""
-        # Mock time to simulate rapid calls
-        mock_time.side_effect = [0, 0.1, 0.2, 0.3]  # 4 calls in quick succession
+    def test_make_api_call_rate_limiting_429(self, mock_session, mubi_instance):
+        """Test API call handles 429 rate limiting with Retry-After header."""
+        # First response: 429 with Retry-After header
+        mock_response_429 = Mock()
+        mock_response_429.status_code = 429
+        mock_response_429.headers = {'Retry-After': '2'}
 
-        # Fill up the call history to trigger rate limiting
-        mubi_instance._call_history = [0] * 60  # 60 calls at time 0
+        # Second response: success
+        mock_response_200 = Mock()
+        mock_response_200.status_code = 200
+        mock_response_200.text = '{"success": true}'
+        mock_response_200.raise_for_status.return_value = None
 
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"test": "data"}
         mock_session_instance = Mock()
-        mock_session_instance.request.return_value = mock_response
+        mock_session_instance.request.side_effect = [mock_response_429, mock_response_200]
         mock_session.return_value = mock_session_instance
 
         with patch('time.sleep') as mock_sleep:
-            mubi_instance._make_api_call("GET", "test")
+            result = mubi_instance._make_api_call("GET", "test")
 
-            # Should have triggered rate limiting
-            mock_sleep.assert_called()
+            # Should have slept for 2 seconds (from Retry-After header)
+            mock_sleep.assert_called_once_with(2)
+            # Should have retried and succeeded
+            assert result == mock_response_200
 
     @patch('requests.Session')
     def test_make_api_call_http_error(self, mock_session, mubi_instance):
@@ -2115,30 +2118,40 @@ class TestMubi:
         assert isinstance(headers, dict)
         assert 'Client' in headers
 
-    @patch('time.time')
-    def test_rate_limiting_edge_cases(self, mock_time, mubi_instance):
-        """Test rate limiting edge cases."""
-        # Test with exactly 60 calls in history
-        mock_time.return_value = 1000.0
+    @patch('requests.Session')
+    def test_rate_limiting_exponential_backoff(self, mock_session_class, mubi_instance):
+        """Test rate limiting uses exponential backoff when no Retry-After header."""
+        # First two responses: 429 without Retry-After header
+        mock_response_429_1 = Mock()
+        mock_response_429_1.status_code = 429
+        mock_response_429_1.headers = {}  # No Retry-After
 
-        # Fill up the call history to exactly 60 calls
-        mubi_instance._call_history = [999.0 + i for i in range(60)]
+        mock_response_429_2 = Mock()
+        mock_response_429_2.status_code = 429
+        mock_response_429_2.headers = {}  # No Retry-After
+
+        # Third response: success
+        mock_response_200 = Mock()
+        mock_response_200.status_code = 200
+        mock_response_200.text = '{"success": true}'
+        mock_response_200.raise_for_status.return_value = None
+
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+        mock_session.request.side_effect = [
+            mock_response_429_1,
+            mock_response_429_2,
+            mock_response_200
+        ]
 
         with patch('time.sleep') as mock_sleep:
-            # This should trigger rate limiting
-            with patch('requests.Session') as mock_session_class:
-                mock_session = Mock()
-                mock_session_class.return_value = mock_session
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.raise_for_status.return_value = None
-                mock_session.request.return_value = mock_response
+            result = mubi_instance._make_api_call('GET', endpoint='test')
 
-                result = mubi_instance._make_api_call('GET', endpoint='test')
-
-                # Should have slept due to rate limiting
-                mock_sleep.assert_called_once()
-                assert result == mock_response
+            # Should have used exponential backoff: 2^0=1, 2^1=2
+            assert mock_sleep.call_count == 2
+            mock_sleep.assert_any_call(1)  # First retry: 2^0 = 1 second
+            mock_sleep.assert_any_call(2)  # Second retry: 2^1 = 2 seconds
+            assert result == mock_response_200
 
     # Additional tests for V4 API migration and missing coverage
     def test_get_films_in_watchlist_success(self, mubi_instance):
