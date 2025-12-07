@@ -103,7 +103,7 @@ class TestNavigationHandler:
         mock_end_dir.assert_called_with(123)
         
         # Verify menu items were added (logged in menu)
-        assert mock_add_item.call_count == 3  # 3 menu items for logged in users (no more category browsing)
+        assert mock_add_item.call_count == 4  # 4 menu items: watchlist, sync local, sync worldwide, logout
 
     @patch('xbmcplugin.setPluginCategory')
     @patch('xbmcplugin.setContent')
@@ -136,15 +136,16 @@ class TestNavigationHandler:
 
         items = navigation_handler._get_main_menu_items()
 
-        assert len(items) == 3  # Updated: no more category browsing
+        assert len(items) == 4  # 4 menu items: watchlist, sync local, sync worldwide, logout
         assert any("Browse your Mubi watchlist" in item["label"] for item in items)
         assert any("Sync MUBI catalogue" in item["label"] for item in items)
+        assert any("worldwide" in item["label"].lower() for item in items)
         assert any("Log Out" in item["label"] for item in items)
 
-        # Verify sync_locally is NOT a folder to prevent infinite loop bug
-        # When sync_locally is a folder, Kodi re-triggers it on container refresh
-        sync_item = next(item for item in items if "sync_locally" in item["action"])
-        assert sync_item["is_folder"] is False, "sync_locally must not be a folder to prevent infinite loop"
+        # Verify sync actions are NOT folders to prevent infinite loop bug
+        sync_items = [item for item in items if "sync" in item["action"]]
+        for sync_item in sync_items:
+            assert sync_item["is_folder"] is False, f"{sync_item['action']} must not be a folder"
 
     def test_get_main_menu_items_logged_out(self, navigation_handler):
         """Test main menu items for logged out users."""
@@ -316,11 +317,11 @@ class TestNavigationHandler:
         mock_set_resolved.assert_called_with(123, True, listitem=mock_list_item_instance)
 
     @patch('xbmcgui.DialogProgress')
-    def test_sync_locally(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
-        """Test local sync process using new direct film fetching approach."""
+    def test_sync_films(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
+        """Test sync_films process with specified countries."""
         mock_addon.getSetting.return_value = "fake-api-key"
 
-        # Mock the new get_all_films method
+        # Mock the get_all_films method
         mock_library = Mock()
         mock_library.films = []
         mock_mubi.get_all_films.return_value = mock_library
@@ -329,25 +330,25 @@ class TestNavigationHandler:
         mock_dialog.iscanceled.return_value = False
 
         with patch('xbmcvfs.translatePath', return_value="/fake/path"):
-            with patch('xbmcgui.Dialog') as mock_notification:
+            with patch('xbmcgui.Dialog'):
                 with patch.object(navigation_handler, 'clean_kodi_library'):
                     with patch.object(navigation_handler, 'update_kodi_library'):
                         with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
-                            navigation_handler.sync_locally()
+                            navigation_handler.sync_films(countries=['CH'])
 
-        # Verify the new direct approach is used
+        # Verify the sync was called with correct countries
         mock_mubi.get_all_films.assert_called_once()
+        call_kwargs = mock_mubi.get_all_films.call_args[1]
+        assert call_kwargs['countries'] == ['CH']
         mock_dialog.create.assert_called()
         mock_dialog.close.assert_called()
-        # The notification should be called, but due to complex mocking it might not be captured
-        # The important thing is that the method completes without error
 
     @patch('xbmc.log')
-    def test_sync_locally_exception(self, mock_log, navigation_handler, mock_mubi):
-        """Test sync locally handles exceptions."""
+    def test_sync_films_exception(self, mock_log, navigation_handler, mock_mubi):
+        """Test sync_films handles exceptions."""
         mock_mubi.get_all_films.side_effect = Exception("API Error")
 
-        navigation_handler.sync_locally()
+        navigation_handler.sync_films(countries=['CH'])
 
         mock_log.assert_called()
 
@@ -558,11 +559,11 @@ class TestNavigationHandler:
         mock_end_dir.assert_called()
 
     @patch('xbmcgui.DialogProgress')
-    def test_sync_films_locally_api_key_check(self, mock_progress, navigation_handler):
-        """Test sync films locally with API key validation."""
+    def test_sync_films_api_key_check(self, mock_progress, navigation_handler):
+        """Test sync_films with API key validation."""
         # Mock the _check_omdb_api_key to return None (user cancelled)
         with patch.object(navigation_handler, '_check_omdb_api_key', return_value=None):
-            result = navigation_handler.sync_locally()
+            result = navigation_handler.sync_films(countries=['CH'])
 
             # When API key check fails, method should return early without creating progress dialog
             mock_progress.assert_not_called()

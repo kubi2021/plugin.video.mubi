@@ -96,15 +96,36 @@ if __name__ == "__main__":
             xbmc.log(f"Error in play_trailer action: {e}", xbmc.LOGERROR)
             xbmcplugin.endOfDirectory(handle, succeeded=False)
     elif action == "sync_locally":
-        xbmc.log(f"Calling sync_locally with handle: {handle}", xbmc.LOGDEBUG)
+        xbmc.log(f"Calling sync_films (local) with handle: {handle}", xbmc.LOGDEBUG)
         try:
-            navigation.sync_locally()
+            # Sync only from client's country
+            client_country = plugin.getSetting("client_country")
+            if client_country:
+                navigation.sync_films(countries=[client_country.upper()])
+            else:
+                xbmcgui.Dialog().notification(
+                    "MUBI", "No country configured. Please set your country in Settings.",
+                    xbmcgui.NOTIFICATION_ERROR
+                )
             # Sync is a one-shot action, not a directory listing.
             # Refresh the container to return to the main menu after sync completes.
             xbmc.executebuiltin('Container.Refresh')
         except Exception as e:
             xbmc.log(f"Error in sync_locally action: {e}", xbmc.LOGERROR)
-            # On error, still refresh to return to main menu
+            xbmc.executebuiltin('Container.Refresh')
+    elif action == "sync_worldwide":
+        xbmc.log(f"Calling sync_films (worldwide) with handle: {handle}", xbmc.LOGDEBUG)
+        try:
+            # Sync from all countries worldwide
+            from resources.lib.countries import COUNTRIES
+            # For testing, use first 2 countries only
+            # TODO: Later expand to full list with list(COUNTRIES.keys())
+            all_countries = [c.upper() for c in list(COUNTRIES.keys())[:2]]
+            navigation.sync_films(countries=all_countries, dialog_title="Syncing MUBI Worldwide")
+            # Refresh the container to return to the main menu after sync completes.
+            xbmc.executebuiltin('Container.Refresh')
+        except Exception as e:
+            xbmc.log(f"Error in sync_worldwide action: {e}", xbmc.LOGERROR)
             xbmc.executebuiltin('Container.Refresh')
     elif action == "play_mubi_video":
         xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)

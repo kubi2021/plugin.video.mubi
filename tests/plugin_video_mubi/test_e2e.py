@@ -254,8 +254,8 @@ class TestAddonEntryPoint:
         with patch('xbmcvfs.translatePath') as mock_translate:
             mock_translate.return_value = "/fake/kodi/path"
 
-            # Test that sync_locally method exists and can be called
-            assert hasattr(nav_handler, 'sync_locally')
+            # Test that sync_films method exists and can be called
+            assert hasattr(nav_handler, 'sync_films')
 
             # We don't actually call it since it's a complex operation
             # but we verify the method exists and the request parsing works
