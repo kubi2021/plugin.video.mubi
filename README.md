@@ -12,7 +12,7 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 ## Features
 
-The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚
+The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚 You can sync the entire MUBI catalogue worldwide — VPN users can access and play films from any country. 🌍
 
 ### 🎯 Rich Metadata Experience
 
@@ -32,6 +32,7 @@ This addon goes beyond basic film information to provide a comprehensive metadat
 - 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on macOS only)
 - 🈯 Supports display of titles and descriptions in the languages supported by Mubi
 - 🔖 Retrieves and displays your MUBI watchlist within Kodi, allowing quick access to saved films directly from the main interface
+- 🌍 VPN-friendly: detects your current country via IP geolocation and suggests optimal VPN servers when films are geo-restricted
 
 ## Installation
 
@@ -199,7 +200,6 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 **Multi-Country Sync & Availability:**
 - 🌐 Films now store availability in NFO files with all countries where they can be played
 - 📍 Sync defaults to your configured client country (Settings > Country)
-- 🗺️ Country dropdown in settings with all 248 MUBI-supported countries
 - ⚡ VPN tier classification for optimal server recommendations (based on 2024/2025 Global Internet Speed Indices)
 
 **Sync Performance Improvements:**
@@ -207,15 +207,6 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 - ⏱️ Reactive rate limiting: only slows down when MUBI returns 429 (Too Many Requests)
 - 🔁 Exponential backoff with Retry-After header support
 - 📊 Fixed progress counter to monotonically increase across countries
-
-**Privacy Enhancements:**
-- 🔒 Anonymous catalogue fetching without authorization token
-- 🎭 User-Agent rotation with 8 common browser signatures
-- 🕐 Random timing patterns to reduce fingerprinting
-
-**Code Quality:**
-- ✅ 476 tests with 85.78% coverage
-- 🧪 Comprehensive test suite for core business logic edge cases
 
 ### Dec 5th, 2025
 - Enhanced NFO metadata with Kodi 20+ tags: `<premiered>`, `<tag>` (content warnings), `<tagline>` (press quotes)
