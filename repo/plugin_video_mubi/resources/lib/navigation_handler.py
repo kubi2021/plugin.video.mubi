@@ -834,12 +834,13 @@ class NavigationHandler:
 
                 # Calculate percentage based on country progress for multi-country,
                 # or film count for single country
+                # Use full 0-100% range since file creation has its own dialog
                 if total_countries > 1:
-                    percent = min(int((current_country / total_countries) * 50), 50)
+                    percent = min(int((current_country / total_countries) * 100), 99)
                     country_name = COUNTRIES.get(country_code.lower(), {}).get("name", country_code)
                     message = f"Fetching from {country_name} ({current_country}/{total_countries})...\n{current_films} films found"
                 else:
-                    percent = min(int((current_films / 1000) * 50), 50) if current_films > 0 else 0
+                    percent = min(int((current_films / 1000) * 100), 99) if current_films > 0 else 0
                     country_name = COUNTRIES.get(country_code.lower(), {}).get("name", country_code)
                     message = f"Fetching films from {country_name}...\n{current_films} films found"
 
@@ -863,9 +864,9 @@ class NavigationHandler:
             # Update progress dialog for file creation phase
             filtered_films_count = len(all_films_library.films)
             if num_countries > 1:
-                pDialog.update(50, f"Fetched {filtered_films_count} films from {num_countries} countries, creating local files...")
+                pDialog.update(100, f"Fetched {filtered_films_count} films from {num_countries} countries, creating local files...")
             else:
-                pDialog.update(50, f"Fetched {filtered_films_count} films, creating local files...")
+                pDialog.update(100, f"Fetched {filtered_films_count} films, creating local files...")
             xbmc.log(f"Successfully fetched {filtered_films_count} films", xbmc.LOGINFO)
 
             if pDialog.iscanceled():
