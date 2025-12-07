@@ -138,7 +138,7 @@ class TestNavigationHandler:
 
         assert len(items) == 3  # Updated: no more category browsing
         assert any("Browse your Mubi watchlist" in item["label"] for item in items)
-        assert any("Sync all Mubi films locally" in item["label"] for item in items)
+        assert any("Sync MUBI catalogue" in item["label"] for item in items)
         assert any("Log Out" in item["label"] for item in items)
 
         # Verify sync_locally is NOT a folder to prevent infinite loop bug

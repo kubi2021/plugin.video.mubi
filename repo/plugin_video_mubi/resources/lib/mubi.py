@@ -652,21 +652,31 @@ class Mubi:
         xbmc.log(f"[{country_code}] Completed: {len(film_ids)} unique films from {pages_fetched} pages", xbmc.LOGINFO)
         return film_ids, film_data_map, total_count, pages_fetched
 
-    def get_all_films(self, playable_only=True, progress_callback=None):
+    def get_all_films(self, playable_only=True, progress_callback=None, countries=None):
         """
-        Retrieves all films from MUBI API by syncing across multiple countries.
-        Different countries have different film availability, so we merge catalogues
-        from all configured countries to get the most complete library.
+        Retrieves all films from MUBI API by syncing across specified countries.
+        Different countries have different film availability.
 
         :param playable_only: If True, only fetch currently playable films. If False, fetch entire catalog.
         :param progress_callback: Optional callback function to report progress.
                                 Called with (current_films, total_films, current_country, total_countries, country_code)
+        :param countries: List of ISO 3166-1 alpha-2 country codes to sync from.
+                         If None, defaults to the client's configured country from settings.
         :return: Library instance with all films.
         :rtype: Library
         """
         try:
             all_films_library = Library()
-            countries = self.SYNC_COUNTRIES
+            # Default to client country from settings if no countries specified
+            if countries is None:
+                client_country = xbmcaddon.Addon().getSetting("client_country")
+                if client_country:
+                    countries = [client_country.upper()]
+                    xbmc.log(f"Using client country from settings: {client_country}", xbmc.LOGINFO)
+                else:
+                    # Fallback if no client country configured
+                    countries = self.SYNC_COUNTRIES
+                    xbmc.log("No client country configured, using all SYNC_COUNTRIES", xbmc.LOGWARNING)
 
             # Statistics tracking
             country_stats = {}  # {country: {'total': n, 'unique_ids': set}}

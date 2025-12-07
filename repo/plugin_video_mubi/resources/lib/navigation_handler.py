@@ -86,15 +86,80 @@ class NavigationHandler:
     def _get_main_menu_items(self) -> list:
         """ Helper method to retrieve main menu items based on login status. """
         if self.session.is_logged_in:
+            # Get client country for sync menu label
+            sync_label, sync_description = self._get_sync_menu_label()
             return [
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
-                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": False},
+                {"label": sync_label, "description": sync_description, "action": "sync_locally", "is_folder": False},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
             ]
         else:
             return [
                 {"label": "Log In", "description": "Log in to your Mubi account", "action": "log_in", "is_folder": False}
             ]
+
+    def _get_sync_menu_label(self) -> tuple:
+        """
+        Get the sync menu label with the client country name.
+        Returns a tuple of (label, description with help info).
+        """
+        from .countries import COUNTRIES
+        try:
+            country_code = self.plugin.getSetting("client_country")
+            if country_code:
+                country_data = COUNTRIES.get(country_code.lower(), {})
+                country_name = country_data.get("name", country_code.upper())
+            else:
+                country_name = "your country"
+            label = f"Sync MUBI catalogue from {country_name}"
+            # Include help info in description - shown when item is selected
+            description = (
+                f"Sync films available in {country_name} to your Kodi library.\n\n"
+                f"Note: MUBI films not available in the {country_name} catalogue "
+                f"will be removed from your library.\n\n"
+                f"You can change your country in Settings."
+            )
+            return label, description
+        except Exception:
+            return "Sync MUBI catalogue", "Sync films to your Kodi library"
+
+    def _get_client_country_name(self) -> str:
+        """Get the client country name from settings."""
+        from .countries import COUNTRIES
+        try:
+            country_code = self.plugin.getSetting("client_country")
+            if country_code:
+                country_data = COUNTRIES.get(country_code.lower(), {})
+                return country_data.get("name", country_code.upper())
+            return "your country"
+        except Exception:
+            return "your country"
+
+    def _confirm_sync(self) -> bool:
+        """
+        Show a confirmation dialog before sync with help information.
+        Returns True if user confirms, False otherwise.
+        """
+        country_name = self._get_client_country_name()
+
+        dialog = xbmcgui.Dialog()
+        message = (
+            f"This will sync the MUBI catalogue from [B]{country_name}[/B] "
+            f"to your Kodi library.\n\n"
+            f"[COLOR yellow]Important:[/COLOR]\n"
+            f"• Films not available in {country_name} will be removed\n"
+            f"• Change your country in Settings if needed"
+        )
+
+        # yesno returns True if user clicks Yes, False if No
+        result = dialog.yesno(
+            "MUBI Sync",
+            message,
+            yeslabel="Start Sync",
+            nolabel="Cancel"
+        )
+
+        return result
 
     def _add_menu_item(self, item: dict):
         try:
@@ -587,41 +652,41 @@ class NavigationHandler:
             if not omdb_api_key:
                 return  # Exit if no API key
 
+            # Get the client country to sync from
+            from .countries import COUNTRIES
+            client_country = self.plugin.getSetting("client_country")
+            if not client_country:
+                xbmcgui.Dialog().notification(
+                    "MUBI", "No country configured. Please set your country in Settings.",
+                    xbmcgui.NOTIFICATION_ERROR
+                )
+                return
+            country_data = COUNTRIES.get(client_country.lower(), {})
+            country_name = country_data.get("name", client_country.upper())
+
             # Proceed with the sync process if OMDb API key is provided
             pDialog = xbmcgui.DialogProgress()
-            pDialog.create("Syncing with MUBI 1/2", "Initializing...")
-
-            # Country code to full name mapping for display
-            COUNTRY_NAMES = {
-                'CH': 'Switzerland', 'DE': 'Germany', 'US': 'United States',
-                'GB': 'United Kingdom', 'FR': 'France', 'JP': 'Japan',
-                'DONE': 'Processing'
-            }
+            pDialog.create(f"Syncing MUBI from {country_name}", "Initializing...")
 
             # Define progress callback for dynamic updates
             def update_fetch_progress(current_films, total_films, current_country, total_countries, country_code):
                 if pDialog.iscanceled():
-                    # Raise an exception to signal cancellation to get_all_films
                     raise Exception("User canceled sync operation")
 
-                # Calculate percentage based on countries processed
-                percent = int((current_country / total_countries) * 100) if total_countries > 0 else 0
+                # Calculate percentage based on films fetched
+                percent = min(int((current_films / 1000) * 50), 50) if current_films > 0 else 0
 
-                # Get country display name
-                country_name = COUNTRY_NAMES.get(country_code, country_code)
-
-                # Update dialog with country information
-                if country_code == 'DONE':
-                    message = f"Fetched {current_films} films from {total_countries} countries\nProcessing..."
-                else:
-                    message = f"Fetching from {country_name} ({current_country}/{total_countries})\n{current_films} unique films so far"
+                message = f"Fetching films from {country_name}...\n{current_films} films found"
                 pDialog.update(percent, message)
 
-            # Use the new direct approach to fetch all films with progress tracking
-            xbmc.log("Starting direct film sync using /browse/films endpoint", xbmc.LOGINFO)
-            # For sync, we want only playable films (streamable content)
+            # Sync only from the client's country
+            xbmc.log(f"Starting film sync from {country_name} ({client_country})", xbmc.LOGINFO)
             try:
-                all_films_library = self.mubi.get_all_films(playable_only=True, progress_callback=update_fetch_progress)
+                all_films_library = self.mubi.get_all_films(
+                    playable_only=True,
+                    progress_callback=update_fetch_progress,
+                    countries=[client_country.upper()]
+                )
             except Exception as e:
                 if "canceled" in str(e).lower():
                     pDialog.close()

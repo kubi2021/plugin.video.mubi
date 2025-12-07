@@ -2321,10 +2321,12 @@ class TestMubi:
             mock_response.json.return_value = mock_response_data
             mock_api_call.return_value = mock_response
 
-            library = mubi_instance.get_all_films()
+            # Explicitly pass SYNC_COUNTRIES to test multi-country behavior
+            # (default now uses client_country from settings)
+            expected_countries = mubi_instance.SYNC_COUNTRIES
+            library = mubi_instance.get_all_films(countries=expected_countries)
 
             # Verify API was called for each country in SYNC_COUNTRIES
-            expected_countries = mubi_instance.SYNC_COUNTRIES
             assert mock_api_call.call_count == len(expected_countries), \
                 f"Should call API once per country ({len(expected_countries)} countries)"
 
@@ -2345,7 +2347,9 @@ class TestMubi:
         with patch.object(mubi_instance, '_make_api_call') as mock_api_call:
             mock_api_call.return_value = None  # Simulate API failure
 
-            library = mubi_instance.get_all_films()
+            # Explicitly pass countries to test multi-country behavior
+            # (default now uses client_country from settings)
+            library = mubi_instance.get_all_films(countries=['CH'])
 
             # Should return empty library on failure
             assert len(library.films) == 0
@@ -2406,11 +2410,16 @@ class TestMubi:
             mock_response.json.return_value = single_page_response
             mock_api_call.return_value = mock_response
 
-            # Call get_all_films with progress callback
-            library = mubi_instance.get_all_films(playable_only=True, progress_callback=mock_progress_callback)
+            # Explicitly pass SYNC_COUNTRIES to test multi-country behavior
+            # (default now uses client_country from settings)
+            expected_countries = mubi_instance.SYNC_COUNTRIES
+            library = mubi_instance.get_all_films(
+                playable_only=True,
+                progress_callback=mock_progress_callback,
+                countries=expected_countries
+            )
 
             # Verify progress callback was called for each country + final processing
-            expected_countries = mubi_instance.SYNC_COUNTRIES
             assert len(progress_calls) >= len(expected_countries), \
                 f"Progress callback should be called for each country ({len(expected_countries)})"
 
