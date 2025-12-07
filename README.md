@@ -189,6 +189,34 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
+### Dec 7th, 2025 - VPN & Multi-Country Support 🌍
+
+**VPN-Aware Country Detection:**
+- 🔍 Added IP-based geolocation to detect your actual country from current IP (using ipapi.co/ipinfo.io)
+- 🔄 VPN users can now switch countries without restarting Kodi
+- 💬 User-friendly error dialogs when films are geo-restricted, showing VPN suggestions sorted by server performance
+
+**Multi-Country Sync & Availability:**
+- 🌐 Films now store availability in NFO files with all countries where they can be played
+- 📍 Sync defaults to your configured client country (Settings > Country)
+- 🗺️ Country dropdown in settings with all 248 MUBI-supported countries
+- ⚡ VPN tier classification for optimal server recommendations (based on 2024/2025 Global Internet Speed Indices)
+
+**Sync Performance Improvements:**
+- 🚀 Removed artificial delays - sync is now significantly faster
+- ⏱️ Reactive rate limiting: only slows down when MUBI returns 429 (Too Many Requests)
+- 🔁 Exponential backoff with Retry-After header support
+- 📊 Fixed progress counter to monotonically increase across countries
+
+**Privacy Enhancements:**
+- 🔒 Anonymous catalogue fetching without authorization token
+- 🎭 User-Agent rotation with 8 common browser signatures
+- 🕐 Random timing patterns to reduce fingerprinting
+
+**Code Quality:**
+- ✅ 476 tests with 85.78% coverage
+- 🧪 Comprehensive test suite for core business logic edge cases
+
 ### Dec 5th, 2025
 - Enhanced NFO metadata with Kodi 20+ tags: `<premiered>`, `<tag>` (content warnings), `<tagline>` (press quotes)
 - Added support for multiple `<country>` tags instead of just the first country
