@@ -1042,11 +1042,14 @@ class TestMubi:
         assert artwork_urls['poster'] == 'https://valid-poster.com/poster.jpg'
         assert artwork_urls['clearlogo'] == 'invalid-logo-url'  # Still included
 
-    def test_get_all_artwork_urls_comprehensive_logging(self, mubi_instance):
-        """Test that artwork extraction includes proper logging."""
+    def test_get_all_artwork_urls_comprehensive_extraction(self, mubi_instance):
+        """Test that artwork extraction works correctly without excessive logging.
+
+        Note: Debug logging was removed from hot paths for performance optimization.
+        """
         # Arrange
         film_info = {
-            'title': 'Test Movie for Logging',
+            'title': 'Test Movie for Extraction',
             'stills': {
                 'retina': 'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg'
             },
@@ -1054,16 +1057,12 @@ class TestMubi:
         }
 
         # Act
-        with patch('xbmc.log') as mock_log:
-            artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
+        artwork_urls = mubi_instance._get_all_artwork_urls(film_info)
 
-        # Assert
-        # Should log the extracted artwork types
+        # Assert - verify correct extraction without logging overhead
         assert artwork_urls['thumb'] == 'https://assets.mubicdn.net/images/film/12345/image-w1280.jpg'
         assert artwork_urls['poster'] == 'https://assets.mubicdn.net/images/film/12345/poster.jpg'
-
-        # Verify logging was called (implementation logs extracted artwork types)
-        mock_log.assert_called()
+        assert len(artwork_urls) == 2  # Only thumb and poster extracted
 
     def test_get_best_trailer_url_optimised_quality(self, mubi_instance):
         """Test that highest quality optimised trailer is selected."""

@@ -675,10 +675,8 @@ class Mubi:
                     if film_id not in known_global_ids:
                         globally_new_films += 1
 
-            xbmc.log(f"[{country_code}] Page {page}: {len(films)} films (unique so far: {len(film_ids)})", xbmc.LOGDEBUG)
-
-            # Call page callback with globally new films count
-            if page_callback:
+            # Call page callback with globally new films count (throttled to every 5 pages)
+            if page_callback and pages_fetched % 5 == 0:
                 should_continue = page_callback(globally_new_films)
                 if should_continue is False:
                     xbmc.log(f"[{country_code}] Cancelled by user", xbmc.LOGINFO)
@@ -1004,12 +1002,8 @@ class Mubi:
                 return None
 
             # Check if this is a series (like inspiration code does)
-            is_series = False
-            if 'series' in film_info:
-                if film_info['series'] is not None:
-                    is_series = True
-                    xbmc.log(f"Skipping series content: {film_info.get('title', 'Unknown')}", xbmc.LOGDEBUG)
-                    return None  # Skip series content for film sync
+            if 'series' in film_info and film_info['series'] is not None:
+                return None  # Skip series content for film sync
 
             available_at = film_info.get('consumable', {}).get('available_at')
             expires_at = film_info.get('consumable', {}).get('expires_at')
@@ -1026,10 +1020,8 @@ class Mubi:
 
             if default_editorial:
                 enhanced_plot = default_editorial
-                xbmc.log(f"Using enhanced editorial content for '{film_info.get('title', 'Unknown')}' ({len(default_editorial)} chars vs {len(short_synopsis)} chars)", xbmc.LOGDEBUG)
             else:
                 enhanced_plot = short_synopsis
-                xbmc.log(f"No editorial content available for '{film_info.get('title', 'Unknown')}', using synopsis", xbmc.LOGDEBUG)
 
             short_outline = short_synopsis  # Keep short synopsis for outline
 
@@ -1051,19 +1043,15 @@ class Mubi:
                     if rating_description:
                         mpaa_rating += f" - {rating_description}"
 
-                xbmc.log(f"Content rating for '{film_info.get('title', 'Unknown')}': {mpaa_rating}", xbmc.LOGDEBUG)
-
             # Enhanced rating precision: Use 10-point scale if available, fallback to 5-point
             rating_10_point = film_info.get('average_rating_out_of_ten', 0)
             rating_5_point = film_info.get('average_rating', 0)
 
             if rating_10_point:
                 final_rating = rating_10_point
-                xbmc.log(f"Using 10-point rating for '{film_info.get('title', 'Unknown')}': {rating_10_point}/10 (vs 5-point: {rating_5_point}/5)", xbmc.LOGDEBUG)
             else:
                 # Fallback to 5-point and convert to 10-point scale
                 final_rating = rating_5_point * 2 if rating_5_point else 0
-                xbmc.log(f"No 10-point rating available for '{film_info.get('title', 'Unknown')}', converted 5-point {rating_5_point}/5 to {final_rating}/10", xbmc.LOGDEBUG)
 
             # Extract all artwork URLs
             artwork_urls = self._get_all_artwork_urls(film_info)
@@ -1119,23 +1107,15 @@ class Mubi:
                 # Prefer retina quality for higher resolution
                 retina_url = stills.get('retina', '')
                 if retina_url:
-                    xbmc.log(f"Using retina quality thumbnail for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                     return retina_url
 
                 # Fallback to standard quality
                 standard_url = stills.get('standard', '')
                 if standard_url:
-                    xbmc.log(f"Using standard quality thumbnail for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                     return standard_url
 
             # Final fallback to still_url
-            still_url = film_info.get('still_url', '')
-            if still_url:
-                xbmc.log(f"Using fallback still_url for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-                return still_url
-
-            xbmc.log(f"No thumbnail available for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-            return ''
+            return film_info.get('still_url', '')
 
         except Exception as e:
             xbmc.log(f"Error getting thumbnail URL: {e}", xbmc.LOGERROR)
@@ -1160,7 +1140,6 @@ class Mubi:
         try:
             # Handle None or invalid input gracefully
             if not film_info or not isinstance(film_info, dict):
-                xbmc.log(f"Invalid film_info provided to _get_all_artwork_urls: {type(film_info)}", xbmc.LOGDEBUG)
                 return {}
 
             # Thumbnail/Landscape images from stills
@@ -1194,12 +1173,10 @@ class Mubi:
                     # Poster from cover_artwork_vertical (vertical/portrait format)
                     if artwork_format == 'cover_artwork_vertical' and 'poster' not in artwork_urls:
                         artwork_urls['poster'] = image_url
-                        xbmc.log(f"Found poster from cover_artwork_vertical for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
 
                     # Fanart from centered_background (large background image)
                     elif artwork_format == 'centered_background' and 'fanart' not in artwork_urls:
                         artwork_urls['fanart'] = image_url
-                        xbmc.log(f"Found fanart from centered_background for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
 
             # Fallback: Portrait image for poster if not found in artworks[]
             if 'poster' not in artwork_urls:
@@ -1212,7 +1189,6 @@ class Mubi:
             if title_treatment:
                 artwork_urls['clearlogo'] = title_treatment
 
-            xbmc.log(f"Extracted artwork URLs for '{film_info.get('title', 'Unknown')}': {list(artwork_urls.keys())}", xbmc.LOGDEBUG)
             return artwork_urls
 
         except Exception as e:
@@ -1241,17 +1217,10 @@ class Mubi:
                         if isinstance(trailer, dict) and trailer.get('profile') == quality:
                             trailer_url = trailer.get('url', '')
                             if trailer_url:
-                                xbmc.log(f"Using {quality} optimised trailer for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                                 return trailer_url
 
             # Fallback to original trailer_url
-            fallback_url = film_info.get('trailer_url', '')
-            if fallback_url:
-                xbmc.log(f"Using fallback trailer_url for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-                return fallback_url
-
-            xbmc.log(f"No trailer available for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-            return ''
+            return film_info.get('trailer_url', '')
 
         except Exception as e:
             xbmc.log(f"Error getting trailer URL: {e}", xbmc.LOGERROR)
@@ -1268,12 +1237,10 @@ class Mubi:
             # Get consumable information which contains playback_languages
             consumable = film_info.get('consumable', {})
             if not isinstance(consumable, dict):
-                xbmc.log(f"No consumable data for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                 return [], [], []
 
             playback_languages = consumable.get('playback_languages', {})
             if not isinstance(playback_languages, dict):
-                xbmc.log(f"No playback_languages data for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                 return [], [], []
 
             # Extract language and feature information
@@ -1292,12 +1259,6 @@ class Mubi:
             audio_languages = audio_languages if isinstance(audio_languages, list) else []
             subtitle_languages = subtitle_languages if isinstance(subtitle_languages, list) else []
             media_features = media_features if isinstance(media_features, list) else []
-
-            # Log the extracted information
-            if audio_languages or subtitle_languages or media_features:
-                xbmc.log(f"Playback info for '{film_info.get('title', 'Unknown')}': "
-                        f"Audio: {audio_languages}, Subtitles: {subtitle_languages}, Features: {media_features}",
-                        xbmc.LOGDEBUG)
 
             return audio_languages, subtitle_languages, media_features
 
