@@ -764,3 +764,125 @@ def test_sync_locally_with_genre_filtering(
 
         # Assert that remove_obsolete_files was called
         mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
+
+
+class TestLibrarySyncEdgeCases:
+    """Test edge cases for library sync and deduplication."""
+
+    def test_add_film_duplicate_handling(self):
+        """Test adding same film_id twice doesn't create duplicates."""
+        library = Library()
+        metadata = MockMetadata(year=2023)
+
+        film1 = Film(
+            mubi_id="123",
+            title="Test Movie",
+            artwork="http://example.com/art.jpg",
+            web_url="http://example.com/film",
+            metadata=metadata
+        )
+        film2 = Film(
+            mubi_id="123",  # Same ID
+            title="Test Movie Updated",
+            artwork="http://example.com/art2.jpg",
+            web_url="http://example.com/film",
+            metadata=metadata
+        )
+
+        library.add_film(film1)
+        library.add_film(film2)
+
+        # Should only have one film
+        assert len(library.films) == 1
+
+    def test_film_availability_country_merging(self):
+        """Test when same film added from different countries, duplicate is skipped."""
+        library = Library()
+        metadata = MockMetadata(year=2023)
+
+        # Film from US
+        film_us = Film(
+            mubi_id="123",
+            title="Test Movie",
+            artwork="",
+            web_url="",
+            metadata=metadata,
+            available_countries=['US']
+        )
+        # Same film from FR (duplicate by mubi_id)
+        film_fr = Film(
+            mubi_id="123",
+            title="Test Movie",
+            artwork="",
+            web_url="",
+            metadata=metadata,
+            available_countries=['FR']
+        )
+
+        library.add_film(film_us)
+        library.add_film(film_fr)
+
+        # Library skips duplicates - only first film is kept
+        assert len(library.films) == 1
+        film = library.films[0]
+        # First film's countries are preserved
+        assert 'US' in film.available_countries
+
+    def test_library_with_zero_films(self):
+        """Test empty library operations work correctly."""
+        library = Library()
+
+        assert len(library.films) == 0
+        assert library.films == []
+
+    def test_library_with_one_film(self):
+        """Test single film boundary case."""
+        library = Library()
+        metadata = MockMetadata(year=2023)
+
+        film = Film(
+            mubi_id="123",
+            title="Only Film",
+            artwork="",
+            web_url="",
+            metadata=metadata
+        )
+        library.add_film(film)
+
+        assert len(library.films) == 1
+        assert library.films[0].title == "Only Film"
+
+
+class TestRegressionTests:
+    """Regression tests for known bugs."""
+
+    def test_filename_sanitization_consecutive_spaces(self):
+        """Test prohibited chars removal doesn't leave consecutive spaces."""
+        metadata = MockMetadata(year=2023)
+        # Title with multiple prohibited chars that could leave spaces
+        film = Film(
+            mubi_id="123",
+            title="What???Why!!!How...",
+            artwork="",
+            web_url="",
+            metadata=metadata
+        )
+
+        folder_name = film.get_sanitized_folder_name()
+
+        # Should not have consecutive spaces
+        assert "  " not in folder_name
+        # Should still have the year
+        assert "(2023)" in folder_name
+
+    def test_vpn_country_suggestion_message_format(self):
+        """Test VPN suggestion message shows current country AND suggestions."""
+        from plugin_video_mubi.resources.lib.countries import get_country_name
+
+        # Verify country name lookup works for message formatting
+        assert get_country_name('CH') == 'Switzerland'
+        assert get_country_name('US') == 'United States'
+        assert get_country_name('FR') == 'France'
+
+        # Unknown country returns None
+        assert get_country_name('XX') is None

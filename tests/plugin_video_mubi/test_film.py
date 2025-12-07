@@ -1290,3 +1290,220 @@ class TestFilm:
         assert '\uFEFF' not in clean_result, "BOM should be removed"
         assert '\u202A' not in clean_result, "LTR embedding should be removed"
         assert clean_result == "filetest", f"Expected 'filetest', got '{clean_result}'"
+
+
+class TestFilmNfoAvailability:
+    """Test cases for NFO availability section handling."""
+
+    @pytest.fixture
+    def mock_metadata(self):
+        """Create a mock metadata object for testing."""
+        return Metadata(
+            title="Test Film",
+            originaltitle="Test Film",
+            year=2020,
+            genre=["Drama"],
+            director=["Test Director"],
+            plot="Test plot",
+            plotoutline="Test plot outline",
+            rating=8.0,
+            votes=100,
+            duration=120,
+            country=["US"],
+            castandrole="Test Actor",
+            dateadded="2023-01-01",
+            trailer="",
+            image="",
+            mpaa="",
+            artwork_urls={},
+            audio_languages=[],
+            subtitle_languages=[],
+            media_features=[]
+        )
+
+    def test_nfo_availability_with_many_countries(self, mock_metadata, tmp_path):
+        """Test NFO correctly stores 50+ available countries."""
+        # Create film with many countries
+        many_countries = [
+            'US', 'FR', 'DE', 'GB', 'IT', 'ES', 'JP', 'KR', 'CN', 'BR',
+            'MX', 'AR', 'CL', 'CO', 'PE', 'AU', 'NZ', 'IN', 'TH', 'VN',
+            'SG', 'MY', 'ID', 'PH', 'HK', 'TW', 'CA', 'NL', 'BE', 'CH',
+            'AT', 'PL', 'CZ', 'HU', 'RO', 'BG', 'GR', 'TR', 'IL', 'AE',
+            'SA', 'EG', 'ZA', 'NG', 'KE', 'SE', 'NO', 'DK', 'FI', 'IE'
+        ]
+        film = Film(
+            "123", "Multi Country Film", "", "", mock_metadata,
+            available_countries=many_countries
+        )
+
+        # Create NFO file
+        with patch.object(Film, '_get_imdb_url', return_value=""):
+            film.create_nfo_file(tmp_path, "plugin://test/", None)
+
+        # Parse NFO and verify all countries are present
+        nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
+        tree = ET.parse(nfo_file)
+        root = tree.getroot()
+        availability = root.find("mubi_availability")
+
+        assert availability is not None
+        country_elements = availability.findall("country")
+        assert len(country_elements) == 50
+
+    def test_update_nfo_availability_merges_countries(self, mock_metadata, tmp_path):
+        """Test update_nfo_availability() merges new countries with existing."""
+        # Create initial film with some countries
+        film = Film(
+            "123", "Test Film", "", "", mock_metadata,
+            available_countries=['US', 'FR']
+        )
+
+        # Create initial NFO
+        with patch.object(Film, '_get_imdb_url', return_value=""):
+            film.create_nfo_file(tmp_path, "plugin://test/", None)
+
+        nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
+
+        # Update with new countries
+        film.available_countries = ['US', 'FR', 'DE', 'GB']
+        film.update_nfo_availability(nfo_file)
+
+        # Verify all countries are present
+        tree = ET.parse(nfo_file)
+        root = tree.getroot()
+        availability = root.find("mubi_availability")
+        country_codes = [c.get('code') for c in availability.findall("country")]
+
+        assert 'US' in country_codes
+        assert 'FR' in country_codes
+        assert 'DE' in country_codes
+        assert 'GB' in country_codes
+
+    def test_update_nfo_availability_no_duplicates(self, mock_metadata, tmp_path):
+        """Test update_nfo_availability() doesn't add duplicate countries."""
+        film = Film(
+            "123", "Test Film", "", "", mock_metadata,
+            available_countries=['US', 'FR']
+        )
+
+        with patch.object(Film, '_get_imdb_url', return_value=""):
+            film.create_nfo_file(tmp_path, "plugin://test/", None)
+
+        nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
+
+        # Update with same countries (should not duplicate)
+        film.update_nfo_availability(nfo_file)
+
+        tree = ET.parse(nfo_file)
+        root = tree.getroot()
+        availability = root.find("mubi_availability")
+        country_codes = [c.get('code') for c in availability.findall("country")]
+
+        # Count occurrences - should be exactly 1 each
+        assert country_codes.count('US') == 1
+        assert country_codes.count('FR') == 1
+
+
+class TestFilmSanitizationEdgeCases:
+    """Test edge cases for filename sanitization."""
+
+    @pytest.fixture
+    def mock_metadata(self):
+        """Create a mock metadata object for testing."""
+        return Metadata(
+            title="Test Film",
+            originaltitle="Test Film",
+            year=2020,
+            genre=["Drama"],
+            director=["Test Director"],
+            plot="Test plot",
+            plotoutline="Test plot outline",
+            rating=8.0,
+            votes=100,
+            duration=120,
+            country=["US"],
+            castandrole="Test Actor",
+            dateadded="2023-01-01",
+            trailer="",
+            image="",
+            mpaa="",
+            artwork_urls={},
+            audio_languages=[],
+            subtitle_languages=[],
+            media_features=[]
+        )
+
+    def test_sanitized_folder_name_only_prohibited_chars(self, mock_metadata):
+        """Test title with only prohibited characters uses fallback."""
+        film = Film("123", "???***:::<<<>>>", "", "", mock_metadata)
+        folder_name = film.get_sanitized_folder_name()
+
+        # Should have a valid folder name (fallback)
+        assert folder_name is not None
+        assert len(folder_name) > 0
+        # Should contain the year
+        assert "(2020)" in folder_name
+
+    def test_sanitized_folder_name_very_long_title(self, mock_metadata):
+        """Test very long title is truncated correctly."""
+        long_title = "A" * 300  # 300 character title
+        film = Film("123", long_title, "", "", mock_metadata)
+        folder_name = film.get_sanitized_folder_name()
+
+        # Should be truncated to max 255 characters
+        assert len(folder_name) <= 255
+        # Should still contain the year
+        assert "(2020)" in folder_name
+
+    def test_sanitized_folder_name_unicode_title(self, mock_metadata):
+        """Test Unicode-only title is preserved."""
+        unicode_title = "東京物語"  # Tokyo Story in Japanese
+        film = Film("123", unicode_title, "", "", mock_metadata)
+        folder_name = film.get_sanitized_folder_name()
+
+        # Unicode should be preserved
+        assert "東京物語" in folder_name
+        assert "(2020)" in folder_name
+
+    def test_strm_file_content_format(self, mock_metadata, tmp_path):
+        """Test STRM file contains correct parameters."""
+        film = Film("123", "Test Film", "", "https://mubi.com/films/test", mock_metadata)
+        film.create_strm_file(tmp_path, "plugin://plugin.video.mubi/")
+
+        strm_file = tmp_path / f"{film.get_sanitized_folder_name()}.strm"
+        content = strm_file.read_text()
+
+        # Verify required parameters
+        assert "action=play_mubi_video" in content
+        assert "film_id=123" in content
+        assert "web_url=" in content
+
+    def test_nfo_preserves_original_title_with_special_chars(self, tmp_path):
+        """Test NFO content preserves original title with special chars."""
+        special_title = "What? Why! How..."
+        metadata = Metadata(
+            title=special_title,
+            originaltitle=special_title,
+            year=2020,
+            genre=["Drama"],
+            director=["Test Director"],
+            plot="Test plot",
+            plotoutline="Test plot outline",
+            rating=8.0,
+            votes=100,
+            duration=120,
+            country=["US"],
+        )
+        film = Film("123", special_title, "", "", metadata)
+
+        with patch.object(Film, '_get_imdb_url', return_value=""):
+            film.create_nfo_file(tmp_path, "plugin://test/", None)
+
+        nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
+        tree = ET.parse(nfo_file)
+        root = tree.getroot()
+
+        # Title in NFO should preserve special characters
+        title_elem = root.find("title")
+        assert title_elem is not None
+        assert title_elem.text == special_title

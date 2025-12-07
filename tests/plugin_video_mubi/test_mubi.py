@@ -2637,3 +2637,311 @@ class TestMubi:
         # Test Case 3: No response should return None
         result = mubi_instance._safe_json_parse(None, "test operation")
         assert result is None, "No response should return None"
+
+
+class TestMultiCountrySync:
+    """Test cases for multi-country sync and country aggregation logic."""
+
+    @pytest.fixture
+    def mock_session(self):
+        """Fixture providing a mocked session."""
+        return Mock()
+
+    @pytest.fixture
+    def mubi_instance(self, mock_session):
+        """Fixture providing a Mubi instance with mocked dependencies."""
+        with patch('xbmc.log'), \
+             patch.object(Mubi, 'get_cli_country', return_value='CH'):
+            return Mubi(mock_session)
+
+    def test_get_all_films_deduplication(self, mubi_instance):
+        """Test same film from multiple countries is deduplicated."""
+        # Same film ID appears in two different country responses
+        film_ch = {
+            'id': 12345,
+            'title': 'Same Movie',
+            'original_title': 'Same Movie',
+            'year': 2023,
+            'duration': 120,
+            'short_synopsis': 'Plot',
+            'directors': [{'name': 'Director'}],
+            'genres': ['Drama'],
+            'historic_countries': ['USA'],
+            'average_rating': 7.5,
+            'number_of_ratings': 1000,
+            'still_url': 'http://example.com/still.jpg',
+            'trailer_url': '',
+            'web_url': 'http://mubi.com/films/same-movie',
+            'consumable': {
+                'available_at': '2024-01-01T00:00:00Z',
+                'expires_at': '2030-12-31T23:59:59Z'
+            }
+        }
+        film_de = film_ch.copy()  # Same film
+
+        response_ch = {'films': [film_ch], 'meta': {'next_page': None}}
+        response_de = {'films': [film_de], 'meta': {'next_page': None}}
+
+        # Create a mock Film object
+        mock_film = Mock()
+        mock_film.mubi_id = 12345
+        mock_film.title = 'Same Movie'
+        mock_film.available_countries = []
+
+        with patch.object(mubi_instance, '_make_api_call') as mock_api, \
+             patch.object(mubi_instance, 'get_cli_language', return_value='en'), \
+             patch.object(mubi_instance, 'get_film_metadata', return_value=mock_film):
+
+            def side_effect_api(method, **kwargs):
+                mock_resp = Mock()
+                country = kwargs.get('headers', {}).get('Client-Country', 'CH')
+                if country == 'DE':
+                    mock_resp.json.return_value = response_de
+                else:
+                    mock_resp.json.return_value = response_ch
+                return mock_resp
+
+            mock_api.side_effect = side_effect_api
+
+            library = mubi_instance.get_all_films(countries=['CH', 'DE'])
+
+            # Should have only 1 film despite appearing in 2 countries
+            assert len(library.films) == 1, f"Expected 1 film, got {len(library.films)}"
+
+    def test_get_all_films_country_aggregation(self, mubi_instance):
+        """Test that get_film_metadata is called with correct aggregated countries."""
+        film = {
+            'id': 99999,
+            'title': 'Multi Country Film',
+            'original_title': 'Multi Country Film',
+            'year': 2023,
+            'duration': 120,
+            'short_synopsis': 'Plot',
+            'directors': [{'name': 'Director'}],
+            'genres': ['Drama'],
+            'historic_countries': ['USA'],
+            'average_rating': 7.5,
+            'number_of_ratings': 1000,
+            'still_url': 'http://example.com/still.jpg',
+            'trailer_url': '',
+            'web_url': 'http://mubi.com/films/multi-country',
+            'consumable': {
+                'available_at': '2024-01-01T00:00:00Z',
+                'expires_at': '2030-12-31T23:59:59Z'
+            }
+        }
+
+        response = {'films': [film], 'meta': {'next_page': None}}
+
+        # Create a mock Film object that captures the countries passed to it
+        def create_mock_film(film_data, available_countries=None):
+            mock_film = Mock()
+            mock_film.mubi_id = 99999
+            mock_film.title = 'Multi Country Film'
+            mock_film.available_countries = available_countries or []
+            return mock_film
+
+        with patch.object(mubi_instance, '_make_api_call') as mock_api, \
+             patch.object(mubi_instance, 'get_cli_language', return_value='en'), \
+             patch.object(mubi_instance, 'get_film_metadata', side_effect=create_mock_film):
+            mock_resp = Mock()
+            mock_resp.json.return_value = response
+            mock_api.return_value = mock_resp
+
+            library = mubi_instance.get_all_films(countries=['CH', 'DE', 'FR'])
+
+            # Film should have all 3 countries in available_countries
+            assert len(library.films) == 1
+            film_result = library.films[0]
+            assert hasattr(film_result, 'available_countries')
+            assert set(film_result.available_countries) == {'CH', 'DE', 'FR'}
+
+    def test_get_all_films_single_country(self, mubi_instance):
+        """Test syncing from single country works correctly."""
+        film_data = {
+            'id': 11111,
+            'title': 'Single Country Film',
+            'original_title': 'Single Country Film',
+            'year': 2023,
+            'duration': 90,
+            'short_synopsis': 'A plot',
+            'directors': [],
+            'genres': [],
+            'historic_countries': [],
+            'average_rating': 0,
+            'number_of_ratings': 0,
+            'still_url': '',
+            'trailer_url': '',
+            'web_url': 'http://mubi.com/films/single',
+            'consumable': {
+                'available_at': '2024-01-01T00:00:00Z',
+                'expires_at': '2030-12-31T23:59:59Z'
+            }
+        }
+
+        response = {'films': [film_data], 'meta': {'next_page': None}}
+
+        # Create a mock Film object to be returned by get_film_metadata
+        mock_film = Mock()
+        mock_film.mubi_id = 11111
+        mock_film.title = 'Single Country Film'
+        mock_film.available_countries = ['JP']
+
+        with patch.object(mubi_instance, '_make_api_call') as mock_api, \
+             patch.object(mubi_instance, 'get_cli_language', return_value='en'), \
+             patch.object(mubi_instance, '_safe_json_parse', return_value=response), \
+             patch.object(mubi_instance, 'get_film_metadata', return_value=mock_film):
+            mock_resp = Mock()
+            mock_resp.json.return_value = response
+            mock_api.return_value = mock_resp
+
+            library = mubi_instance.get_all_films(countries=['JP'])
+
+            assert len(library.films) == 1
+            assert mock_api.call_count == 1
+            # Verify JP was used in headers
+            headers = mock_api.call_args[1].get('headers', {})
+            assert headers.get('Client-Country') == 'JP'
+
+    def test_get_cli_country_geolocation_primary(self, mock_session):
+        """Test that ipapi.co is tried first for IP geolocation."""
+        with patch('xbmc.log'), \
+             patch('plugin_video_mubi.resources.lib.mubi.requests.get') as mock_get:
+            mubi = Mubi(mock_session)
+            mock_resp = Mock()
+            mock_resp.status_code = 200
+            mock_resp.text = 'DE'
+            mock_get.return_value = mock_resp
+
+            result = mubi.get_cli_country()
+
+            assert result == 'DE'
+            # First call should be to ipapi.co
+            first_call_url = mock_get.call_args_list[0][0][0]
+            assert 'ipapi.co' in first_call_url
+
+    def test_get_cli_country_fallback_chain(self, mock_session):
+        """Test fallback through geolocation services to PL default."""
+        with patch('xbmc.log'), \
+             patch('plugin_video_mubi.resources.lib.mubi.requests.get') as mock_get:
+            mubi = Mubi(mock_session)
+            # All services fail
+            mock_get.side_effect = Exception("Network error")
+
+            result = mubi.get_cli_country()
+
+            # Should fall back to PL default
+            assert result == 'PL'
+
+    def test_get_cli_country_invalid_response(self, mock_session):
+        """Test handles non-2-letter country codes gracefully."""
+        with patch('xbmc.log'), \
+             patch('plugin_video_mubi.resources.lib.mubi.requests.get') as mock_get:
+            mubi = Mubi(mock_session)
+            mock_resp = Mock()
+            mock_resp.status_code = 200
+            mock_resp.text = 'INVALID'  # Not a valid 2-letter code
+            mock_get.return_value = mock_resp
+
+            result = mubi.get_cli_country()
+
+            # Should fall back to PL when response is invalid
+            assert result == 'PL'
+
+    @patch('xbmc.log')
+    @patch('xbmcaddon.Addon')
+    def test_get_all_films_with_explicit_countries(
+        self, mock_addon, mock_log
+    ):
+        """Test get_all_films() uses explicit countries when provided."""
+        mock_addon.return_value = Mock()
+        mock_session = Mock()
+        mock_session.token = 'test-token'
+
+        with patch.object(Mubi, '_make_api_call') as mock_api:
+            mock_api.return_value = None
+
+            mubi = Mubi(mock_session)
+            # Pass explicit countries - should NOT call getSetting
+            mubi.get_all_films(countries=['US', 'FR'])
+
+            # Verify log shows the explicit countries
+            log_calls = [str(c) for c in mock_log.call_args_list]
+            assert any('US' in c and 'FR' in c for c in log_calls)
+
+    @patch('xbmc.log')
+    @patch('xbmcaddon.Addon')
+    def test_get_all_films_returns_library_instance(
+        self, mock_addon, mock_log
+    ):
+        """Test get_all_films() returns a Library instance."""
+        mock_addon.return_value = Mock()
+        mock_session = Mock()
+        mock_session.token = 'test-token'
+
+        with patch.object(Mubi, '_make_api_call') as mock_api:
+            mock_api.return_value = None
+
+            mubi = Mubi(mock_session)
+            result = mubi.get_all_films(countries=['CH'])
+
+            # Should return a Library instance
+            assert result is not None
+            from plugin_video_mubi.resources.lib.library import Library
+            assert isinstance(result, Library)
+
+    @patch('xbmc.log')
+    @patch('xbmcaddon.Addon')
+    def test_fetch_films_for_country_pagination(self, mock_addon, mock_log):
+        """Test _fetch_films_for_country() handles multi-page results."""
+        mock_addon.return_value = Mock()
+        mock_session = Mock()
+        mock_session.token = 'test-token'
+
+        with patch.object(Mubi, '_make_api_call') as mock_api:
+            # Page 1 response
+            page1_response = Mock()
+            page1_response.json.return_value = {
+                'films': [{'id': 1}, {'id': 2}],
+                'meta': {'total_count': 4, 'total_pages': 2, 'next_page': 2}
+            }
+            # Page 2 response
+            page2_response = Mock()
+            page2_response.json.return_value = {
+                'films': [{'id': 3}, {'id': 4}],
+                'meta': {'total_count': 4, 'total_pages': 2, 'next_page': None}
+            }
+            mock_api.side_effect = [page1_response, page2_response]
+
+            mubi = Mubi(mock_session)
+            film_ids, film_data, total, pages = mubi._fetch_films_for_country('CH')
+
+            # Should have fetched 4 films across 2 pages
+            assert len(film_ids) == 4
+            assert pages == 2
+            assert 1 in film_ids and 4 in film_ids
+
+    @patch('xbmc.log')
+    @patch('xbmcaddon.Addon')
+    def test_fetch_films_for_country_empty_results(self, mock_addon, mock_log):
+        """Test _fetch_films_for_country() handles empty country gracefully."""
+        mock_addon.return_value = Mock()
+        mock_session = Mock()
+        mock_session.token = 'test-token'
+
+        with patch.object(Mubi, '_make_api_call') as mock_api:
+            # Empty response
+            empty_response = Mock()
+            empty_response.json.return_value = {
+                'films': [],
+                'meta': {'total_count': 0, 'total_pages': 0, 'next_page': None}
+            }
+            mock_api.return_value = empty_response
+
+            mubi = Mubi(mock_session)
+            film_ids, film_data, total, pages = mubi._fetch_films_for_country('XX')
+
+            # Should return empty results
+            assert len(film_ids) == 0
+            assert total == 0
+            assert pages == 1

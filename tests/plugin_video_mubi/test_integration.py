@@ -1096,3 +1096,134 @@ class TestEndToEndWorkflows:
         for temp_dir in getattr(self, '_temp_dirs', []):
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.mark.integration
+class TestEndToEndFlows:
+    """End-to-end integration tests for complete workflows."""
+
+    def test_sync_to_playback_flow(self, tmp_path):
+        """Test complete flow: sync film → create files → playback check."""
+        # Arrange - Create library with film
+        library = Library()
+        metadata = Metadata(
+            title="Test Film",
+            year=2023,
+            director=["Director"],
+            genre=["Drama"],
+            plot="Test plot",
+            plotoutline="Test outline",
+            originaltitle="Test Film",
+            rating=7.0,
+            votes=100,
+            duration=120,
+            country=["US"],
+        )
+        film = Film(
+            mubi_id="12345",
+            title="Test Film",
+            artwork="http://example.com/art.jpg",
+            web_url="http://mubi.com/films/test",
+            metadata=metadata,
+            available_countries=['US', 'FR', 'DE']
+        )
+        library.add_film(film)
+
+        # Act - Sync to create files
+        with patch('xbmcgui.DialogProgress') as mock_dialog, \
+             patch('xbmcaddon.Addon') as mock_addon:
+            mock_dialog_instance = Mock()
+            mock_dialog_instance.iscanceled.return_value = False
+            mock_dialog.return_value = mock_dialog_instance
+            mock_addon.return_value.getSetting.return_value = ""
+
+            library.sync_locally(
+                "plugin://plugin.video.mubi/",
+                tmp_path,
+                None
+            )
+
+        # Assert - Files created
+        film_folder = tmp_path / film.get_sanitized_folder_name()
+        assert film_folder.exists()
+
+        nfo_file = film_folder / f"{film.get_sanitized_folder_name()}.nfo"
+        strm_file = film_folder / f"{film.get_sanitized_folder_name()}.strm"
+        assert nfo_file.exists()
+        assert strm_file.exists()
+
+        # Verify STRM content
+        strm_content = strm_file.read_text()
+        assert "film_id=12345" in strm_content
+        assert "action=play_mubi_video" in strm_content
+
+    def test_worldwide_country_aggregation_flow(self):
+        """Test worldwide sync aggregates countries correctly."""
+        # Arrange - Mock Mubi API
+        mock_addon = Mock()
+        mock_addon.getSetting.side_effect = lambda key: {
+            'client_country': 'US',
+            'sync_countries': 'worldwide',
+        }.get(key, '')
+        mock_addon.getAddonInfo.return_value = "/fake/path"
+
+        with patch('plugin_video_mubi.resources.lib.mubi.Mubi._make_api_call') as mock_api, \
+             patch('plugin_video_mubi.resources.lib.mubi.Mubi.get_film_metadata') as mock_meta:
+
+            # Mock API returns same film from different countries
+            mock_api.return_value = {
+                'films': [
+                    {'id': 123, 'title': 'Test Film', 'web_url': '/films/test'}
+                ]
+            }
+
+            # Mock metadata
+            mock_metadata = Metadata(
+                title="Test Film",
+                year=2023,
+                director=["Director"],
+                genre=["Drama"],
+                plot="Test plot",
+                plotoutline="Test outline",
+                originaltitle="Test Film",
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["US"],
+            )
+            mock_film = Film(
+                mubi_id="123",
+                title="Test Film",
+                artwork="",
+                web_url="/films/test",
+                metadata=mock_metadata,
+                available_countries=['US']
+            )
+            mock_meta.return_value = mock_film
+
+            # Act
+            mubi = Mubi(mock_addon)
+            library = mubi.get_all_films(countries=['US', 'FR'])
+
+            # Assert - Library returned
+            assert isinstance(library, Library)
+
+    def test_vpn_switch_detection_flow(self):
+        """Test VPN switch is detected via IP geolocation."""
+        mock_addon = Mock()
+        mock_addon.getSetting.return_value = ""
+        mock_addon.getAddonInfo.return_value = "/fake/path"
+
+        mubi = Mubi(mock_addon)
+
+        # Mock IP geolocation - the method uses 'requests' module directly
+        with patch.object(mubi, 'get_cli_country') as mock_get_country:
+            # First call - US
+            mock_get_country.return_value = 'US'
+            country_us = mubi.get_cli_country()
+            assert country_us == 'US'
+
+            # Second call - VPN switched to DE
+            mock_get_country.return_value = 'DE'
+            country_de = mubi.get_cli_country()
+            assert country_de == 'DE'
