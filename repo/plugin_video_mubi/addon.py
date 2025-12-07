@@ -131,11 +131,11 @@ if __name__ == "__main__":
         xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)
         film_id = params.get('film_id')
         web_url = params.get('web_url')
-        country = params.get('country')  # Country for multi-country playback
         if web_url:
             web_url = unquote_plus(web_url)
         try:
-            navigation.play_mubi_video(film_id, web_url, country)
+            # Country availability is now checked from NFO files, not passed as parameter
+            navigation.play_mubi_video(film_id, web_url)
             # Note: play_mubi_video handles its own response via setResolvedUrl()
         except Exception as e:
             xbmc.log(f"Error in play_mubi_video action: {e}", xbmc.LOGERROR)

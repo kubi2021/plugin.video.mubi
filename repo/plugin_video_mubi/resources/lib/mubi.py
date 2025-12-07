@@ -345,22 +345,69 @@ class Mubi:
 
     def get_cli_country(self):
         """
-        Retrieves the client's country from Mubi's website.
+        Retrieves the client's country based on current IP using IP geolocation.
 
-        :return: Client country code.
+        This method uses a third-party IP geolocation service to detect the user's
+        current location purely based on IP address. This is essential for VPN users
+        who may change their country without restarting Kodi.
+
+        Falls back to MUBI's website detection if the geolocation service fails.
+
+        :return: Client country code (uppercase, e.g., 'US', 'CH', 'AF').
         :rtype: str
         """
-        headers = {'User-Agent': self.UA}
-        response = self._make_api_call('GET', full_url='https://mubi.com/', headers=headers)
-        if response:
-            resp_text = response.text
-            country = re.findall(r'"Client-Country":"([^"]+?)"', resp_text)
-            cli_country = country[0] if country else 'PL'
-            xbmc.log(f"Client country detected: {cli_country}", xbmc.LOGINFO)
-            return cli_country
-        else:
-            xbmc.log("Failed to detect client country, defaulting to: PL", xbmc.LOGINFO)
-            return 'PL'
+        import requests as fresh_requests
+
+        # Try multiple IP geolocation services for reliability
+        geo_services = [
+            ('https://ipapi.co/country/', 'text'),  # Returns just country code like "US"
+            ('https://ipinfo.io/country', 'text'),  # Returns just country code like "US"
+        ]
+
+        for service_url, response_type in geo_services:
+            try:
+                xbmc.log(f"Detecting country via IP geolocation: {service_url}", xbmc.LOGDEBUG)
+                response = fresh_requests.get(
+                    service_url,
+                    headers={'User-Agent': self.UA},
+                    timeout=5
+                )
+
+                if response and response.status_code == 200:
+                    country_code = response.text.strip().upper()
+                    # Validate it looks like a country code (2 letters)
+                    if len(country_code) == 2 and country_code.isalpha():
+                        xbmc.log(f"Client country detected from IP geolocation: {country_code}", xbmc.LOGINFO)
+                        return country_code
+
+            except Exception as e:
+                xbmc.log(f"IP geolocation service {service_url} failed: {e}", xbmc.LOGDEBUG)
+                continue
+
+        # Fallback: Try MUBI's website (less reliable for VPN users)
+        xbmc.log("IP geolocation failed, falling back to MUBI website detection", xbmc.LOGWARNING)
+        try:
+            headers = {
+                'User-Agent': self.UA,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
+
+            fresh_session = fresh_requests.Session()
+            fresh_session.cookies.clear()
+            response = fresh_session.get('https://mubi.com/', headers=headers, timeout=10)
+
+            if response and response.status_code == 200:
+                country = re.findall(r'"Client-Country":"([^"]+?)"', response.text)
+                cli_country = country[0] if country else 'PL'
+                xbmc.log(f"Client country detected from MUBI: {cli_country}", xbmc.LOGINFO)
+                return cli_country
+        except Exception as e:
+            xbmc.log(f"MUBI fallback detection failed: {e}", xbmc.LOGERROR)
+
+        xbmc.log("All country detection methods failed, defaulting to: PL", xbmc.LOGWARNING)
+        return 'PL'
 
     def get_cli_language(self):
         """

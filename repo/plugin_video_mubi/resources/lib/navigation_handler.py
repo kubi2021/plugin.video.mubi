@@ -473,32 +473,164 @@ class NavigationHandler:
 
 
 
+    def _get_available_countries_from_nfo(self, film_id: str) -> list:
+        """
+        Read the available countries from the NFO file for a given film.
+
+        :param film_id: The MUBI film ID.
+        :return: List of uppercase country codes where the film is available.
+        """
+        import xml.etree.ElementTree as ET
+        import re
+        from pathlib import Path
+
+        plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
+
+        # Search for NFO file containing this film_id
+        for film_folder in plugin_userdata_path.iterdir():
+            if not film_folder.is_dir():
+                continue
+
+            # Find NFO file in the folder
+            nfo_files = list(film_folder.glob("*.nfo"))
+            if not nfo_files:
+                continue
+
+            nfo_file = nfo_files[0]
+            try:
+                tree = ET.parse(nfo_file)
+                root = tree.getroot()
+
+                # Check if this NFO matches the film_id (look for the STRM file or film ID)
+                # We can check the STRM file content or look for uniqueid
+                uniqueid = root.find(".//uniqueid[@type='mubi']")
+                if uniqueid is not None and uniqueid.text == film_id:
+                    # Found the right film, extract countries
+                    mubi_availability = root.find("mubi_availability")
+                    if mubi_availability is not None:
+                        countries = [c.get("code") for c in mubi_availability.findall("country")]
+                        xbmc.log(f"Found NFO for film_id {film_id} via uniqueid: {nfo_file}", xbmc.LOGDEBUG)
+                        return [c for c in countries if c]  # Filter out None values
+                    return []
+
+                # Alternative: check STRM file for exact film_id match
+                # Use regex to match film_id= followed by the exact ID and then & or end of string
+                strm_files = list(film_folder.glob("*.strm"))
+                if strm_files:
+                    strm_content = strm_files[0].read_text()
+                    # Match exact film_id parameter (e.g., film_id=90& or film_id=90 at end)
+                    pattern = rf"film_id={re.escape(str(film_id))}(&|$)"
+                    if re.search(pattern, strm_content):
+                        # Found the right film
+                        mubi_availability = root.find("mubi_availability")
+                        if mubi_availability is not None:
+                            countries = [c.get("code") for c in mubi_availability.findall("country")]
+                            xbmc.log(f"Found NFO for film_id {film_id} via STRM: {nfo_file}", xbmc.LOGDEBUG)
+                            return [c for c in countries if c]
+                        return []
+
+            except (ET.ParseError, OSError) as e:
+                xbmc.log(f"Error parsing NFO file {nfo_file}: {e}", xbmc.LOGWARNING)
+                continue
+
+        xbmc.log(f"No NFO file found for film_id {film_id}", xbmc.LOGWARNING)
+        return []
+
+    def _get_vpn_suggestions(self, available_countries: list, max_suggestions: int = 3) -> list:
+        """
+        Get VPN country suggestions sorted by best VPN tier (fastest infrastructure).
+
+        :param available_countries: List of uppercase country codes where the film is available.
+        :param max_suggestions: Maximum number of suggestions to return.
+        :return: List of tuples (country_code, country_name, vpn_tier).
+        """
+        from .countries import COUNTRIES
+
+        suggestions = []
+        for code in available_countries:
+            code_lower = code.lower()
+            if code_lower in COUNTRIES:
+                country_data = COUNTRIES[code_lower]
+                suggestions.append((
+                    code,
+                    country_data["name"],
+                    country_data.get("vpn_tier", 4)
+                ))
+
+        # Sort by VPN tier (lower is better), then alphabetically by name
+        suggestions.sort(key=lambda x: (x[2], x[1]))
+
+        return suggestions[:max_suggestions]
+
     def play_mubi_video(self, film_id: str = None, web_url: str = None, country: str = None):
         """
         Play a Mubi video using the secure URL and DRM handling.
+        Checks country availability before playback and suggests VPN if needed.
         If playback fails, prompt the user to open the video in an external web browser.
 
         :param film_id: Video ID
         :param web_url: Web URL of the film
-        :param country: Country where the film is available (used for error messages only)
+        :param country: Deprecated - country info is now read from NFO files.
         """
+        from .countries import COUNTRIES
+
         try:
             xbmc.log(f"play_mubi_video called with handle: {self.handle}", xbmc.LOGDEBUG)
-            xbmc.log(f"Film available in country: {country or 'unknown'}", xbmc.LOGINFO)
 
             if film_id is None:
                 xbmc.log("Error: film_id is missing", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", "Error: film_id is missing.", xbmcgui.NOTIFICATION_ERROR)
                 return
 
-            # Get secure stream info from Mubi API (uses user's actual country for API)
-            # Pass film_country for error messaging only
-            stream_info = self.mubi.get_secure_stream_info(film_id, film_country=country)
+            # Step 1: Detect current client country from MUBI API
+            current_country = self.mubi.get_cli_country()
+            xbmc.log(f"Current client country detected: {current_country}", xbmc.LOGINFO)
+
+            # Step 2: Get available countries from NFO file
+            available_countries = self._get_available_countries_from_nfo(film_id)
+            xbmc.log(f"Film {film_id} available in countries: {available_countries}", xbmc.LOGINFO)
+
+            # Step 3: Check if current country is in available countries
+            if available_countries and current_country.upper() not in available_countries:
+                # Get country name for display
+                current_country_name = COUNTRIES.get(current_country.lower(), {}).get("name", current_country)
+
+                # Get VPN suggestions (top 3 countries sorted by best VPN tier)
+                vpn_suggestions = self._get_vpn_suggestions(available_countries)
+
+                if vpn_suggestions:
+                    vpn_countries = ", ".join([f"{s[1]}" for s in vpn_suggestions])
+                    message = (
+                        f"This movie is not available in {current_country_name}.\n\n"
+                        f"Connect to a VPN in one of these countries:\n{vpn_countries}"
+                    )
+                else:
+                    message = f"This movie is not available in {current_country_name}."
+
+                xbmc.log(f"Film not available in {current_country}: {message}", xbmc.LOGINFO)
+                xbmcgui.Dialog().ok("MUBI - Not Available", message)
+                return
+
+            # Step 4: Proceed with playback
+            stream_info = self.mubi.get_secure_stream_info(film_id)
             xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
 
             if 'error' in stream_info:
                 error_msg = stream_info['error']
                 xbmc.log(f"Error in stream info: {error_msg}", xbmc.LOGERROR)
+
+                # If geo-restriction error and we have availability data, show VPN suggestions
+                if 'VPN' in error_msg and available_countries:
+                    current_country_name = COUNTRIES.get(current_country.lower(), {}).get("name", current_country)
+                    vpn_suggestions = self._get_vpn_suggestions(available_countries)
+                    if vpn_suggestions:
+                        vpn_countries = ", ".join([s[1] for s in vpn_suggestions])
+                        message = (
+                            f"This movie is not available in {current_country_name}.\n\n"
+                            f"Connect to a VPN in one of these countries:\n{vpn_countries}"
+                        )
+                        xbmcgui.Dialog().ok("MUBI - Not Available", message)
+                        return
 
                 # Check if this is a geo-restriction error (contains VPN message)
                 if 'VPN' in error_msg:

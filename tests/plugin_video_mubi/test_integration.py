@@ -308,9 +308,9 @@ class TestWorkflowIntegration:
         assert device_id is not None
         assert len(device_id) > 0
 
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.get')
     @patch('time.time')
-    def test_country_language_detection_workflow(self, mock_time, mock_session_class, workflow_setup):
+    def test_country_language_detection_workflow(self, mock_time, mock_requests_get, workflow_setup):
         """Test country and language detection workflow."""
         setup = workflow_setup
 
@@ -320,34 +320,17 @@ class TestWorkflowIntegration:
         # Initialize call history to avoid rate limiting
         setup['mubi']._call_history = []
 
-        # Mock the session instance and its request method
-        mock_session = Mock()
-        mock_session_class.return_value = mock_session
-
-        # Mock API responses with proper response objects
+        # Mock IP geolocation response (returns country code)
         mock_response_country = Mock()
-        mock_response_country.text = '"Client-Country":"US"'
+        mock_response_country.text = 'US\n'
         mock_response_country.status_code = 200
-
-        mock_response_language = Mock()
-        mock_response_language.text = '"Client-Language":"en"'
-        mock_response_language.status_code = 200
-
-        # Create a side effect function that returns the appropriate mock response
-        def mock_request_side_effect(*args, **kwargs):
-            url = args[1] if len(args) > 1 else kwargs.get('url', '')
-            if 'mubi.com' in str(url):
-                return mock_response_country
-            else:
-                return mock_response_language
-
-        mock_session.request.side_effect = mock_request_side_effect
+        mock_requests_get.return_value = mock_response_country
 
         # Test country detection
         country = setup['mubi'].get_cli_country()
         setup['session'].set_client_country(country)
 
-        # Test language detection
+        # Test language detection (returns cached/default value, no HTTP call)
         language = setup['mubi'].get_cli_language()
         setup['session'].set_client_language(language)
 

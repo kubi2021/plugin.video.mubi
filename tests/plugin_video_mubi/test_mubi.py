@@ -45,23 +45,32 @@ class TestMubi:
         assert mubi.apiURL == "https://api.mubi.com/"
 
     def test_get_cli_country_success(self, mubi_instance):
-        """Test successful client country retrieval."""
-        # Mock the _make_api_call method to return a response with text
+        """Test successful client country retrieval via IP geolocation."""
+        # Mock the requests.get to return a country code from IP geolocation service
         mock_response = Mock()
-        mock_response.text = 'some html with "Client-Country":"US" in it'
+        mock_response.status_code = 200
+        mock_response.text = 'US\n'  # IP geolocation returns just the country code
 
-        with patch.object(mubi_instance, '_make_api_call', return_value=mock_response):
+        with patch('plugin_video_mubi.resources.lib.mubi.requests.get', return_value=mock_response):
             country = mubi_instance.get_cli_country()
 
             assert country == "US"
 
     def test_get_cli_country_failure(self, mubi_instance):
-        """Test client country retrieval failure."""
-        # Mock the _make_api_call method to return None (failure)
-        with patch.object(mubi_instance, '_make_api_call', return_value=None):
-            country = mubi_instance.get_cli_country()
+        """Test client country retrieval falls back to PL when all services fail."""
+        # Mock requests.get to fail for all geolocation services
+        mock_response = Mock()
+        mock_response.status_code = 500
 
-            assert country == "PL"  # Default fallback
+        # Also mock requests.Session for the MUBI fallback
+        mock_session = Mock()
+        mock_session.get.return_value = mock_response
+
+        with patch('plugin_video_mubi.resources.lib.mubi.requests.get', return_value=mock_response):
+            with patch('plugin_video_mubi.resources.lib.mubi.requests.Session', return_value=mock_session):
+                country = mubi_instance.get_cli_country()
+
+                assert country == "PL"  # Default fallback
 
     def test_get_cli_language_returns_default(self, mubi_instance):
         """Test client language returns default 'en' value.

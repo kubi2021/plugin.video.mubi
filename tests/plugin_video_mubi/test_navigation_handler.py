@@ -958,3 +958,203 @@ class TestKodi20Features:
             mock_info_tag.setTagLine.assert_called_once_with("Great movie tagline")
             mock_info_tag.addAudioStream.assert_called()
             mock_info_tag.addSubtitleStream.assert_called()
+
+
+class TestGetAvailableCountriesFromNfo:
+    """Test cases for the _get_available_countries_from_nfo method.
+
+    Specifically tests the film_id matching logic to prevent substring matching bugs.
+    Bug context: film_id=90 was incorrectly matching STRM files with film_id=190 or film_id=902.
+    """
+
+    @pytest.fixture
+    def navigation_handler(self):
+        """Create a NavigationHandler instance with mocked dependencies."""
+        with patch('xbmcgui.Dialog'), \
+             patch('xbmcgui.ListItem'), \
+             patch('xbmcplugin.addDirectoryItem'), \
+             patch('xbmcplugin.endOfDirectory'), \
+             patch('xbmc.log'):
+            mock_mubi = Mock()
+            mock_session = Mock()
+            mock_session.token = "test_token"
+            mock_session.user_id = "test_user"
+            handler = NavigationHandler(
+                handle=1,
+                base_url="plugin://plugin.video.mubi/",
+                mubi=mock_mubi,
+                session=mock_session
+            )
+            return handler
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_film_id_exact_match_prevents_substring_collision(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """
+        Test that film_id=90 does NOT match a STRM file containing film_id=190.
+
+        This is a regression test for a bug where substring matching caused
+        the wrong NFO file to be returned.
+        """
+        # Arrange: Create two film folders with different film_ids
+        mock_translate_path.return_value = str(tmp_path)
+
+        # Film 190 folder (should NOT match when searching for film_id=90)
+        film_190_folder = tmp_path / "Film 190 (2020)"
+        film_190_folder.mkdir()
+        (film_190_folder / "Film 190 (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=190&web_url=https://mubi.com/films/film-190"
+        )
+        (film_190_folder / "Film 190 (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Film 190</title>
+    <mubi_availability>
+        <country code="CH">Switzerland</country>
+    </mubi_availability>
+</movie>""")
+
+        # Film 90 folder (should match when searching for film_id=90)
+        film_90_folder = tmp_path / "Film 90 (2004)"
+        film_90_folder.mkdir()
+        (film_90_folder / "Film 90 (2004).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=90&web_url=https://mubi.com/films/film-90"
+        )
+        (film_90_folder / "Film 90 (2004).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Film 90</title>
+    <mubi_availability>
+        <country code="AF">Afghanistan</country>
+    </mubi_availability>
+</movie>""")
+
+        # Act: Search for film_id=90
+        result = navigation_handler._get_available_countries_from_nfo("90")
+
+        # Assert: Should return AF (Afghanistan), NOT CH (Switzerland)
+        assert result == ["AF"], (
+            f"Expected ['AF'] for film_id=90 but got {result}. "
+            "This indicates substring matching bug where film_id=90 matched film_id=190"
+        )
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_film_id_match_with_trailing_ampersand(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that film_id matching works with parameters after the film_id."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Test Film (2020)"
+        film_folder.mkdir()
+        (film_folder / "Test Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=123&web_url=https://mubi.com/films/test"
+        )
+        (film_folder / "Test Film (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Test Film</title>
+    <mubi_availability>
+        <country code="US">United States</country>
+        <country code="FR">France</country>
+    </mubi_availability>
+</movie>""")
+
+        result = navigation_handler._get_available_countries_from_nfo("123")
+
+        assert result == ["US", "FR"]
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_film_id_match_at_end_of_url(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that film_id matching works when film_id is at the end of the URL."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "End Film (2020)"
+        film_folder.mkdir()
+        # STRM where film_id is the last parameter (no trailing &)
+        (film_folder / "End Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&web_url=https://mubi.com/films/test&film_id=456"
+        )
+        (film_folder / "End Film (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>End Film</title>
+    <mubi_availability>
+        <country code="DE">Germany</country>
+    </mubi_availability>
+</movie>""")
+
+        result = navigation_handler._get_available_countries_from_nfo("456")
+
+        assert result == ["DE"]
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_no_match_returns_empty_list(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that searching for non-existent film_id returns empty list."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Some Film (2020)"
+        film_folder.mkdir()
+        (film_folder / "Some Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=999&web_url=https://mubi.com/films/some"
+        )
+        (film_folder / "Some Film (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Some Film</title>
+    <mubi_availability>
+        <country code="JP">Japan</country>
+    </mubi_availability>
+</movie>""")
+
+        # Search for a film_id that doesn't exist
+        result = navigation_handler._get_available_countries_from_nfo("12345")
+
+        assert result == []
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_similar_film_ids_do_not_collide(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """
+        Test multiple similar film_ids (90, 190, 290, 900, 901) don't collide.
+
+        This is an extended regression test for the substring matching bug.
+        """
+        mock_translate_path.return_value = str(tmp_path)
+
+        # Create folders for films with IDs that could collide with substring matching
+        test_cases = [
+            ("90", "AF"),    # The target film
+            ("190", "CH"),   # Contains "90"
+            ("290", "DE"),   # Contains "90"
+            ("900", "FR"),   # Starts with "90"
+            ("901", "GB"),   # Starts with "90"
+            ("9", "IT"),     # Prefix of "90"
+        ]
+
+        for film_id, country_code in test_cases:
+            folder = tmp_path / f"Film {film_id} (2020)"
+            folder.mkdir()
+            (folder / f"Film {film_id} (2020).strm").write_text(
+                f"plugin://plugin.video.mubi/?action=play_mubi_video&film_id={film_id}&web_url=https://mubi.com/films/f{film_id}"
+            )
+            (folder / f"Film {film_id} (2020).nfo").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Film {film_id}</title>
+    <mubi_availability>
+        <country code="{country_code}">Country {country_code}</country>
+    </mubi_availability>
+</movie>""")
+
+        # Act & Assert: Each film_id should only match its own NFO
+        for film_id, expected_country in test_cases:
+            result = navigation_handler._get_available_countries_from_nfo(film_id)
+            assert result == [expected_country], (
+                f"film_id={film_id} expected [{expected_country}] but got {result}"
+            )
