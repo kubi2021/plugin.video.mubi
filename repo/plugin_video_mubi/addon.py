@@ -118,9 +118,7 @@ if __name__ == "__main__":
         try:
             # Sync from all countries worldwide
             from resources.lib.countries import COUNTRIES
-            # For testing, use first 2 countries only
-            # TODO: Later expand to full list with list(COUNTRIES.keys())
-            all_countries = [c.upper() for c in list(COUNTRIES.keys())[:2]]
+            all_countries = [c.upper() for c in COUNTRIES.keys()]
             navigation.sync_films(countries=all_countries, dialog_title="Syncing MUBI Worldwide")
             # Refresh the container to return to the main menu after sync completes.
             xbmc.executebuiltin('Container.Refresh')
