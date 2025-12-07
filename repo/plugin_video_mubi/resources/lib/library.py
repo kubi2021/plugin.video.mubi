@@ -22,15 +22,13 @@ class Library:
     def __len__(self):
         return len(self.films)
 
-    def sync_locally(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str],
-                     user_country: Optional[str] = None):
+    def sync_locally(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]):
         """
         Synchronize the local library with fetched film data from MUBI.
 
         :param base_url: The base URL for creating STRM files.
         :param plugin_userdata_path: The path where film folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
-        :param user_country: User's country code (used to determine playback country).
         """
         # Filter film by genre
         self.filter_films_by_genre()
@@ -47,7 +45,7 @@ class Library:
         # Initialize counters
         newly_added = 0
         failed_to_add = 0
-        strm_updated = 0
+        availability_updated = 0
         films_to_process = len(self.films)
 
         # Initialize progress dialog
@@ -71,14 +69,14 @@ class Library:
                 # Process film if valid
                 if self.is_film_valid(film):
                     result = self.prepare_files_for_film(
-                        film, base_url, plugin_userdata_path, omdb_api_key, user_country
+                        film, base_url, plugin_userdata_path, omdb_api_key
                     )
                     if result is True:
                         newly_added += 1
                     elif result is False:
                         failed_to_add += 1
                     elif result is None:
-                        strm_updated += 1  # STRM was updated for existing film
+                        availability_updated += 1  # NFO availability was updated for existing film
 
             # Final cleanup of obsolete files
             obsolete_films_count = self.remove_obsolete_files(plugin_userdata_path)
@@ -141,23 +139,21 @@ class Library:
         return film.mubi_id and film.title and film.metadata
 
     def prepare_files_for_film(
-        self, film: Film, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str],
-        user_country: Optional[str] = None
+        self, film: Film, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]
     ) -> Optional[bool]:
         """
         Prepare the necessary files for a given film. Creates NFO and STRM files.
-        The STRM file is always regenerated to update country availability.
-        The NFO file is only created if it doesn't exist (expensive due to OMDB API calls).
+        The NFO file country availability is always updated on each sync.
+        Full NFO creation is only done if NFO doesn't exist (expensive due to OMDB API calls).
 
         :param film: The Film object to process.
         :param base_url: The base URL for the STRM file.
         :param plugin_userdata_path: The path where film folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
-        :param user_country: User's country code (used to determine playback country).
         :return:
             - True if files were created/updated successfully.
             - False if file creation failed.
-            - None if NFO already exists and only STRM was updated.
+            - None if NFO already exists and only availability was updated.
         """
         film_folder_name = film.get_sanitized_folder_name()
         film_path = plugin_userdata_path / film_folder_name
@@ -167,13 +163,13 @@ class Library:
         nfo_file = film_path / f"{film_folder_name}.nfo"
 
         try:
-            # Check if NFO already exists (skip expensive NFO creation but always update STRM)
+            # Check if NFO already exists (skip expensive NFO creation but always update availability)
             nfo_exists = nfo_file.exists()
             if nfo_exists:
-                # Only update STRM file (quick operation to update country)
-                xbmc.log(f"Updating STRM for '{film.title}' (NFO exists).", xbmc.LOGDEBUG)
-                film.create_strm_file(film_path, base_url, user_country)
-                return None  # Indicate STRM was updated (not a new film)
+                # Update country availability in NFO file (quick operation)
+                xbmc.log(f"Updating availability for '{film.title}' (NFO exists).", xbmc.LOGDEBUG)
+                film.update_nfo_availability(nfo_file)
+                return None  # Indicate availability was updated (not a new film)
         except PermissionError as e:
             xbmc.log(f"PermissionError when accessing files for film '{film.title}': {e}", xbmc.LOGERROR)
             return False  # Indicate failure due to permission error
@@ -200,7 +196,7 @@ class Library:
 
             # If NFO was created successfully, proceed to create the STRM file
             xbmc.log(f"Creating STRM file for film '{film.title}'.", xbmc.LOGDEBUG)
-            film.create_strm_file(film_path, base_url, user_country)
+            film.create_strm_file(film_path, base_url)
 
             # BUG #9 FIX: Verify that the STRM file was actually created
             if not strm_file.exists():

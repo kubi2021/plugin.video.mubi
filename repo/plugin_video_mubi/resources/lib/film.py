@@ -208,12 +208,11 @@ class Film:
         return folder_name
 
 
-    def create_strm_file(self, film_path: Path, base_url: str, user_country: str = None):
+    def create_strm_file(self, film_path: Path, base_url: str):
         """Create the .strm file for the film.
 
         :param film_path: Path to the film folder.
         :param base_url: Base URL for the plugin.
-        :param user_country: User's country code (used to determine playback country).
         """
         from urllib.parse import urlencode
 
@@ -222,21 +221,12 @@ class Film:
         film_file_name = f"{film_folder_name}.strm"
         film_strm_file = film_path / film_file_name
 
-        # Determine the best country for playback:
-        # 1. If film is available in user's country, use user's country
-        # 2. Otherwise, use the first available country
-        playback_country = self._get_playback_country(user_country)
-
-        # Build the query parameters
+        # Build the query parameters (country info is now in NFO, not STRM)
         query_params = {
             'action': 'play_mubi_video',
             'film_id': self.mubi_id,
             'web_url': self.web_url
         }
-
-        # Add country parameter if we have availability info
-        if playback_country:
-            query_params['country'] = playback_country
 
         encoded_params = urlencode(query_params)
         kodi_movie_url = f"{base_url}?{encoded_params}"
@@ -248,22 +238,6 @@ class Film:
             xbmc.log(f"Error while creating STRM file for {self.title}: {error}", xbmc.LOGERROR)
             # BUG #9 FIX: Re-raise the exception so caller knows the operation failed
             raise
-
-    def _get_playback_country(self, user_country: str = None) -> str:
-        """Determine the best country for playback.
-
-        :param user_country: User's country code.
-        :return: Country code to use for playback, or None if unknown.
-        """
-        if not self.available_countries:
-            return None
-
-        # If user's country is available, prefer it
-        if user_country and user_country in self.available_countries:
-            return user_country
-
-        # Otherwise, use the first available country
-        return self.available_countries[0] if self.available_countries else None
 
     def create_nfo_file(self, film_path: Path, base_url: str, omdb_api_key: str):
         """Create the .nfo file for the film."""
@@ -301,7 +275,41 @@ class Film:
         except (OSError, ValueError) as error:
             xbmc.log(f"Error while creating NFO file for {self.title}: {error}", xbmc.LOGERROR)
 
+    def update_nfo_availability(self, nfo_file: Path) -> bool:
+        """
+        Update the MUBI availability section in an existing NFO file.
 
+        This method parses the existing NFO file, removes any existing
+        mubi_availability section, adds the current availability information,
+        and writes the file back.
+
+        :param nfo_file: Path to the existing NFO file.
+        :return: True if successful, False if failed.
+        """
+        try:
+            # Parse the existing NFO file
+            tree = ET.parse(nfo_file)
+            root = tree.getroot()
+
+            # Remove existing mubi_availability element if present
+            existing_availability = root.find("mubi_availability")
+            if existing_availability is not None:
+                root.remove(existing_availability)
+
+            # Add updated availability information
+            self._add_mubi_availability_to_tree(root)
+
+            # Write back to file
+            tree.write(nfo_file, encoding="utf-8", xml_declaration=False)
+            xbmc.log(f"Updated MUBI availability for '{self.title}'", xbmc.LOGDEBUG)
+            return True
+
+        except ET.ParseError as e:
+            xbmc.log(f"Failed to parse NFO file for '{self.title}': {e}", xbmc.LOGERROR)
+            return False
+        except OSError as e:
+            xbmc.log(f"Failed to update NFO file for '{self.title}': {e}", xbmc.LOGERROR)
+            return False
 
     def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str, artwork_paths: dict = None) -> bytes:
         """Generate the NFO XML tree structure, including IMDb URL if available."""
@@ -447,7 +455,35 @@ class Film:
             # SECURITY FIX: Sanitize IMDb URL to prevent injection
             ET.SubElement(movie, "imdbid").text = self._sanitize_xml_content(imdb_url)
 
+        # Add MUBI availability information (countries where this film is available)
+        self._add_mubi_availability_to_tree(movie)
+
         return ET.tostring(movie)
+
+    def _add_mubi_availability_to_tree(self, movie: ET.Element) -> None:
+        """
+        Add MUBI availability information to the NFO XML tree.
+
+        Creates a <mubi_availability> section with country entries including
+        ISO codes and full country names from countries.py.
+
+        :param movie: The movie XML element to add availability to.
+        """
+        from .countries import COUNTRIES
+
+        if not self.available_countries:
+            return
+
+        mubi_availability = ET.SubElement(movie, "mubi_availability")
+
+        for country_code in self.available_countries:
+            country_elem = ET.SubElement(mubi_availability, "country")
+            # Store ISO code as attribute
+            country_elem.set("code", self._sanitize_xml_content(country_code.upper()))
+            # Look up full country name from countries.py (codes are lowercase there)
+            country_data = COUNTRIES.get(country_code.lower(), {})
+            country_name = country_data.get("name", country_code)
+            country_elem.text = self._sanitize_xml_content(country_name)
 
     def _download_thumbnail(self, film_path: Path, film_folder_name: str) -> Optional[str]:
         """

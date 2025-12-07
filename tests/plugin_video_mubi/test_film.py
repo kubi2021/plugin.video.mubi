@@ -801,7 +801,141 @@ class TestFilm:
         result = film._get_imdb_url("Test Movie", "Test Movie", 2023, "test_api_key")
         assert result == ""
 
+    def test_nfo_tree_includes_mubi_availability(self, mock_metadata):
+        """Test that NFO tree includes mubi_availability section with countries."""
+        film = Film(
+            "123", "Test Movie", "", "", mock_metadata,
+            available_countries=["ch", "de", "us"]
+        )
 
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            kodi_trailer_url="",
+            imdb_url="",
+            artwork_paths=None
+        )
+
+        root = ET.fromstring(nfo_tree)
+        mubi_availability = root.find("mubi_availability")
+        assert mubi_availability is not None, "mubi_availability section should exist"
+
+        countries = mubi_availability.findall("country")
+        assert len(countries) == 3, "Should have 3 country elements"
+
+        # Check country codes are uppercase
+        codes = [c.get("code") for c in countries]
+        assert "CH" in codes
+        assert "DE" in codes
+        assert "US" in codes
+
+        # Check country names are present
+        names = [c.text for c in countries]
+        assert "Switzerland" in names
+        assert "Germany" in names
+        assert "United States" in names
+
+    def test_nfo_tree_no_availability_when_empty(self, mock_metadata):
+        """Test that NFO tree has no mubi_availability when no countries."""
+        film = Film("123", "Test Movie", "", "", mock_metadata)
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            kodi_trailer_url="",
+            imdb_url="",
+            artwork_paths=None
+        )
+
+        root = ET.fromstring(nfo_tree)
+        mubi_availability = root.find("mubi_availability")
+        assert mubi_availability is None, "mubi_availability should not exist when empty"
+
+    def test_update_nfo_availability_success(self, mock_metadata):
+        """Test updating NFO availability in existing file."""
+        film = Film(
+            "123", "Test Movie", "", "", mock_metadata,
+            available_countries=["fr", "gb"]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nfo_file = Path(tmpdir) / "test.nfo"
+            # Create initial NFO without availability
+            nfo_file.write_text("<movie><title>Test Movie</title></movie>")
+
+            result = film.update_nfo_availability(nfo_file)
+
+            assert result is True
+            content = nfo_file.read_text()
+            root = ET.fromstring(content)
+
+            mubi_availability = root.find("mubi_availability")
+            assert mubi_availability is not None
+
+            countries = mubi_availability.findall("country")
+            assert len(countries) == 2
+            codes = [c.get("code") for c in countries]
+            assert "FR" in codes
+            assert "GB" in codes
+
+    def test_update_nfo_availability_replaces_existing(self, mock_metadata):
+        """Test that update_nfo_availability replaces existing availability."""
+        film = Film(
+            "123", "Test Movie", "", "", mock_metadata,
+            available_countries=["jp"]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nfo_file = Path(tmpdir) / "test.nfo"
+            # Create NFO with old availability
+            old_content = """<movie>
+                <title>Test Movie</title>
+                <mubi_availability>
+                    <country code="US">United States</country>
+                    <country code="DE">Germany</country>
+                </mubi_availability>
+            </movie>"""
+            nfo_file.write_text(old_content)
+
+            result = film.update_nfo_availability(nfo_file)
+
+            assert result is True
+            content = nfo_file.read_text()
+            root = ET.fromstring(content)
+
+            mubi_availability = root.find("mubi_availability")
+            countries = mubi_availability.findall("country")
+            # Should only have JP now, not US/DE
+            assert len(countries) == 1
+            assert countries[0].get("code") == "JP"
+            assert countries[0].text == "Japan"
+
+    def test_update_nfo_availability_invalid_file(self, mock_metadata):
+        """Test update_nfo_availability with invalid XML file."""
+        film = Film(
+            "123", "Test Movie", "", "", mock_metadata,
+            available_countries=["ch"]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nfo_file = Path(tmpdir) / "test.nfo"
+            nfo_file.write_text("not valid xml <><>")
+
+            result = film.update_nfo_availability(nfo_file)
+
+            assert result is False
+
+    def test_update_nfo_availability_nonexistent_file(self, mock_metadata):
+        """Test update_nfo_availability with nonexistent file."""
+        film = Film(
+            "123", "Test Movie", "", "", mock_metadata,
+            available_countries=["ch"]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            nfo_file = Path(tmpdir) / "nonexistent.nfo"
+
+            result = film.update_nfo_availability(nfo_file)
+
+            assert result is False
 
     def test_sanitized_folder_name_edge_cases(self, mock_metadata):
         """Test folder name sanitization with edge cases."""

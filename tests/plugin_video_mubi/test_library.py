@@ -93,7 +93,7 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
-        
+
         # Create a Film object
         metadata = MockMetadata(year=2023)
         film = Film(
@@ -118,8 +118,8 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
 
         mock_create_nfo.side_effect = create_nfo_side_effect
 
-        # Mock create_strm_file to create the STRM file (with user_country param)
-        def create_strm_side_effect(film_path_arg, base_url_arg, user_country=None):
+        # Mock create_strm_file to create the STRM file
+        def create_strm_side_effect(film_path_arg, base_url_arg):
             strm_file.touch()
 
         mock_create_strm.side_effect = create_strm_side_effect
@@ -134,30 +134,31 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
 
         # Check if the calls to `create_nfo_file` and `create_strm_file` have the expected arguments
         expected_folder = plugin_userdata_path / film.get_sanitized_folder_name()
-        
+
         # Assert that create_nfo_file is called with expected args
         mock_create_nfo.assert_called_once_with(expected_folder, base_url, omdb_api_key)
 
-        # Assert that create_strm_file is called with expected args (None user_country)
-        mock_create_strm.assert_called_once_with(expected_folder, base_url, None)
+        # Assert that create_strm_file is called with expected args (no user_country)
+        mock_create_strm.assert_called_once_with(expected_folder, base_url)
 
 
 @patch.object(Film, "create_nfo_file")
-@patch.object(Film, "create_strm_file")
-def test_prepare_files_for_film_nfo_exists_strm_updated(mock_create_strm, mock_create_nfo):
-    """Test that when NFO exists, STRM is still regenerated to update country info."""
+@patch.object(Film, "update_nfo_availability")
+def test_prepare_files_for_film_nfo_exists_availability_updated(mock_update_availability, mock_create_nfo):
+    """Test that when NFO exists, availability is updated in NFO file."""
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
 
-        # Create a Film object
+        # Create a Film object with available countries
         metadata = MockMetadata(year=2023)
         film = Film(
             mubi_id="789012",
             title="Existing Movie",
             artwork="http://example.com/art2.jpg",
             web_url="http://example.com",
-            metadata=metadata
+            metadata=metadata,
+            available_countries=["CH", "DE", "US"]
         )
         library.add_film(film)
 
@@ -166,27 +167,28 @@ def test_prepare_files_for_film_nfo_exists_strm_updated(mock_create_strm, mock_c
         film_path = plugin_userdata_path / film_folder_name
         nfo_file = film_path / f"{film_folder_name}.nfo"
 
-        # Simulate existing NFO file (STRM will be regenerated)
+        # Simulate existing NFO file (availability will be updated)
         film_path.mkdir(parents=True, exist_ok=True)
-        nfo_file.touch()
+        nfo_file.write_text("<movie><title>Existing Movie</title></movie>")
+
+        # Mock update_nfo_availability to return True
+        mock_update_availability.return_value = True
 
         # Run prepare_files_for_film
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        user_country = "CH"
         result = library.prepare_files_for_film(
-            film, base_url, plugin_userdata_path, omdb_api_key, user_country
+            film, base_url, plugin_userdata_path, omdb_api_key
         )
 
-        # Assert that prepare_files_for_film returned None (STRM updated, not new film)
-        assert result is None, "Should return None when NFO exists and STRM is updated."
+        # Assert that prepare_files_for_film returned None (availability updated)
+        assert result is None, "Should return None when NFO exists and availability is updated."
 
         # Assert that create_nfo_file was NOT called (NFO already exists)
         mock_create_nfo.assert_not_called()
 
-        # Assert that create_strm_file WAS called (to update country)
-        expected_folder = plugin_userdata_path / film.get_sanitized_folder_name()
-        mock_create_strm.assert_called_once_with(expected_folder, base_url, user_country)
+        # Assert that update_nfo_availability WAS called (to update country availability)
+        mock_update_availability.assert_called_once_with(nfo_file)
 
 
 @patch.object(Film, "create_nfo_file")
@@ -394,10 +396,10 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         assert mock_dialog.update.call_count == 2, "Progress dialog should have been updated twice"
         mock_dialog.close.assert_called_once()
 
-        # Assert that prepare_files_for_film was called for each film (with None user_country)
+        # Assert that prepare_files_for_film was called for each film
         expected_calls = [
-            call(film1, base_url, plugin_userdata_path, omdb_api_key, None),
-            call(film2, base_url, plugin_userdata_path, omdb_api_key, None)
+            call(film1, base_url, plugin_userdata_path, omdb_api_key),
+            call(film2, base_url, plugin_userdata_path, omdb_api_key)
         ]
         mock_prepare_files.assert_has_calls(expected_calls, any_order=False)
 
@@ -434,8 +436,8 @@ def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files
         omdb_api_key = "fake_api_key"
         library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
 
-        # Assert that prepare_files_for_film was called only once (with None user_country)
-        mock_prepare_files.assert_called_once_with(film1, base_url, plugin_userdata_path, omdb_api_key, None)
+        # Assert that prepare_files_for_film was called only once
+        mock_prepare_files.assert_called_once_with(film1, base_url, plugin_userdata_path, omdb_api_key)
 
         # Assert that remove_obsolete_files was called
         mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
@@ -755,9 +757,9 @@ def test_sync_locally_with_genre_filtering(
         assert len(library.films) == 1, "Library should have one film after filtering out horror films."
         assert film_drama in library.films, "Drama film should remain in the library."
 
-        # Assert that prepare_files_for_film was called only for the 'Drama' film (with None user_country)
+        # Assert that prepare_files_for_film was called only for the 'Drama' film
         mock_prepare_files.assert_called_once_with(
-            film_drama, base_url, plugin_userdata_path, omdb_api_key, None
+            film_drama, base_url, plugin_userdata_path, omdb_api_key
         )
 
         # Assert that remove_obsolete_files was called

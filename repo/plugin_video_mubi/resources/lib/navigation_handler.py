@@ -642,10 +642,6 @@ class NavigationHandler:
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
 
-            # Get user's country for STRM file generation
-            user_country = self.mubi.session_manager.client_country
-            xbmc.log(f"User country for STRM files: {user_country}", xbmc.LOGINFO)
-
             # Close the first progress dialog before starting file creation
             pDialog.close()
 
@@ -654,8 +650,9 @@ class NavigationHandler:
             time.sleep(0.1)
 
             # Start file creation phase (no total count shown to avoid confusion)
+            # Country availability info is now stored in NFO files, not STRM
             all_films_library.sync_locally(
-                self.base_url, plugin_userdata_path, omdb_api_key, user_country
+                self.base_url, plugin_userdata_path, omdb_api_key
             )
 
             # Create a monitor instance for library operations

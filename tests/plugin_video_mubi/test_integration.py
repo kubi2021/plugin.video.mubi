@@ -457,7 +457,8 @@ class TestEndToEndWorkflows:
             title="Test Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=sample_metadata
+            metadata=sample_metadata,
+            available_countries=["us", "gb", "de"]  # Film available in 3 countries
         )
 
         # Add film to library
@@ -508,23 +509,32 @@ class TestEndToEndWorkflows:
         assert "<fileinfo>" in nfo_content, "NFO should use official Kodi structure"
         assert "<streamdetails>" in nfo_content, "NFO should contain streamdetails"
 
-        # Verify STRM content
+        # Verify NFO contains mubi_availability section with all countries
+        assert "<mubi_availability>" in nfo_content, "NFO should have availability"
+        assert 'code="US"' in nfo_content, "NFO should contain US country code"
+        assert 'code="GB"' in nfo_content, "NFO should contain GB country code"
+        assert 'code="DE"' in nfo_content, "NFO should contain DE country code"
+        assert "United States" in nfo_content, "NFO should contain US country name"
+        assert "United Kingdom" in nfo_content, "NFO should contain GB country name"
+        assert "Germany" in nfo_content, "NFO should contain DE country name"
+
+        # Verify STRM content (no country info - that's now in NFO)
         strm_content = strm_file.read_text()
         assert base_url in strm_content, "STRM should contain plugin URL"
         assert "12345" in strm_content, "STRM should contain film ID"
 
     def test_duplicate_film_prevention_workflow(self, e2e_setup):
         """
-        Test that duplicate films are properly prevented during sync workflow.
+        Test that duplicate films skip NFO/STRM creation but update availability.
 
-        Validates that existing films are skipped and not re-synced.
+        Validates that existing films don't recreate files but do update NFO.
         """
         # Arrange
         setup = e2e_setup
         library = setup['library']
         plugin_userdata_path = setup['plugin_userdata_path']
 
-        # Create sample film
+        # Create sample film with available countries
         sample_metadata = Metadata(
             title="Existing Movie",
             year="2023",
@@ -553,36 +563,56 @@ class TestEndToEndWorkflows:
             title="Existing Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=sample_metadata
+            metadata=sample_metadata,
+            available_countries=["ch", "de", "gb"]  # Film is available in 3 countries
         )
 
         library.add_film(existing_film)
 
-        # Pre-create film files to simulate existing sync
+        # Pre-create film files to simulate existing sync (without availability)
         film_folder = plugin_userdata_path / existing_film.get_sanitized_folder_name()
         film_folder.mkdir(parents=True, exist_ok=True)
 
         nfo_file = film_folder / f"{existing_film.get_sanitized_folder_name()}.nfo"
         strm_file = film_folder / f"{existing_film.get_sanitized_folder_name()}.strm"
 
+        # Original NFO without mubi_availability
         nfo_file.write_text("<movie><title>Existing Movie</title></movie>")
         strm_file.write_text("plugin://plugin.video.mubi/?action=play&film_id=67890")
 
-        original_nfo_content = nfo_file.read_text()
         original_strm_content = strm_file.read_text()
 
         # Act
-        base_url = "plugin://plugin.video.mubi/"
-        library.sync_locally(base_url, plugin_userdata_path, None)
+        with patch('xbmcgui.DialogProgress') as mock_dialog, \
+             patch('xbmcaddon.Addon') as mock_addon_patch:
+
+            # Mock progress dialog
+            mock_dialog_instance = Mock()
+            mock_dialog_instance.iscanceled.return_value = False
+            mock_dialog.return_value = mock_dialog_instance
+
+            # Mock addon for genre filtering
+            mock_addon_instance = Mock()
+            mock_addon_instance.getSetting.return_value = ""
+            mock_addon_patch.return_value = mock_addon_instance
+
+            base_url = "plugin://plugin.video.mubi/"
+            library.sync_locally(base_url, plugin_userdata_path, None)
 
         # Assert
         # Verify files still exist
         assert nfo_file.exists(), "Existing NFO file should be preserved"
         assert strm_file.exists(), "Existing STRM file should be preserved"
 
-        # Verify files were not modified (duplicate prevention worked)
-        assert nfo_file.read_text() == original_nfo_content, "NFO should not be modified"
+        # STRM should not be modified (no country in STRM anymore)
         assert strm_file.read_text() == original_strm_content, "STRM should not be modified"
+
+        # NFO SHOULD be updated with mubi_availability section
+        updated_nfo_content = nfo_file.read_text()
+        assert "<mubi_availability>" in updated_nfo_content, "NFO should have availability"
+        assert 'code="CH"' in updated_nfo_content, "NFO should contain CH country"
+        assert 'code="DE"' in updated_nfo_content, "NFO should contain DE country"
+        assert 'code="GB"' in updated_nfo_content, "NFO should contain GB country"
 
     def test_obsolete_film_cleanup_workflow(self, e2e_setup):
         """
