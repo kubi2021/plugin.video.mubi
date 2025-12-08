@@ -332,15 +332,15 @@
         </category>
         <category id="filters" label="30400" help="">
             <group id="1">
-                <setting id="skip_genres" label="30401" type="string" help="30402">
+                <setting id="skip_genre_horror" label="30403" type="boolean" help="30405">
                     <level>0</level>
-                    <default/>
-                    <constraints>
-                        <allowempty>true</allowempty>
-                    </constraints>
-                    <control type="edit" format="string">
-                        <heading>30401</heading>
-                    </control>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_short" label="30404" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
                 </setting>
             </group>
         </category>

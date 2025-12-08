@@ -124,17 +124,20 @@ class Library:
         # Retrieve settings
         addon = xbmcaddon.Addon()
 
-        # Get the genres to skip from the text input setting
-        skip_genres_setting = addon.getSetting('skip_genres')  # Returns a string of genres separated by semicolons
-        xbmc.log(f"Skip genres setting value: '{skip_genres_setting}'", xbmc.LOGDEBUG)
-
-        # Parse the genres to skip
+        # Build list of genres to skip based on toggle settings
         skip_genres = []
-        if skip_genres_setting:
-            # Split by semicolon, strip whitespace, convert to lowercase
-            skip_genres = [genre.strip().lower() for genre in skip_genres_setting.split(';') if genre.strip()]
-        
+
+        # Check each genre toggle setting
+        if addon.getSettingBool('skip_genre_horror'):
+            skip_genres.append('horror')
+        if addon.getSettingBool('skip_genre_short'):
+            skip_genres.append('short')
+
         xbmc.log(f"Genres to skip: {skip_genres}", xbmc.LOGDEBUG)
+
+        if not skip_genres:
+            xbmc.log("No genres to skip, keeping all films.", xbmc.LOGDEBUG)
+            return
 
         # Filter films
         initial_count = len(self.films)
