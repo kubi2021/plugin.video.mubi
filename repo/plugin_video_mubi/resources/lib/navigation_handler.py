@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
 import threading
+from typing import Optional
 from .library import Library
 from .playback import play_with_inputstream_adaptive
 
@@ -792,7 +793,7 @@ class NavigationHandler:
             xbmc.log(f"Error during OMDb API key check: {e}", xbmc.LOGERROR)
             return None
 
-    def sync_films(self, countries: list, dialog_title: str | None = None):
+    def sync_films(self, countries: list, dialog_title: Optional[str] = None):
         """
         Sync MUBI films locally by fetching films from specified countries.
         Creates STRM and NFO files for each film to import into Kodi's library.

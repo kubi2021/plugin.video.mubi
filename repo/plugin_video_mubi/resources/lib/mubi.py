@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# This code defines a Python class `Mubi` that interacts with the Mubi API 
+# This code defines a Python class `Mubi` that interacts with the Mubi API
 # to retrieve information about films available on the Mubi streaming platform.
-# It includes functionality for user login, retrieving lists of films 
+# It includes functionality for user login, retrieving lists of films
 # (either daily film programming or film groups), and fetching metadata for individual films.
-# The class uses HTTP requests to communicate with the API, processes the responses, 
+# The class uses HTTP requests to communicate with the API, processes the responses,
 # and organizes the film data into named tuples for easy access.
 
 
@@ -25,6 +25,7 @@ import time
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from typing import Optional, Tuple
 from .metadata import Metadata
 from .film import Film
 from .library import Library
@@ -495,7 +496,7 @@ class Mubi:
         """
         return random.choice(self.COMMON_USER_AGENTS)
 
-    def hea_gen_anonymous(self, country_code: str | None = None):
+    def hea_gen_anonymous(self, country_code: Optional[str] = None):
         """
         Generates anonymous web headers for API requests that don't require authentication.
         Used for browsing the catalogue without sending user credentials.
@@ -607,7 +608,7 @@ class Mubi:
     def _fetch_films_for_country(
         self, country_code: str, playable_only: bool = True, page_callback=None,
         global_film_ids: set = None
-    ) -> tuple[set, dict, int, int]:
+    ) -> Tuple[set, dict, int, int]:
         """
         Fetches all films for a specific country from the MUBI API.
 
@@ -1274,7 +1275,7 @@ class Mubi:
 
 
 
-    def get_secure_stream_info(self, vid: str, film_country: str | None = None) -> dict:
+    def get_secure_stream_info(self, vid: str, film_country: Optional[str] = None) -> dict:
         """
         Get secure stream information for a film.
 
