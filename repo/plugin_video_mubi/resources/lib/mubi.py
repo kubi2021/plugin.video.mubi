@@ -167,12 +167,12 @@ class Mubi:
         session.mount('http://', adapter)
 
         # Retry loop for rate limiting (429 responses)
-        max_rate_limit_retries = 3
+        # Use longer waits to respect MUBI's rate limits (especially for bulk operations)
+        max_rate_limit_retries = 5
+        base_wait_time = 10  # Start with 10 seconds for rate limit backoff
+
         for attempt in range(max_rate_limit_retries + 1):
             try:
-                # Log the final request details (including params)
-                xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
-
                 response = session.request(
                     method,
                     url,
@@ -183,9 +183,6 @@ class Mubi:
                     timeout=10
                 )
 
-                # Log the response status
-                xbmc.log(f"Response status code: {response.status_code}", xbmc.LOGDEBUG)
-
                 # Handle rate limiting (429 Too Many Requests)
                 if response.status_code == 429:
                     if attempt < max_rate_limit_retries:
@@ -195,11 +192,12 @@ class Mubi:
                             try:
                                 wait_time = int(retry_after)
                             except ValueError:
-                                # Might be an HTTP date, default to exponential backoff
-                                wait_time = 2 ** attempt
+                                # Might be an HTTP date, use base exponential backoff
+                                wait_time = base_wait_time * (2 ** attempt)
                         else:
                             # No Retry-After header, use exponential backoff
-                            wait_time = 2 ** attempt
+                            # 10s, 20s, 40s, 80s, 160s = up to 5+ minutes total
+                            wait_time = base_wait_time * (2 ** attempt)
 
                         xbmc.log(
                             f"Rate limited (429). Waiting {wait_time}s before retry "
@@ -686,12 +684,17 @@ class Mubi:
             next_page = meta.get('next_page')
             if next_page:
                 page = next_page
+                # Small delay between pages to avoid rate limiting
+                time.sleep(0.3)
             else:
                 break
 
             # Safety limit
             if pages_fetched > 100:
-                xbmc.log(f"[{country_code}] Safety limit reached at {pages_fetched} pages", xbmc.LOGWARNING)
+                xbmc.log(
+                    f"[{country_code}] Safety limit reached at {pages_fetched} pages",
+                    xbmc.LOGWARNING
+                )
                 break
 
         xbmc.log(f"[{country_code}] Completed: {len(film_ids)} unique films from {pages_fetched} pages", xbmc.LOGINFO)

@@ -2128,7 +2128,12 @@ class TestMubi:
 
     @patch('requests.Session')
     def test_rate_limiting_exponential_backoff(self, mock_session_class, mubi_instance):
-        """Test rate limiting uses exponential backoff when no Retry-After header."""
+        """Test rate limiting uses exponential backoff when no Retry-After header.
+
+        Backoff formula: base_wait_time * (2 ** attempt) where base_wait_time=10
+        - Attempt 0: 10 * 2^0 = 10 seconds
+        - Attempt 1: 10 * 2^1 = 20 seconds
+        """
         # First two responses: 429 without Retry-After header
         mock_response_429_1 = Mock()
         mock_response_429_1.status_code = 429
@@ -2155,10 +2160,10 @@ class TestMubi:
         with patch('time.sleep') as mock_sleep:
             result = mubi_instance._make_api_call('GET', endpoint='test')
 
-            # Should have used exponential backoff: 2^0=1, 2^1=2
+            # Should have used exponential backoff: 10*2^0=10, 10*2^1=20
             assert mock_sleep.call_count == 2
-            mock_sleep.assert_any_call(1)  # First retry: 2^0 = 1 second
-            mock_sleep.assert_any_call(2)  # Second retry: 2^1 = 2 seconds
+            mock_sleep.assert_any_call(10)  # First retry: 10 * 2^0 = 10 seconds
+            mock_sleep.assert_any_call(20)  # Second retry: 10 * 2^1 = 20 seconds
             assert result == mock_response_200
 
     # Additional tests for V4 API migration and missing coverage
