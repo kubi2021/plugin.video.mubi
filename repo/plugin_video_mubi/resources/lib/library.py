@@ -30,8 +30,14 @@ class Library:
         :param plugin_userdata_path: The path where film folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
         """
+        # Store initial count before filtering
+        initial_film_count = len(self.films)
+
         # Filter film by genre
         self.filter_films_by_genre()
+
+        # Calculate how many were filtered
+        genre_filtered_count = initial_film_count - len(self.films)
 
         # Log films that contain problematic characters for debugging
         for film in self.films:
@@ -48,9 +54,15 @@ class Library:
         availability_updated = 0
         films_to_process = len(self.films)
 
-        # Initialize progress dialog
+        # Initialize progress dialog with filter info
         pDialog = xbmcgui.DialogProgress()
-        pDialog.create("Syncing with MUBI 2/2", "Starting the sync...")
+        if genre_filtered_count > 0:
+            pDialog.create(
+                "Syncing with MUBI 2/2",
+                f"Processing {films_to_process} films ({genre_filtered_count} filtered out by genre)..."
+            )
+        else:
+            pDialog.create("Syncing with MUBI 2/2", f"Processing {films_to_process} films...")
 
         try:
             # Process each film and update progress
