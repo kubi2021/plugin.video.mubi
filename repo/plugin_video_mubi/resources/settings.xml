@@ -1,18 +1,348 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<settings>
-    <category label="General">
-        <setting id="omdbapiKey" label="OMDB API Key" type="text" default=""/>
-        <setting id="client_country" label="Country" type="text" default="" visible="false"/>
-        <setting id="deviceID" type="text" default="" visible="false"/>
-        <setting id="logged" type="bool" default="false" visible="false"/>
-        <setting id="token" type="text" default="" visible="false"/>
-        <setting id="userID" type="text" default="" visible="false"/>
-        <setting label="Language for titles and descriptions" type="labelenum" id="accept-language" values="tr|en|fr|es|de|it|nl|pt" default=""/>
-        <setting id="first_run_completed" type="bool" default="false" visible="false"/>
-    </category>
-
-    <!-- New Category for Advanced Settings -->
-    <category label="Genres to skip">
-        <setting id="skip_genres" label="Genres to skip (separate multiple genres with semicolons)" type="text" default=""/>
-    </category>
+<settings version="1">
+    <section id="plugin.video.mubi">
+        <category id="general" label="30000" help="">
+            <group id="1">
+                <setting id="omdbapiKey" label="30001" type="string" help="">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30001</heading>
+                    </control>
+                </setting>
+                <setting id="accept-language" label="30002" type="string" help="">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                        <options>
+                            <option label="30500">tr</option>
+                            <option label="30501">en</option>
+                            <option label="30502">fr</option>
+                            <option label="30503">es</option>
+                            <option label="30504">de</option>
+                            <option label="30505">it</option>
+                            <option label="30506">nl</option>
+                            <option label="30507">pt</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
+            </group>
+            <group id="2">
+                <setting id="client_country" label="30003" type="string" help="30004">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                        <options>
+                            <option label="31000">AF</option>
+                            <option label="31001">AL</option>
+                            <option label="31002">DZ</option>
+                            <option label="31003">AS</option>
+                            <option label="31004">AD</option>
+                            <option label="31005">AO</option>
+                            <option label="31006">AI</option>
+                            <option label="31007">AQ</option>
+                            <option label="31008">AG</option>
+                            <option label="31009">AR</option>
+                            <option label="31010">AM</option>
+                            <option label="31011">AW</option>
+                            <option label="31012">AU</option>
+                            <option label="31013">AT</option>
+                            <option label="31014">AZ</option>
+                            <option label="31015">BS</option>
+                            <option label="31016">BH</option>
+                            <option label="31017">BD</option>
+                            <option label="31018">BB</option>
+                            <option label="31019">BY</option>
+                            <option label="31020">BE</option>
+                            <option label="31021">BZ</option>
+                            <option label="31022">BJ</option>
+                            <option label="31023">BM</option>
+                            <option label="31024">BT</option>
+                            <option label="31025">BO</option>
+                            <option label="31026">BQ</option>
+                            <option label="31027">BA</option>
+                            <option label="31028">BW</option>
+                            <option label="31029">BR</option>
+                            <option label="31030">IO</option>
+                            <option label="31031">BN</option>
+                            <option label="31032">BG</option>
+                            <option label="31033">BF</option>
+                            <option label="31034">BI</option>
+                            <option label="31035">KH</option>
+                            <option label="31036">CM</option>
+                            <option label="31037">CA</option>
+                            <option label="31038">CV</option>
+                            <option label="31039">KY</option>
+                            <option label="31040">CF</option>
+                            <option label="31041">TD</option>
+                            <option label="31042">CL</option>
+                            <option label="31043">CN</option>
+                            <option label="31044">CX</option>
+                            <option label="31045">CC</option>
+                            <option label="31046">CO</option>
+                            <option label="31047">KM</option>
+                            <option label="31048">CG</option>
+                            <option label="31049">CD</option>
+                            <option label="31050">CK</option>
+                            <option label="31051">CR</option>
+                            <option label="31052">HR</option>
+                            <option label="31053">CU</option>
+                            <option label="31054">CW</option>
+                            <option label="31055">CY</option>
+                            <option label="31056">CZ</option>
+                            <option label="31057">DK</option>
+                            <option label="31058">DJ</option>
+                            <option label="31059">DM</option>
+                            <option label="31060">DO</option>
+                            <option label="31061">EC</option>
+                            <option label="31062">EG</option>
+                            <option label="31063">SV</option>
+                            <option label="31064">GQ</option>
+                            <option label="31065">ER</option>
+                            <option label="31066">EE</option>
+                            <option label="31067">SZ</option>
+                            <option label="31068">ET</option>
+                            <option label="31069">FK</option>
+                            <option label="31070">FO</option>
+                            <option label="31071">FJ</option>
+                            <option label="31072">FI</option>
+                            <option label="31073">FR</option>
+                            <option label="31074">GF</option>
+                            <option label="31075">PF</option>
+                            <option label="31076">TF</option>
+                            <option label="31077">GA</option>
+                            <option label="31078">GM</option>
+                            <option label="31079">GE</option>
+                            <option label="31080">DE</option>
+                            <option label="31081">GH</option>
+                            <option label="31082">GI</option>
+                            <option label="31083">GR</option>
+                            <option label="31084">GL</option>
+                            <option label="31085">GD</option>
+                            <option label="31086">GP</option>
+                            <option label="31087">GU</option>
+                            <option label="31088">GT</option>
+                            <option label="31089">GG</option>
+                            <option label="31090">GN</option>
+                            <option label="31091">GW</option>
+                            <option label="31092">GY</option>
+                            <option label="31093">HT</option>
+                            <option label="31094">HM</option>
+                            <option label="31095">HN</option>
+                            <option label="31096">HK</option>
+                            <option label="31097">HU</option>
+                            <option label="31098">IS</option>
+                            <option label="31099">IN</option>
+                            <option label="31100">ID</option>
+                            <option label="31101">IR</option>
+                            <option label="31102">IQ</option>
+                            <option label="31103">IE</option>
+                            <option label="31104">IM</option>
+                            <option label="31105">IL</option>
+                            <option label="31106">IT</option>
+                            <option label="31107">CI</option>
+                            <option label="31108">JM</option>
+                            <option label="31109">JP</option>
+                            <option label="31110">JE</option>
+                            <option label="31111">JO</option>
+                            <option label="31112">KZ</option>
+                            <option label="31113">KE</option>
+                            <option label="31114">KI</option>
+                            <option label="31115">KW</option>
+                            <option label="31116">KG</option>
+                            <option label="31117">LA</option>
+                            <option label="31118">LV</option>
+                            <option label="31119">LB</option>
+                            <option label="31120">LS</option>
+                            <option label="31121">LR</option>
+                            <option label="31122">LY</option>
+                            <option label="31123">LI</option>
+                            <option label="31124">LT</option>
+                            <option label="31125">LU</option>
+                            <option label="31126">MO</option>
+                            <option label="31127">MK</option>
+                            <option label="31128">MG</option>
+                            <option label="31129">MW</option>
+                            <option label="31130">MY</option>
+                            <option label="31131">MV</option>
+                            <option label="31132">ML</option>
+                            <option label="31133">MT</option>
+                            <option label="31134">MH</option>
+                            <option label="31135">MQ</option>
+                            <option label="31136">MR</option>
+                            <option label="31137">MU</option>
+                            <option label="31138">YT</option>
+                            <option label="31139">MX</option>
+                            <option label="31140">FM</option>
+                            <option label="31141">MD</option>
+                            <option label="31142">MC</option>
+                            <option label="31143">MN</option>
+                            <option label="31144">ME</option>
+                            <option label="31145">MS</option>
+                            <option label="31146">MA</option>
+                            <option label="31147">MZ</option>
+                            <option label="31148">MM</option>
+                            <option label="31149">NA</option>
+                            <option label="31150">NR</option>
+                            <option label="31151">NP</option>
+                            <option label="31152">NL</option>
+                            <option label="31153">NC</option>
+                            <option label="31154">NZ</option>
+                            <option label="31155">NI</option>
+                            <option label="31156">NE</option>
+                            <option label="31157">NG</option>
+                            <option label="31158">NU</option>
+                            <option label="31159">NF</option>
+                            <option label="31160">KP</option>
+                            <option label="31161">MP</option>
+                            <option label="31162">NO</option>
+                            <option label="31163">OM</option>
+                            <option label="31164">PK</option>
+                            <option label="31165">PW</option>
+                            <option label="31166">PS</option>
+                            <option label="31167">PA</option>
+                            <option label="31168">PG</option>
+                            <option label="31169">PY</option>
+                            <option label="31170">PE</option>
+                            <option label="31171">PH</option>
+                            <option label="31172">PN</option>
+                            <option label="31173">PL</option>
+                            <option label="31174">PT</option>
+                            <option label="31175">PR</option>
+                            <option label="31176">QA</option>
+                            <option label="31177">RO</option>
+                            <option label="31178">RU</option>
+                            <option label="31179">RW</option>
+                            <option label="31180">RE</option>
+                            <option label="31181">BL</option>
+                            <option label="31182">SH</option>
+                            <option label="31183">KN</option>
+                            <option label="31184">LC</option>
+                            <option label="31185">MF</option>
+                            <option label="31186">PM</option>
+                            <option label="31187">VC</option>
+                            <option label="31188">WS</option>
+                            <option label="31189">SM</option>
+                            <option label="31190">ST</option>
+                            <option label="31191">SA</option>
+                            <option label="31192">SN</option>
+                            <option label="31193">RS</option>
+                            <option label="31194">SC</option>
+                            <option label="31195">SL</option>
+                            <option label="31196">SG</option>
+                            <option label="31197">SX</option>
+                            <option label="31198">SK</option>
+                            <option label="31199">SI</option>
+                            <option label="31200">SB</option>
+                            <option label="31201">SO</option>
+                            <option label="31202">ZA</option>
+                            <option label="31203">GS</option>
+                            <option label="31204">KR</option>
+                            <option label="31205">SS</option>
+                            <option label="31206">ES</option>
+                            <option label="31207">LK</option>
+                            <option label="31208">SD</option>
+                            <option label="31209">SR</option>
+                            <option label="31210">SJ</option>
+                            <option label="31211">SE</option>
+                            <option label="31212">CH</option>
+                            <option label="31213">SY</option>
+                            <option label="31214">TW</option>
+                            <option label="31215">TJ</option>
+                            <option label="31216">TZ</option>
+                            <option label="31217">TH</option>
+                            <option label="31218">TL</option>
+                            <option label="31219">TG</option>
+                            <option label="31220">TK</option>
+                            <option label="31221">TO</option>
+                            <option label="31222">TT</option>
+                            <option label="31223">TN</option>
+                            <option label="31224">TR</option>
+                            <option label="31225">TM</option>
+                            <option label="31226">TC</option>
+                            <option label="31227">TV</option>
+                            <option label="31228">UG</option>
+                            <option label="31229">UA</option>
+                            <option label="31230">AE</option>
+                            <option label="31231">GB</option>
+                            <option label="31232">US</option>
+                            <option label="31233">UM</option>
+                            <option label="31234">UY</option>
+                            <option label="31235">UZ</option>
+                            <option label="31236">VU</option>
+                            <option label="31237">VA</option>
+                            <option label="31238">VE</option>
+                            <option label="31239">VN</option>
+                            <option label="31240">VG</option>
+                            <option label="31241">VI</option>
+                            <option label="31242">WF</option>
+                            <option label="31243">EH</option>
+                            <option label="31244">YE</option>
+                            <option label="31245">ZM</option>
+                            <option label="31246">ZW</option>
+                            <option label="31247">AX</option>
+                        </options>
+                    </constraints>
+                    <control type="spinner" format="string"/>
+                </setting>
+            </group>
+            <group id="3">
+                <visible>false</visible>
+                <setting id="deviceID" type="string" label="" help="">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string"/>
+                </setting>
+                <setting id="logged" type="boolean" label="" help="">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="token" type="string" label="" help="">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string"/>
+                </setting>
+                <setting id="userID" type="string" label="" help="">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string"/>
+                </setting>
+                <setting id="first_run_completed" type="boolean" label="" help="">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+        </category>
+        <category id="filters" label="30400" help="">
+            <group id="1">
+                <setting id="skip_genres" label="30401" type="string" help="30402">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30401</heading>
+                    </control>
+                </setting>
+            </group>
+        </category>
+    </section>
 </settings>

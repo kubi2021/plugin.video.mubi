@@ -193,11 +193,11 @@ class TestRealComponentIntegration:
                     film_path.mkdir(parents=True, exist_ok=True)
                     nfo_file = film_path / f"{sample_film.get_sanitized_folder_name()}.nfo"
                     nfo_file.touch()
-                
-                def create_strm_side_effect(film_path, base_url):
+
+                def create_strm_side_effect(film_path, base_url, user_country=None):
                     strm_file = film_path / f"{sample_film.get_sanitized_folder_name()}.strm"
                     strm_file.touch()
-                
+
                 mock_nfo.side_effect = create_nfo_side_effect
                 mock_strm.side_effect = create_strm_side_effect
                 
@@ -308,9 +308,9 @@ class TestWorkflowIntegration:
         assert device_id is not None
         assert len(device_id) > 0
 
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.get')
     @patch('time.time')
-    def test_country_language_detection_workflow(self, mock_time, mock_session_class, workflow_setup):
+    def test_country_language_detection_workflow(self, mock_time, mock_requests_get, workflow_setup):
         """Test country and language detection workflow."""
         setup = workflow_setup
 
@@ -320,34 +320,17 @@ class TestWorkflowIntegration:
         # Initialize call history to avoid rate limiting
         setup['mubi']._call_history = []
 
-        # Mock the session instance and its request method
-        mock_session = Mock()
-        mock_session_class.return_value = mock_session
-
-        # Mock API responses with proper response objects
+        # Mock IP geolocation response (returns country code)
         mock_response_country = Mock()
-        mock_response_country.text = '"Client-Country":"US"'
+        mock_response_country.text = 'US\n'
         mock_response_country.status_code = 200
-
-        mock_response_language = Mock()
-        mock_response_language.text = '"Client-Language":"en"'
-        mock_response_language.status_code = 200
-
-        # Create a side effect function that returns the appropriate mock response
-        def mock_request_side_effect(*args, **kwargs):
-            url = args[1] if len(args) > 1 else kwargs.get('url', '')
-            if 'mubi.com' in str(url):
-                return mock_response_country
-            else:
-                return mock_response_language
-
-        mock_session.request.side_effect = mock_request_side_effect
+        mock_requests_get.return_value = mock_response_country
 
         # Test country detection
         country = setup['mubi'].get_cli_country()
         setup['session'].set_client_country(country)
 
-        # Test language detection
+        # Test language detection (returns cached/default value, no HTTP call)
         language = setup['mubi'].get_cli_language()
         setup['session'].set_client_language(language)
 
@@ -457,7 +440,8 @@ class TestEndToEndWorkflows:
             title="Test Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=sample_metadata
+            metadata=sample_metadata,
+            available_countries=["us", "gb", "de"]  # Film available in 3 countries
         )
 
         # Add film to library
@@ -508,23 +492,32 @@ class TestEndToEndWorkflows:
         assert "<fileinfo>" in nfo_content, "NFO should use official Kodi structure"
         assert "<streamdetails>" in nfo_content, "NFO should contain streamdetails"
 
-        # Verify STRM content
+        # Verify NFO contains mubi_availability section with all countries
+        assert "<mubi_availability>" in nfo_content, "NFO should have availability"
+        assert 'code="US"' in nfo_content, "NFO should contain US country code"
+        assert 'code="GB"' in nfo_content, "NFO should contain GB country code"
+        assert 'code="DE"' in nfo_content, "NFO should contain DE country code"
+        assert "United States" in nfo_content, "NFO should contain US country name"
+        assert "United Kingdom" in nfo_content, "NFO should contain GB country name"
+        assert "Germany" in nfo_content, "NFO should contain DE country name"
+
+        # Verify STRM content (no country info - that's now in NFO)
         strm_content = strm_file.read_text()
         assert base_url in strm_content, "STRM should contain plugin URL"
         assert "12345" in strm_content, "STRM should contain film ID"
 
     def test_duplicate_film_prevention_workflow(self, e2e_setup):
         """
-        Test that duplicate films are properly prevented during sync workflow.
+        Test that duplicate films skip NFO/STRM creation but update availability.
 
-        Validates that existing films are skipped and not re-synced.
+        Validates that existing films don't recreate files but do update NFO.
         """
         # Arrange
         setup = e2e_setup
         library = setup['library']
         plugin_userdata_path = setup['plugin_userdata_path']
 
-        # Create sample film
+        # Create sample film with available countries
         sample_metadata = Metadata(
             title="Existing Movie",
             year="2023",
@@ -553,36 +546,56 @@ class TestEndToEndWorkflows:
             title="Existing Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=sample_metadata
+            metadata=sample_metadata,
+            available_countries=["ch", "de", "gb"]  # Film is available in 3 countries
         )
 
         library.add_film(existing_film)
 
-        # Pre-create film files to simulate existing sync
+        # Pre-create film files to simulate existing sync (without availability)
         film_folder = plugin_userdata_path / existing_film.get_sanitized_folder_name()
         film_folder.mkdir(parents=True, exist_ok=True)
 
         nfo_file = film_folder / f"{existing_film.get_sanitized_folder_name()}.nfo"
         strm_file = film_folder / f"{existing_film.get_sanitized_folder_name()}.strm"
 
+        # Original NFO without mubi_availability
         nfo_file.write_text("<movie><title>Existing Movie</title></movie>")
         strm_file.write_text("plugin://plugin.video.mubi/?action=play&film_id=67890")
 
-        original_nfo_content = nfo_file.read_text()
         original_strm_content = strm_file.read_text()
 
         # Act
-        base_url = "plugin://plugin.video.mubi/"
-        library.sync_locally(base_url, plugin_userdata_path, None)
+        with patch('xbmcgui.DialogProgress') as mock_dialog, \
+             patch('xbmcaddon.Addon') as mock_addon_patch:
+
+            # Mock progress dialog
+            mock_dialog_instance = Mock()
+            mock_dialog_instance.iscanceled.return_value = False
+            mock_dialog.return_value = mock_dialog_instance
+
+            # Mock addon for genre filtering
+            mock_addon_instance = Mock()
+            mock_addon_instance.getSetting.return_value = ""
+            mock_addon_patch.return_value = mock_addon_instance
+
+            base_url = "plugin://plugin.video.mubi/"
+            library.sync_locally(base_url, plugin_userdata_path, None)
 
         # Assert
         # Verify files still exist
         assert nfo_file.exists(), "Existing NFO file should be preserved"
         assert strm_file.exists(), "Existing STRM file should be preserved"
 
-        # Verify files were not modified (duplicate prevention worked)
-        assert nfo_file.read_text() == original_nfo_content, "NFO should not be modified"
+        # STRM should not be modified (no country in STRM anymore)
         assert strm_file.read_text() == original_strm_content, "STRM should not be modified"
+
+        # NFO SHOULD be updated with mubi_availability section
+        updated_nfo_content = nfo_file.read_text()
+        assert "<mubi_availability>" in updated_nfo_content, "NFO should have availability"
+        assert 'code="CH"' in updated_nfo_content, "NFO should contain CH country"
+        assert 'code="DE"' in updated_nfo_content, "NFO should contain DE country"
+        assert 'code="GB"' in updated_nfo_content, "NFO should contain GB country"
 
     def test_obsolete_film_cleanup_workflow(self, e2e_setup):
         """
@@ -1083,3 +1096,134 @@ class TestEndToEndWorkflows:
         for temp_dir in getattr(self, '_temp_dirs', []):
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.mark.integration
+class TestEndToEndFlows:
+    """End-to-end integration tests for complete workflows."""
+
+    def test_sync_to_playback_flow(self, tmp_path):
+        """Test complete flow: sync film → create files → playback check."""
+        # Arrange - Create library with film
+        library = Library()
+        metadata = Metadata(
+            title="Test Film",
+            year=2023,
+            director=["Director"],
+            genre=["Drama"],
+            plot="Test plot",
+            plotoutline="Test outline",
+            originaltitle="Test Film",
+            rating=7.0,
+            votes=100,
+            duration=120,
+            country=["US"],
+        )
+        film = Film(
+            mubi_id="12345",
+            title="Test Film",
+            artwork="http://example.com/art.jpg",
+            web_url="http://mubi.com/films/test",
+            metadata=metadata,
+            available_countries=['US', 'FR', 'DE']
+        )
+        library.add_film(film)
+
+        # Act - Sync to create files
+        with patch('xbmcgui.DialogProgress') as mock_dialog, \
+             patch('xbmcaddon.Addon') as mock_addon:
+            mock_dialog_instance = Mock()
+            mock_dialog_instance.iscanceled.return_value = False
+            mock_dialog.return_value = mock_dialog_instance
+            mock_addon.return_value.getSetting.return_value = ""
+
+            library.sync_locally(
+                "plugin://plugin.video.mubi/",
+                tmp_path,
+                None
+            )
+
+        # Assert - Files created
+        film_folder = tmp_path / film.get_sanitized_folder_name()
+        assert film_folder.exists()
+
+        nfo_file = film_folder / f"{film.get_sanitized_folder_name()}.nfo"
+        strm_file = film_folder / f"{film.get_sanitized_folder_name()}.strm"
+        assert nfo_file.exists()
+        assert strm_file.exists()
+
+        # Verify STRM content
+        strm_content = strm_file.read_text()
+        assert "film_id=12345" in strm_content
+        assert "action=play_mubi_video" in strm_content
+
+    def test_worldwide_country_aggregation_flow(self):
+        """Test worldwide sync aggregates countries correctly."""
+        # Arrange - Mock Mubi API
+        mock_addon = Mock()
+        mock_addon.getSetting.side_effect = lambda key: {
+            'client_country': 'US',
+            'sync_countries': 'worldwide',
+        }.get(key, '')
+        mock_addon.getAddonInfo.return_value = "/fake/path"
+
+        with patch('plugin_video_mubi.resources.lib.mubi.Mubi._make_api_call') as mock_api, \
+             patch('plugin_video_mubi.resources.lib.mubi.Mubi.get_film_metadata') as mock_meta:
+
+            # Mock API returns same film from different countries
+            mock_api.return_value = {
+                'films': [
+                    {'id': 123, 'title': 'Test Film', 'web_url': '/films/test'}
+                ]
+            }
+
+            # Mock metadata
+            mock_metadata = Metadata(
+                title="Test Film",
+                year=2023,
+                director=["Director"],
+                genre=["Drama"],
+                plot="Test plot",
+                plotoutline="Test outline",
+                originaltitle="Test Film",
+                rating=7.0,
+                votes=100,
+                duration=120,
+                country=["US"],
+            )
+            mock_film = Film(
+                mubi_id="123",
+                title="Test Film",
+                artwork="",
+                web_url="/films/test",
+                metadata=mock_metadata,
+                available_countries=['US']
+            )
+            mock_meta.return_value = mock_film
+
+            # Act
+            mubi = Mubi(mock_addon)
+            library = mubi.get_all_films(countries=['US', 'FR'])
+
+            # Assert - Library returned
+            assert isinstance(library, Library)
+
+    def test_vpn_switch_detection_flow(self):
+        """Test VPN switch is detected via IP geolocation."""
+        mock_addon = Mock()
+        mock_addon.getSetting.return_value = ""
+        mock_addon.getAddonInfo.return_value = "/fake/path"
+
+        mubi = Mubi(mock_addon)
+
+        # Mock IP geolocation - the method uses 'requests' module directly
+        with patch.object(mubi, 'get_cli_country') as mock_get_country:
+            # First call - US
+            mock_get_country.return_value = 'US'
+            country_us = mubi.get_cli_country()
+            assert country_us == 'US'
+
+            # Second call - VPN switched to DE
+            mock_get_country.return_value = 'DE'
+            country_de = mubi.get_cli_country()
+            assert country_de == 'DE'

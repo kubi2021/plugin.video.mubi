@@ -254,8 +254,8 @@ class TestAddonEntryPoint:
         with patch('xbmcvfs.translatePath') as mock_translate:
             mock_translate.return_value = "/fake/kodi/path"
 
-            # Test that sync_locally method exists and can be called
-            assert hasattr(nav_handler, 'sync_locally')
+            # Test that sync_films method exists and can be called
+            assert hasattr(nav_handler, 'sync_films')
 
             # We don't actually call it since it's a complex operation
             # but we verify the method exists and the request parsing works
@@ -338,14 +338,14 @@ class TestCompleteUserJourneys:
             
             with patch.object(film, 'create_nfo_file') as mock_nfo, \
                  patch.object(film, 'create_strm_file') as mock_strm:
-                
+
                 def create_files(film_path, *args):
                     film_path.mkdir(parents=True, exist_ok=True)
                     (film_path / f"{film.get_sanitized_folder_name()}.nfo").touch()
                     (film_path / f"{film.get_sanitized_folder_name()}.strm").touch()
-                
+
                 mock_nfo.side_effect = create_files
-                mock_strm.side_effect = lambda path, url: None
+                mock_strm.side_effect = lambda path, url, country=None: None
                 
                 result = mubi.library.prepare_files_for_film(
                     film, "plugin://test/", paths['temp_dir'], "test_api"

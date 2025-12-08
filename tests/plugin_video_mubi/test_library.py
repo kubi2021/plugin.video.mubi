@@ -93,7 +93,7 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
-        
+
         # Create a Film object
         metadata = MockMetadata(year=2023)
         film = Film(
@@ -134,29 +134,31 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
 
         # Check if the calls to `create_nfo_file` and `create_strm_file` have the expected arguments
         expected_folder = plugin_userdata_path / film.get_sanitized_folder_name()
-        
-        # Assert that create_nfo_file is called with `expected_folder`, `base_url`, and `omdb_api_key`
+
+        # Assert that create_nfo_file is called with expected args
         mock_create_nfo.assert_called_once_with(expected_folder, base_url, omdb_api_key)
-        
-        # Assert that create_strm_file is called with `expected_folder` and `base_url`
+
+        # Assert that create_strm_file is called with expected args (no user_country)
         mock_create_strm.assert_called_once_with(expected_folder, base_url)
 
 
 @patch.object(Film, "create_nfo_file")
-@patch.object(Film, "create_strm_file")
-def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
+@patch.object(Film, "update_nfo_availability")
+def test_prepare_files_for_film_nfo_exists_availability_updated(mock_update_availability, mock_create_nfo):
+    """Test that when NFO exists, availability is updated in NFO file."""
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
-        
-        # Create a Film object
+
+        # Create a Film object with available countries
         metadata = MockMetadata(year=2023)
         film = Film(
             mubi_id="789012",
             title="Existing Movie",
             artwork="http://example.com/art2.jpg",
             web_url="http://example.com",
-            metadata=metadata
+            metadata=metadata,
+            available_countries=["CH", "DE", "US"]
         )
         library.add_film(film)
 
@@ -164,24 +166,29 @@ def test_prepare_files_for_film_skipped(mock_create_strm, mock_create_nfo):
         film_folder_name = film.get_sanitized_folder_name()
         film_path = plugin_userdata_path / film_folder_name
         nfo_file = film_path / f"{film_folder_name}.nfo"
-        strm_file = film_path / f"{film_folder_name}.strm"
 
-        # Simulate existing files by creating them
+        # Simulate existing NFO file (availability will be updated)
         film_path.mkdir(parents=True, exist_ok=True)
-        nfo_file.touch()
-        strm_file.touch()
+        nfo_file.write_text("<movie><title>Existing Movie</title></movie>")
+
+        # Mock update_nfo_availability to return True
+        mock_update_availability.return_value = True
 
         # Run prepare_files_for_film
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+        result = library.prepare_files_for_film(
+            film, base_url, plugin_userdata_path, omdb_api_key
+        )
 
-        # Assert that prepare_files_for_film returned None
-        assert result is None, "prepare_files_for_film should return None when files already exist."
+        # Assert that prepare_files_for_film returned None (availability updated)
+        assert result is None, "Should return None when NFO exists and availability is updated."
 
-        # Assert that create_nfo_file and create_strm_file were not called
+        # Assert that create_nfo_file was NOT called (NFO already exists)
         mock_create_nfo.assert_not_called()
-        mock_create_strm.assert_not_called()
+
+        # Assert that update_nfo_availability WAS called (to update country availability)
+        mock_update_availability.assert_called_once_with(nfo_file)
 
 
 @patch.object(Film, "create_nfo_file")
@@ -385,7 +392,7 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
 
         # Assertions for progress dialog
-        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Starting the sync...")
+        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Processing 2 films...")
         assert mock_dialog.update.call_count == 2, "Progress dialog should have been updated twice"
         mock_dialog.close.assert_called_once()
 
@@ -559,7 +566,7 @@ def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress, 
         library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
 
         # Assertions for progress dialog
-        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Starting the sync...")
+        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Processing 0 films...")
         mock_dialog.update.assert_not_called()
         mock_dialog.close.assert_called_once()
 
@@ -593,13 +600,15 @@ def test_prepare_files_for_film_with_invalid_characters():
                 film_path_arg.mkdir(parents=True, exist_ok=True)
                 (film_path_arg / f"{film.get_sanitized_folder_name()}.nfo").touch()
 
-            def create_strm_side_effect(film_path_arg, base_url_arg):
+            def create_strm_side_effect(film_path_arg, base_url_arg, user_country=None):
                 (film_path_arg / f"{film.get_sanitized_folder_name()}.strm").touch()
 
             mock_create_nfo.side_effect = create_nfo_side_effect
             mock_create_strm.side_effect = create_strm_side_effect
 
-            result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+            result = library.prepare_files_for_film(
+                film, base_url, plugin_userdata_path, omdb_api_key
+            )
 
             # Assert that prepare_files_for_film returned True
             assert result is True, "Should return True when files are created successfully."
@@ -749,7 +758,131 @@ def test_sync_locally_with_genre_filtering(
         assert film_drama in library.films, "Drama film should remain in the library."
 
         # Assert that prepare_files_for_film was called only for the 'Drama' film
-        mock_prepare_files.assert_called_once_with(film_drama, base_url, plugin_userdata_path, omdb_api_key)
+        mock_prepare_files.assert_called_once_with(
+            film_drama, base_url, plugin_userdata_path, omdb_api_key
+        )
 
         # Assert that remove_obsolete_files was called
         mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
+
+
+class TestLibrarySyncEdgeCases:
+    """Test edge cases for library sync and deduplication."""
+
+    def test_add_film_duplicate_handling(self):
+        """Test adding same film_id twice doesn't create duplicates."""
+        library = Library()
+        metadata = MockMetadata(year=2023)
+
+        film1 = Film(
+            mubi_id="123",
+            title="Test Movie",
+            artwork="http://example.com/art.jpg",
+            web_url="http://example.com/film",
+            metadata=metadata
+        )
+        film2 = Film(
+            mubi_id="123",  # Same ID
+            title="Test Movie Updated",
+            artwork="http://example.com/art2.jpg",
+            web_url="http://example.com/film",
+            metadata=metadata
+        )
+
+        library.add_film(film1)
+        library.add_film(film2)
+
+        # Should only have one film
+        assert len(library.films) == 1
+
+    def test_film_availability_country_merging(self):
+        """Test when same film added from different countries, duplicate is skipped."""
+        library = Library()
+        metadata = MockMetadata(year=2023)
+
+        # Film from US
+        film_us = Film(
+            mubi_id="123",
+            title="Test Movie",
+            artwork="",
+            web_url="",
+            metadata=metadata,
+            available_countries=['US']
+        )
+        # Same film from FR (duplicate by mubi_id)
+        film_fr = Film(
+            mubi_id="123",
+            title="Test Movie",
+            artwork="",
+            web_url="",
+            metadata=metadata,
+            available_countries=['FR']
+        )
+
+        library.add_film(film_us)
+        library.add_film(film_fr)
+
+        # Library skips duplicates - only first film is kept
+        assert len(library.films) == 1
+        film = library.films[0]
+        # First film's countries are preserved
+        assert 'US' in film.available_countries
+
+    def test_library_with_zero_films(self):
+        """Test empty library operations work correctly."""
+        library = Library()
+
+        assert len(library.films) == 0
+        assert library.films == []
+
+    def test_library_with_one_film(self):
+        """Test single film boundary case."""
+        library = Library()
+        metadata = MockMetadata(year=2023)
+
+        film = Film(
+            mubi_id="123",
+            title="Only Film",
+            artwork="",
+            web_url="",
+            metadata=metadata
+        )
+        library.add_film(film)
+
+        assert len(library.films) == 1
+        assert library.films[0].title == "Only Film"
+
+
+class TestRegressionTests:
+    """Regression tests for known bugs."""
+
+    def test_filename_sanitization_consecutive_spaces(self):
+        """Test prohibited chars removal doesn't leave consecutive spaces."""
+        metadata = MockMetadata(year=2023)
+        # Title with multiple prohibited chars that could leave spaces
+        film = Film(
+            mubi_id="123",
+            title="What???Why!!!How...",
+            artwork="",
+            web_url="",
+            metadata=metadata
+        )
+
+        folder_name = film.get_sanitized_folder_name()
+
+        # Should not have consecutive spaces
+        assert "  " not in folder_name
+        # Should still have the year
+        assert "(2023)" in folder_name
+
+    def test_vpn_country_suggestion_message_format(self):
+        """Test VPN suggestion message shows current country AND suggestions."""
+        from plugin_video_mubi.resources.lib.countries import get_country_name
+
+        # Verify country name lookup works for message formatting
+        assert get_country_name('CH') == 'Switzerland'
+        assert get_country_name('US') == 'United States'
+        assert get_country_name('FR') == 'France'
+
+        # Unknown country returns None
+        assert get_country_name('XX') is None

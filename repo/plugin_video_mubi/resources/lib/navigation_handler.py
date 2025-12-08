@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 import xbmcvfs
 from pathlib import Path
 import threading
+from typing import Optional
 from .library import Library
 from .playback import play_with_inputstream_adaptive
 
@@ -86,15 +87,117 @@ class NavigationHandler:
     def _get_main_menu_items(self) -> list:
         """ Helper method to retrieve main menu items based on login status. """
         if self.session.is_logged_in:
+            # Get client country for sync menu label
+            sync_label, sync_description = self._get_sync_menu_label()
+            worldwide_label, worldwide_description = self._get_sync_worldwide_menu_label()
             return [
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
-                {"label": "Sync all Mubi films locally", "description": "Sync Mubi films locally", "action": "sync_locally", "is_folder": False},
+                {"label": sync_label, "description": sync_description, "action": "sync_locally", "is_folder": False},
+                {"label": worldwide_label, "description": worldwide_description, "action": "sync_worldwide", "is_folder": False},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
             ]
         else:
             return [
                 {"label": "Log In", "description": "Log in to your Mubi account", "action": "log_in", "is_folder": False}
             ]
+
+    def _get_sync_menu_label(self) -> tuple:
+        """
+        Get the sync menu label with the client country name.
+        Returns a tuple of (label, description with help info).
+        """
+        from .countries import COUNTRIES
+        try:
+            country_code = self.plugin.getSetting("client_country")
+            if country_code:
+                country_data = COUNTRIES.get(country_code.lower(), {})
+                country_name = country_data.get("name", country_code.upper())
+            else:
+                country_name = "your country"
+            label = f"Sync MUBI catalogue from {country_name}"
+            # Include help info in description - shown when item is selected
+            description = (
+                f"Sync films available in {country_name} to your Kodi library.\n\n"
+                f"Note: MUBI films not available in the {country_name} catalogue "
+                f"will be removed from your library.\n\n"
+                f"You can change your country in Settings."
+            )
+            return label, description
+        except Exception:
+            return "Sync MUBI catalogue", "Sync films to your Kodi library"
+
+    def _get_sync_worldwide_menu_label(self) -> tuple:
+        """
+        Get the worldwide sync menu label and description.
+        Returns a tuple of (label, description with help info).
+        """
+        # Try to get coverage stats for a more informative label
+        try:
+            from .coverage_optimizer import get_coverage_stats
+            country_code = self.plugin.getSetting("client_country") or "CH"
+            stats = get_coverage_stats(country_code)
+            if stats:
+                optimal_count = stats.get('optimal_country_count', 0)
+                total_films = stats.get('total_films', 0)
+                label = f"Sync MUBI worldwide (about 2k films)"
+                description = (
+                    f"Sync all {total_films} films from MUBI's worldwide catalogue.\n\n"
+                    f"Uses smart optimization: only {optimal_count} countries needed "
+                    f"for 100% coverage.\n\n"
+                    f"No VPN needed to sync, but a VPN is required to play "
+                    f"movies outside of your country."
+                )
+                return label, description
+        except Exception:
+            pass
+
+        # Fallback if stats not available
+        label = "Sync MUBI catalogue worldwide"
+        description = (
+            "Sync films from all MUBI catalogues worldwide.\n\n"
+            "Note: This will take more time than syncing from a single country.\n\n"
+            "No VPN is needed to complete the catalogue, but a VPN will be "
+            "required to play movies outside of your country."
+        )
+        return label, description
+
+    def _get_client_country_name(self) -> str:
+        """Get the client country name from settings."""
+        from .countries import COUNTRIES
+        try:
+            country_code = self.plugin.getSetting("client_country")
+            if country_code:
+                country_data = COUNTRIES.get(country_code.lower(), {})
+                return country_data.get("name", country_code.upper())
+            return "your country"
+        except Exception:
+            return "your country"
+
+    def _confirm_sync(self) -> bool:
+        """
+        Show a confirmation dialog before sync with help information.
+        Returns True if user confirms, False otherwise.
+        """
+        country_name = self._get_client_country_name()
+
+        dialog = xbmcgui.Dialog()
+        message = (
+            f"This will sync the MUBI catalogue from [B]{country_name}[/B] "
+            f"to your Kodi library.\n\n"
+            f"[COLOR yellow]Important:[/COLOR]\n"
+            f"• Films not available in {country_name} will be removed\n"
+            f"• Change your country in Settings if needed"
+        )
+
+        # yesno returns True if user clicks Yes, False if No
+        result = dialog.yesno(
+            "MUBI Sync",
+            message,
+            yeslabel="Start Sync",
+            nolabel="Cancel"
+        )
+
+        return result
 
     def _add_menu_item(self, item: dict):
         try:
@@ -392,30 +495,174 @@ class NavigationHandler:
 
 
 
-    def play_mubi_video(self, film_id: str = None, web_url: str = None):
+    def _get_available_countries_from_nfo(self, film_id: str) -> list:
+        """
+        Read the available countries from the NFO file for a given film.
+
+        :param film_id: The MUBI film ID.
+        :return: List of uppercase country codes where the film is available.
+        """
+        import xml.etree.ElementTree as ET
+        import re
+        from pathlib import Path
+
+        plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
+
+        # Search for NFO file containing this film_id
+        for film_folder in plugin_userdata_path.iterdir():
+            if not film_folder.is_dir():
+                continue
+
+            # Find NFO file in the folder
+            nfo_files = list(film_folder.glob("*.nfo"))
+            if not nfo_files:
+                continue
+
+            nfo_file = nfo_files[0]
+            try:
+                tree = ET.parse(nfo_file)
+                root = tree.getroot()
+
+                # Check if this NFO matches the film_id (look for the STRM file or film ID)
+                # We can check the STRM file content or look for uniqueid
+                uniqueid = root.find(".//uniqueid[@type='mubi']")
+                if uniqueid is not None and uniqueid.text == film_id:
+                    # Found the right film, extract countries
+                    mubi_availability = root.find("mubi_availability")
+                    if mubi_availability is not None:
+                        countries = [c.get("code") for c in mubi_availability.findall("country")]
+                        xbmc.log(f"Found NFO for film_id {film_id} via uniqueid: {nfo_file}", xbmc.LOGDEBUG)
+                        return [c for c in countries if c]  # Filter out None values
+                    return []
+
+                # Alternative: check STRM file for exact film_id match
+                # Use regex to match film_id= followed by the exact ID and then & or end of string
+                strm_files = list(film_folder.glob("*.strm"))
+                if strm_files:
+                    strm_content = strm_files[0].read_text()
+                    # Match exact film_id parameter (e.g., film_id=90& or film_id=90 at end)
+                    pattern = rf"film_id={re.escape(str(film_id))}(&|$)"
+                    if re.search(pattern, strm_content):
+                        # Found the right film
+                        mubi_availability = root.find("mubi_availability")
+                        if mubi_availability is not None:
+                            countries = [c.get("code") for c in mubi_availability.findall("country")]
+                            xbmc.log(f"Found NFO for film_id {film_id} via STRM: {nfo_file}", xbmc.LOGDEBUG)
+                            return [c for c in countries if c]
+                        return []
+
+            except (ET.ParseError, OSError) as e:
+                xbmc.log(f"Error parsing NFO file {nfo_file}: {e}", xbmc.LOGWARNING)
+                continue
+
+        xbmc.log(f"No NFO file found for film_id {film_id}", xbmc.LOGWARNING)
+        return []
+
+    def _get_vpn_suggestions(self, available_countries: list, max_suggestions: int = 3) -> list:
+        """
+        Get VPN country suggestions sorted by best VPN tier (fastest infrastructure).
+
+        :param available_countries: List of uppercase country codes where the film is available.
+        :param max_suggestions: Maximum number of suggestions to return.
+        :return: List of tuples (country_code, country_name, vpn_tier).
+        """
+        from .countries import COUNTRIES
+
+        suggestions = []
+        for code in available_countries:
+            code_lower = code.lower()
+            if code_lower in COUNTRIES:
+                country_data = COUNTRIES[code_lower]
+                suggestions.append((
+                    code,
+                    country_data["name"],
+                    country_data.get("vpn_tier", 4)
+                ))
+
+        # Sort by VPN tier (lower is better), then alphabetically by name
+        suggestions.sort(key=lambda x: (x[2], x[1]))
+
+        return suggestions[:max_suggestions]
+
+    def play_mubi_video(self, film_id: str = None, web_url: str = None, country: str = None):
         """
         Play a Mubi video using the secure URL and DRM handling.
+        Checks country availability before playback and suggests VPN if needed.
         If playback fails, prompt the user to open the video in an external web browser.
 
         :param film_id: Video ID
         :param web_url: Web URL of the film
+        :param country: Deprecated - country info is now read from NFO files.
         """
+        from .countries import COUNTRIES
+
         try:
             xbmc.log(f"play_mubi_video called with handle: {self.handle}", xbmc.LOGDEBUG)
 
             if film_id is None:
-                xbmc.log(f"Error: film_id is missing", xbmc.LOGERROR)
+                xbmc.log("Error: film_id is missing", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", "Error: film_id is missing.", xbmcgui.NOTIFICATION_ERROR)
                 return
 
-            # Get secure stream info from Mubi API
+            # Step 1: Detect current client country from MUBI API
+            current_country = self.mubi.get_cli_country()
+            xbmc.log(f"Current client country detected: {current_country}", xbmc.LOGINFO)
+
+            # Step 2: Get available countries from NFO file
+            available_countries = self._get_available_countries_from_nfo(film_id)
+            xbmc.log(f"Film {film_id} available in countries: {available_countries}", xbmc.LOGINFO)
+
+            # Step 3: Check if current country is in available countries
+            if available_countries and current_country.upper() not in available_countries:
+                # Get country name for display
+                current_country_name = COUNTRIES.get(current_country.lower(), {}).get("name", current_country)
+
+                # Get VPN suggestions (top 3 countries sorted by best VPN tier)
+                vpn_suggestions = self._get_vpn_suggestions(available_countries)
+
+                if vpn_suggestions:
+                    vpn_countries = ", ".join([f"{s[1]}" for s in vpn_suggestions])
+                    message = (
+                        f"This movie is not available in {current_country_name}.\n\n"
+                        f"Connect to a VPN in one of these countries:\n{vpn_countries}"
+                    )
+                else:
+                    message = f"This movie is not available in {current_country_name}."
+
+                xbmc.log(f"Film not available in {current_country}: {message}", xbmc.LOGINFO)
+                xbmcgui.Dialog().ok("MUBI - Not Available", message)
+                return
+
+            # Step 4: Proceed with playback
             stream_info = self.mubi.get_secure_stream_info(film_id)
             xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
 
             if 'error' in stream_info:
-                xbmc.log(f"Error in stream info: {stream_info['error']}", xbmc.LOGERROR)
-                xbmcgui.Dialog().notification("MUBI", f"Error: {stream_info['error']}", xbmcgui.NOTIFICATION_ERROR)
-                raise Exception("Error in stream info")
+                error_msg = stream_info['error']
+                xbmc.log(f"Error in stream info: {error_msg}", xbmc.LOGERROR)
+
+                # If geo-restriction error and we have availability data, show VPN suggestions
+                if 'VPN' in error_msg and available_countries:
+                    current_country_name = COUNTRIES.get(current_country.lower(), {}).get("name", current_country)
+                    vpn_suggestions = self._get_vpn_suggestions(available_countries)
+                    if vpn_suggestions:
+                        vpn_countries = ", ".join([s[1] for s in vpn_suggestions])
+                        message = (
+                            f"This movie is not available in {current_country_name}.\n\n"
+                            f"Connect to a VPN in one of these countries:\n{vpn_countries}"
+                        )
+                        xbmcgui.Dialog().ok("MUBI - Not Available", message)
+                        return
+
+                # Check if this is a geo-restriction error (contains VPN message)
+                if 'VPN' in error_msg:
+                    # Show a dialog for geo-restriction, no browser option
+                    xbmcgui.Dialog().ok("MUBI", error_msg)
+                    return  # Exit without offering browser option
+                else:
+                    # For other errors, raise exception to trigger browser option
+                    xbmcgui.Dialog().notification("MUBI", f"Error: {error_msg}", xbmcgui.NOTIFICATION_ERROR)
+                    raise Exception("Error in stream info")
 
             # Select the best stream URL
             best_stream_url = self.mubi.select_best_stream(stream_info)
@@ -439,12 +686,10 @@ class NavigationHandler:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
 
-            # Prompt the user
+            # Prompt the user to open in browser (only for non-geo-restriction errors)
             if web_url:
                 if xbmcgui.Dialog().yesno("MUBI", "Failed to play the video. Do you want to open it in a web browser?"):
                     self.play_video_ext(web_url)
-                else:
-                    pass  # User chose not to open in web browser
             else:
                 xbmcgui.Dialog().notification("MUBI", "Unable to open in web browser. Web URL is missing.", xbmcgui.NOTIFICATION_ERROR)
 
@@ -548,17 +793,21 @@ class NavigationHandler:
             xbmc.log(f"Error during OMDb API key check: {e}", xbmc.LOGERROR)
             return None
 
-    def sync_locally(self):
+    def sync_films(self, countries: list, dialog_title: Optional[str] = None):
         """
-        Sync all Mubi films locally by fetching all films directly and creating STRM and NFO files for each film.
-        This allows the films to be imported into Kodi's standard media library.
+        Sync MUBI films locally by fetching films from specified countries.
+        Creates STRM and NFO files for each film to import into Kodi's library.
+
+        :param countries: List of ISO 3166-1 alpha-2 country codes (uppercase) to sync from.
+        :param dialog_title: Optional title for the progress dialog.
 
         Level 2 Bug Fix: Added concurrency protection to prevent multiple sync operations.
         """
+        from .countries import COUNTRIES
+
         # BUG #7 FIX: Check if sync is already in progress
         with NavigationHandler._sync_lock:
             if NavigationHandler._sync_in_progress:
-                # User-friendly notification about sync already running
                 xbmcgui.Dialog().notification(
                     "MUBI",
                     "Sync already in progress. Please wait for it to complete.",
@@ -568,52 +817,79 @@ class NavigationHandler:
                 xbmc.log("Sync operation blocked - another sync already in progress", xbmc.LOGINFO)
                 return None
 
-            # Mark sync as in progress
             NavigationHandler._sync_in_progress = True
 
         try:
             # Check OMDb API key
             omdb_api_key = self._check_omdb_api_key()
             if not omdb_api_key:
-                return  # Exit if no API key
+                return
 
-            # Proceed with the sync process if OMDb API key is provided
+            # Validate countries list
+            if not countries:
+                xbmcgui.Dialog().notification(
+                    "MUBI", "No countries specified for sync.",
+                    xbmcgui.NOTIFICATION_ERROR
+                )
+                return
+
+            # Determine dialog title
+            num_countries = len(countries)
+            if dialog_title is None:
+                if num_countries == 1:
+                    country_data = COUNTRIES.get(countries[0].lower(), {})
+                    country_name = country_data.get("name", countries[0])
+                    dialog_title = f"Syncing MUBI from {country_name}"
+                else:
+                    dialog_title = f"Syncing MUBI from {num_countries} countries"
+
+            xbmc.log(f"Starting film sync from {num_countries} countries: {countries}", xbmc.LOGINFO)
+
+            # Proceed with the sync process
             pDialog = xbmcgui.DialogProgress()
-            pDialog.create("Syncing with MUBI 1/2", "Initializing...")
+            pDialog.create(dialog_title, "Initializing...")
 
             # Define progress callback for dynamic updates
-            def update_fetch_progress(current_films, total_films, current_page, total_pages):
+            def update_fetch_progress(current_films, total_films, current_country, total_countries, country_code):
                 if pDialog.iscanceled():
-                    # Raise an exception to signal cancellation to get_all_films
                     raise Exception("User canceled sync operation")
 
-                # Calculate percentage based on pages processed (use full 100% for fetching phase)
-                if total_pages > 0:
-                    percent = int((current_page / total_pages) * 100)  # Use full progress bar
+                # Calculate percentage based on country progress for multi-country,
+                # or film count for single country
+                # Use full 0-100% range since file creation has its own dialog
+                if total_countries > 1:
+                    percent = min(int((current_country / total_countries) * 100), 99)
+                    country_name = COUNTRIES.get(country_code.lower(), {}).get("name", country_code)
+                    message = f"Fetching from {country_name} ({current_country}/{total_countries})...\n{current_films} films found"
                 else:
-                    percent = 50  # Fallback percentage
+                    percent = min(int((current_films / 1000) * 100), 99) if current_films > 0 else 0
+                    country_name = COUNTRIES.get(country_code.lower(), {}).get("name", country_code)
+                    message = f"Fetching films from {country_name}...\n{current_films} films found"
 
-                # Update dialog with dynamic information - keep it simple without any counts
-                message = "Fetching playable films..."
                 pDialog.update(percent, message)
 
-            # Use the new direct approach to fetch all films with progress tracking
-            xbmc.log("Starting direct film sync using /browse/films endpoint", xbmc.LOGINFO)
-            # For sync, we want only playable films (streamable content)
+            # Sync from specified countries
             try:
-                all_films_library = self.mubi.get_all_films(playable_only=True, progress_callback=update_fetch_progress)
+                all_films_library = self.mubi.get_all_films(
+                    playable_only=True,
+                    progress_callback=update_fetch_progress,
+                    countries=countries
+                )
             except Exception as e:
                 if "canceled" in str(e).lower():
                     pDialog.close()
                     xbmc.log("User canceled the sync process during film fetching.", xbmc.LOGDEBUG)
                     return None
                 else:
-                    raise  # Re-raise if it's not a cancellation
+                    raise
 
             # Update progress dialog for file creation phase
             filtered_films_count = len(all_films_library.films)
-            pDialog.update(50, f"Fetched {filtered_films_count} films, creating local files...")
-            xbmc.log(f"Successfully fetched {filtered_films_count} films using direct API approach", xbmc.LOGINFO)
+            if num_countries > 1:
+                pDialog.update(100, f"Fetched {filtered_films_count} films from {num_countries} countries, creating local files...")
+            else:
+                pDialog.update(100, f"Fetched {filtered_films_count} films, creating local files...")
+            xbmc.log(f"Successfully fetched {filtered_films_count} films", xbmc.LOGINFO)
 
             if pDialog.iscanceled():
                 pDialog.close()
@@ -622,33 +898,29 @@ class NavigationHandler:
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
 
-            # Close the first progress dialog before starting file creation
+            # Close the progress dialog before starting file creation
             pDialog.close()
 
             # Small delay to ensure dialog is fully closed before next phase
             import time
             time.sleep(0.1)
 
-            # Start file creation phase (no total count shown to avoid confusion)
-            all_films_library.sync_locally(self.base_url, plugin_userdata_path, omdb_api_key)
+            # Sync files locally
+            all_films_library.sync_locally(
+                self.base_url, plugin_userdata_path, omdb_api_key
+            )
 
-            # Create a monitor instance for library operations
+            # Trigger library operations
             monitor = LibraryMonitor()
-
-            # Trigger Kodi library clean first and wait for it to complete (blocking)
             self.clean_kodi_library(monitor)
-
-            # After clean is complete, trigger Kodi library update in background (non-blocking)
             self.update_kodi_library()
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
         finally:
-            # BUG #7 FIX: Always clear the sync flag, even if an error occurs
             with NavigationHandler._sync_lock:
                 NavigationHandler._sync_in_progress = False
                 xbmc.log("Sync operation completed - flag cleared", xbmc.LOGDEBUG)
-
 
     def update_kodi_library(self):
         """

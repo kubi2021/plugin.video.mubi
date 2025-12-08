@@ -1,0 +1,1065 @@
+# Kodi Media Center language file
+# Addon Name: MUBI
+# Addon id: plugin.video.mubi
+# Addon Provider: kubi2021
+msgid ""
+msgstr ""
+"Project-Id-Version: plugin.video.mubi\n"
+"Report-Msgid-Bugs-To: https://github.com/kubi2021/plugin.video.mubi\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: kubi2021\n"
+"Language-Team: English\n"
+"Language: en_GB\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# General category
+msgctxt "#30000"
+msgid "General"
+msgstr ""
+
+msgctxt "#30001"
+msgid "OMDB API Key"
+msgstr ""
+
+msgctxt "#30002"
+msgid "Language for titles and descriptions"
+msgstr ""
+
+msgctxt "#30003"
+msgid "Your Country"
+msgstr ""
+
+msgctxt "#30004"
+msgid "Auto-detected on first run. This determines your default MUBI catalogue country."
+msgstr ""
+
+# Language options
+msgctxt "#30500"
+msgid "Turkish"
+msgstr ""
+
+msgctxt "#30501"
+msgid "English"
+msgstr ""
+
+msgctxt "#30502"
+msgid "French"
+msgstr ""
+
+msgctxt "#30503"
+msgid "Spanish"
+msgstr ""
+
+msgctxt "#30504"
+msgid "German"
+msgstr ""
+
+msgctxt "#30505"
+msgid "Italian"
+msgstr ""
+
+msgctxt "#30506"
+msgid "Dutch"
+msgstr ""
+
+msgctxt "#30507"
+msgid "Portuguese"
+msgstr ""
+
+
+# Country names for settings dropdown (31000-31247)
+msgctxt "#31000"
+msgid "Afghanistan"
+msgstr ""
+
+msgctxt "#31001"
+msgid "Albania"
+msgstr ""
+
+msgctxt "#31002"
+msgid "Algeria"
+msgstr ""
+
+msgctxt "#31003"
+msgid "American Samoa"
+msgstr ""
+
+msgctxt "#31004"
+msgid "Andorra"
+msgstr ""
+
+msgctxt "#31005"
+msgid "Angola"
+msgstr ""
+
+msgctxt "#31006"
+msgid "Anguilla"
+msgstr ""
+
+msgctxt "#31007"
+msgid "Antarctica"
+msgstr ""
+
+msgctxt "#31008"
+msgid "Antigua and Barbuda"
+msgstr ""
+
+msgctxt "#31009"
+msgid "Argentina"
+msgstr ""
+
+msgctxt "#31010"
+msgid "Armenia"
+msgstr ""
+
+msgctxt "#31011"
+msgid "Aruba"
+msgstr ""
+
+msgctxt "#31012"
+msgid "Australia"
+msgstr ""
+
+msgctxt "#31013"
+msgid "Austria"
+msgstr ""
+
+msgctxt "#31014"
+msgid "Azerbaijan"
+msgstr ""
+
+msgctxt "#31015"
+msgid "Bahamas"
+msgstr ""
+
+msgctxt "#31016"
+msgid "Bahrain"
+msgstr ""
+
+msgctxt "#31017"
+msgid "Bangladesh"
+msgstr ""
+
+msgctxt "#31018"
+msgid "Barbados"
+msgstr ""
+
+msgctxt "#31019"
+msgid "Belarus"
+msgstr ""
+
+msgctxt "#31020"
+msgid "Belgium"
+msgstr ""
+
+msgctxt "#31021"
+msgid "Belize"
+msgstr ""
+
+msgctxt "#31022"
+msgid "Benin"
+msgstr ""
+
+msgctxt "#31023"
+msgid "Bermuda"
+msgstr ""
+
+msgctxt "#31024"
+msgid "Bhutan"
+msgstr ""
+
+msgctxt "#31025"
+msgid "Bolivia"
+msgstr ""
+
+msgctxt "#31026"
+msgid "Bonaire, Sint Eustatius and Saba"
+msgstr ""
+
+msgctxt "#31027"
+msgid "Bosnia and Herzegovina"
+msgstr ""
+
+msgctxt "#31028"
+msgid "Botswana"
+msgstr ""
+
+msgctxt "#31029"
+msgid "Brazil"
+msgstr ""
+
+msgctxt "#31030"
+msgid "British Indian Ocean Territory"
+msgstr ""
+
+msgctxt "#31031"
+msgid "Brunei Darussalam"
+msgstr ""
+
+msgctxt "#31032"
+msgid "Bulgaria"
+msgstr ""
+
+msgctxt "#31033"
+msgid "Burkina Faso"
+msgstr ""
+
+msgctxt "#31034"
+msgid "Burundi"
+msgstr ""
+
+msgctxt "#31035"
+msgid "Cambodia"
+msgstr ""
+
+msgctxt "#31036"
+msgid "Cameroon"
+msgstr ""
+
+msgctxt "#31037"
+msgid "Canada"
+msgstr ""
+
+msgctxt "#31038"
+msgid "Cape Verde"
+msgstr ""
+
+msgctxt "#31039"
+msgid "Cayman Islands"
+msgstr ""
+
+msgctxt "#31040"
+msgid "Central African Republic"
+msgstr ""
+
+msgctxt "#31041"
+msgid "Chad"
+msgstr ""
+
+msgctxt "#31042"
+msgid "Chile"
+msgstr ""
+
+msgctxt "#31043"
+msgid "China"
+msgstr ""
+
+msgctxt "#31044"
+msgid "Christmas Island"
+msgstr ""
+
+msgctxt "#31045"
+msgid "Cocos (Keeling) Islands"
+msgstr ""
+
+msgctxt "#31046"
+msgid "Colombia"
+msgstr ""
+
+msgctxt "#31047"
+msgid "Comoros"
+msgstr ""
+
+msgctxt "#31048"
+msgid "Congo"
+msgstr ""
+
+msgctxt "#31049"
+msgid "Congo, Democratic Republic"
+msgstr ""
+
+msgctxt "#31050"
+msgid "Cook Islands"
+msgstr ""
+
+msgctxt "#31051"
+msgid "Costa Rica"
+msgstr ""
+
+msgctxt "#31052"
+msgid "Croatia"
+msgstr ""
+
+msgctxt "#31053"
+msgid "Cuba"
+msgstr ""
+
+msgctxt "#31054"
+msgid "Curaçao"
+msgstr ""
+
+msgctxt "#31055"
+msgid "Cyprus"
+msgstr ""
+
+msgctxt "#31056"
+msgid "Czech Republic"
+msgstr ""
+
+msgctxt "#31057"
+msgid "Denmark"
+msgstr ""
+
+msgctxt "#31058"
+msgid "Djibouti"
+msgstr ""
+
+msgctxt "#31059"
+msgid "Dominica"
+msgstr ""
+
+msgctxt "#31060"
+msgid "Dominican Republic"
+msgstr ""
+
+msgctxt "#31061"
+msgid "Ecuador"
+msgstr ""
+
+msgctxt "#31062"
+msgid "Egypt"
+msgstr ""
+
+msgctxt "#31063"
+msgid "El Salvador"
+msgstr ""
+
+msgctxt "#31064"
+msgid "Equatorial Guinea"
+msgstr ""
+
+msgctxt "#31065"
+msgid "Eritrea"
+msgstr ""
+
+msgctxt "#31066"
+msgid "Estonia"
+msgstr ""
+
+msgctxt "#31067"
+msgid "Eswatini"
+msgstr ""
+
+msgctxt "#31068"
+msgid "Ethiopia"
+msgstr ""
+
+msgctxt "#31069"
+msgid "Falkland Islands (Malvinas)"
+msgstr ""
+
+msgctxt "#31070"
+msgid "Faroe Islands"
+msgstr ""
+
+msgctxt "#31071"
+msgid "Fiji"
+msgstr ""
+
+msgctxt "#31072"
+msgid "Finland"
+msgstr ""
+
+msgctxt "#31073"
+msgid "France"
+msgstr ""
+
+msgctxt "#31074"
+msgid "French Guiana"
+msgstr ""
+
+msgctxt "#31075"
+msgid "French Polynesia"
+msgstr ""
+
+msgctxt "#31076"
+msgid "French Southern Territories"
+msgstr ""
+
+msgctxt "#31077"
+msgid "Gabon"
+msgstr ""
+
+msgctxt "#31078"
+msgid "Gambia"
+msgstr ""
+
+msgctxt "#31079"
+msgid "Georgia"
+msgstr ""
+
+msgctxt "#31080"
+msgid "Germany"
+msgstr ""
+
+msgctxt "#31081"
+msgid "Ghana"
+msgstr ""
+
+msgctxt "#31082"
+msgid "Gibraltar"
+msgstr ""
+
+msgctxt "#31083"
+msgid "Greece"
+msgstr ""
+
+msgctxt "#31084"
+msgid "Greenland"
+msgstr ""
+
+msgctxt "#31085"
+msgid "Grenada"
+msgstr ""
+
+msgctxt "#31086"
+msgid "Guadeloupe"
+msgstr ""
+
+msgctxt "#31087"
+msgid "Guam"
+msgstr ""
+
+msgctxt "#31088"
+msgid "Guatemala"
+msgstr ""
+
+msgctxt "#31089"
+msgid "Guernsey"
+msgstr ""
+
+msgctxt "#31090"
+msgid "Guinea"
+msgstr ""
+
+msgctxt "#31091"
+msgid "Guinea-Bissau"
+msgstr ""
+
+msgctxt "#31092"
+msgid "Guyana"
+msgstr ""
+
+msgctxt "#31093"
+msgid "Haiti"
+msgstr ""
+
+msgctxt "#31094"
+msgid "Heard Island and McDonald Islands"
+msgstr ""
+
+msgctxt "#31095"
+msgid "Honduras"
+msgstr ""
+
+msgctxt "#31096"
+msgid "Hong Kong"
+msgstr ""
+
+msgctxt "#31097"
+msgid "Hungary"
+msgstr ""
+
+msgctxt "#31098"
+msgid "Iceland"
+msgstr ""
+
+msgctxt "#31099"
+msgid "India"
+msgstr ""
+
+msgctxt "#31100"
+msgid "Indonesia"
+msgstr ""
+
+msgctxt "#31101"
+msgid "Iran"
+msgstr ""
+
+msgctxt "#31102"
+msgid "Iraq"
+msgstr ""
+
+msgctxt "#31103"
+msgid "Ireland"
+msgstr ""
+
+msgctxt "#31104"
+msgid "Isle of Man"
+msgstr ""
+
+msgctxt "#31105"
+msgid "Israel"
+msgstr ""
+
+msgctxt "#31106"
+msgid "Italy"
+msgstr ""
+
+msgctxt "#31107"
+msgid "Ivory Coast"
+msgstr ""
+
+msgctxt "#31108"
+msgid "Jamaica"
+msgstr ""
+
+msgctxt "#31109"
+msgid "Japan"
+msgstr ""
+
+msgctxt "#31110"
+msgid "Jersey"
+msgstr ""
+
+msgctxt "#31111"
+msgid "Jordan"
+msgstr ""
+
+msgctxt "#31112"
+msgid "Kazakhstan"
+msgstr ""
+
+msgctxt "#31113"
+msgid "Kenya"
+msgstr ""
+
+msgctxt "#31114"
+msgid "Kiribati"
+msgstr ""
+
+msgctxt "#31115"
+msgid "Kuwait"
+msgstr ""
+
+msgctxt "#31116"
+msgid "Kyrgyzstan"
+msgstr ""
+
+msgctxt "#31117"
+msgid "Laos"
+msgstr ""
+
+msgctxt "#31118"
+msgid "Latvia"
+msgstr ""
+
+msgctxt "#31119"
+msgid "Lebanon"
+msgstr ""
+
+msgctxt "#31120"
+msgid "Lesotho"
+msgstr ""
+
+msgctxt "#31121"
+msgid "Liberia"
+msgstr ""
+
+msgctxt "#31122"
+msgid "Libya"
+msgstr ""
+
+msgctxt "#31123"
+msgid "Liechtenstein"
+msgstr ""
+
+msgctxt "#31124"
+msgid "Lithuania"
+msgstr ""
+
+msgctxt "#31125"
+msgid "Luxembourg"
+msgstr ""
+
+msgctxt "#31126"
+msgid "Macao"
+msgstr ""
+
+msgctxt "#31127"
+msgid "Macedonia"
+msgstr ""
+
+msgctxt "#31128"
+msgid "Madagascar"
+msgstr ""
+
+msgctxt "#31129"
+msgid "Malawi"
+msgstr ""
+
+msgctxt "#31130"
+msgid "Malaysia"
+msgstr ""
+
+msgctxt "#31131"
+msgid "Maldives"
+msgstr ""
+
+msgctxt "#31132"
+msgid "Mali"
+msgstr ""
+
+msgctxt "#31133"
+msgid "Malta"
+msgstr ""
+
+msgctxt "#31134"
+msgid "Marshall Islands"
+msgstr ""
+
+msgctxt "#31135"
+msgid "Martinique"
+msgstr ""
+
+msgctxt "#31136"
+msgid "Mauritania"
+msgstr ""
+
+msgctxt "#31137"
+msgid "Mauritius"
+msgstr ""
+
+msgctxt "#31138"
+msgid "Mayotte"
+msgstr ""
+
+msgctxt "#31139"
+msgid "Mexico"
+msgstr ""
+
+msgctxt "#31140"
+msgid "Micronesia"
+msgstr ""
+
+msgctxt "#31141"
+msgid "Moldova"
+msgstr ""
+
+msgctxt "#31142"
+msgid "Monaco"
+msgstr ""
+
+msgctxt "#31143"
+msgid "Mongolia"
+msgstr ""
+
+msgctxt "#31144"
+msgid "Montenegro"
+msgstr ""
+
+msgctxt "#31145"
+msgid "Montserrat"
+msgstr ""
+
+msgctxt "#31146"
+msgid "Morocco"
+msgstr ""
+
+msgctxt "#31147"
+msgid "Mozambique"
+msgstr ""
+
+msgctxt "#31148"
+msgid "Myanmar"
+msgstr ""
+
+msgctxt "#31149"
+msgid "Namibia"
+msgstr ""
+
+msgctxt "#31150"
+msgid "Nauru"
+msgstr ""
+
+msgctxt "#31151"
+msgid "Nepal"
+msgstr ""
+
+msgctxt "#31152"
+msgid "Netherlands"
+msgstr ""
+
+msgctxt "#31153"
+msgid "New Caledonia"
+msgstr ""
+
+msgctxt "#31154"
+msgid "New Zealand"
+msgstr ""
+
+msgctxt "#31155"
+msgid "Nicaragua"
+msgstr ""
+
+msgctxt "#31156"
+msgid "Niger"
+msgstr ""
+
+msgctxt "#31157"
+msgid "Nigeria"
+msgstr ""
+
+msgctxt "#31158"
+msgid "Niue"
+msgstr ""
+
+msgctxt "#31159"
+msgid "Norfolk Island"
+msgstr ""
+
+msgctxt "#31160"
+msgid "North Korea"
+msgstr ""
+
+msgctxt "#31161"
+msgid "Northern Mariana Islands"
+msgstr ""
+
+msgctxt "#31162"
+msgid "Norway"
+msgstr ""
+
+msgctxt "#31163"
+msgid "Oman"
+msgstr ""
+
+msgctxt "#31164"
+msgid "Pakistan"
+msgstr ""
+
+msgctxt "#31165"
+msgid "Palau"
+msgstr ""
+
+msgctxt "#31166"
+msgid "Palestine"
+msgstr ""
+
+msgctxt "#31167"
+msgid "Panama"
+msgstr ""
+
+msgctxt "#31168"
+msgid "Papua New Guinea"
+msgstr ""
+
+msgctxt "#31169"
+msgid "Paraguay"
+msgstr ""
+
+msgctxt "#31170"
+msgid "Peru"
+msgstr ""
+
+msgctxt "#31171"
+msgid "Philippines"
+msgstr ""
+
+msgctxt "#31172"
+msgid "Pitcairn"
+msgstr ""
+
+msgctxt "#31173"
+msgid "Poland"
+msgstr ""
+
+msgctxt "#31174"
+msgid "Portugal"
+msgstr ""
+
+msgctxt "#31175"
+msgid "Puerto Rico"
+msgstr ""
+
+msgctxt "#31176"
+msgid "Qatar"
+msgstr ""
+
+msgctxt "#31177"
+msgid "Romania"
+msgstr ""
+
+msgctxt "#31178"
+msgid "Russian Federation"
+msgstr ""
+
+msgctxt "#31179"
+msgid "Rwanda"
+msgstr ""
+
+msgctxt "#31180"
+msgid "Réunion"
+msgstr ""
+
+msgctxt "#31181"
+msgid "Saint Barthélemy"
+msgstr ""
+
+msgctxt "#31182"
+msgid "Saint Helena"
+msgstr ""
+
+msgctxt "#31183"
+msgid "Saint Kitts and Nevis"
+msgstr ""
+
+msgctxt "#31184"
+msgid "Saint Lucia"
+msgstr ""
+
+msgctxt "#31185"
+msgid "Saint Martin (French part)"
+msgstr ""
+
+msgctxt "#31186"
+msgid "Saint Pierre and Miquelon"
+msgstr ""
+
+msgctxt "#31187"
+msgid "Saint Vincent and the Grenadines"
+msgstr ""
+
+msgctxt "#31188"
+msgid "Samoa"
+msgstr ""
+
+msgctxt "#31189"
+msgid "San Marino"
+msgstr ""
+
+msgctxt "#31190"
+msgid "Sao Tome and Principe"
+msgstr ""
+
+msgctxt "#31191"
+msgid "Saudi Arabia"
+msgstr ""
+
+msgctxt "#31192"
+msgid "Senegal"
+msgstr ""
+
+msgctxt "#31193"
+msgid "Serbia"
+msgstr ""
+
+msgctxt "#31194"
+msgid "Seychelles"
+msgstr ""
+
+msgctxt "#31195"
+msgid "Sierra Leone"
+msgstr ""
+
+msgctxt "#31196"
+msgid "Singapore"
+msgstr ""
+
+msgctxt "#31197"
+msgid "Sint Maarten (Dutch part)"
+msgstr ""
+
+msgctxt "#31198"
+msgid "Slovakia"
+msgstr ""
+
+msgctxt "#31199"
+msgid "Slovenia"
+msgstr ""
+
+msgctxt "#31200"
+msgid "Solomon Islands"
+msgstr ""
+
+msgctxt "#31201"
+msgid "Somalia"
+msgstr ""
+
+msgctxt "#31202"
+msgid "South Africa"
+msgstr ""
+
+msgctxt "#31203"
+msgid "South Georgia and the South Sandwich Islands"
+msgstr ""
+
+msgctxt "#31204"
+msgid "South Korea"
+msgstr ""
+
+msgctxt "#31205"
+msgid "South Sudan"
+msgstr ""
+
+msgctxt "#31206"
+msgid "Spain"
+msgstr ""
+
+msgctxt "#31207"
+msgid "Sri Lanka"
+msgstr ""
+
+msgctxt "#31208"
+msgid "Sudan"
+msgstr ""
+
+msgctxt "#31209"
+msgid "Suriname"
+msgstr ""
+
+msgctxt "#31210"
+msgid "Svalbard and Jan Mayen"
+msgstr ""
+
+msgctxt "#31211"
+msgid "Sweden"
+msgstr ""
+
+msgctxt "#31212"
+msgid "Switzerland"
+msgstr ""
+
+msgctxt "#31213"
+msgid "Syria"
+msgstr ""
+
+msgctxt "#31214"
+msgid "Taiwan"
+msgstr ""
+
+msgctxt "#31215"
+msgid "Tajikistan"
+msgstr ""
+
+msgctxt "#31216"
+msgid "Tanzania"
+msgstr ""
+
+msgctxt "#31217"
+msgid "Thailand"
+msgstr ""
+
+msgctxt "#31218"
+msgid "Timor-Leste"
+msgstr ""
+
+msgctxt "#31219"
+msgid "Togo"
+msgstr ""
+
+msgctxt "#31220"
+msgid "Tokelau"
+msgstr ""
+
+msgctxt "#31221"
+msgid "Tonga"
+msgstr ""
+
+msgctxt "#31222"
+msgid "Trinidad and Tobago"
+msgstr ""
+
+msgctxt "#31223"
+msgid "Tunisia"
+msgstr ""
+
+msgctxt "#31224"
+msgid "Turkey"
+msgstr ""
+
+msgctxt "#31225"
+msgid "Turkmenistan"
+msgstr ""
+
+msgctxt "#31226"
+msgid "Turks and Caicos Islands"
+msgstr ""
+
+msgctxt "#31227"
+msgid "Tuvalu"
+msgstr ""
+
+msgctxt "#31228"
+msgid "Uganda"
+msgstr ""
+
+msgctxt "#31229"
+msgid "Ukraine"
+msgstr ""
+
+msgctxt "#31230"
+msgid "United Arab Emirates"
+msgstr ""
+
+msgctxt "#31231"
+msgid "United Kingdom"
+msgstr ""
+
+msgctxt "#31232"
+msgid "United States"
+msgstr ""
+
+msgctxt "#31233"
+msgid "United States Minor Outlying Islands"
+msgstr ""
+
+msgctxt "#31234"
+msgid "Uruguay"
+msgstr ""
+
+msgctxt "#31235"
+msgid "Uzbekistan"
+msgstr ""
+
+msgctxt "#31236"
+msgid "Vanuatu"
+msgstr ""
+
+msgctxt "#31237"
+msgid "Vatican City"
+msgstr ""
+
+msgctxt "#31238"
+msgid "Venezuela"
+msgstr ""
+
+msgctxt "#31239"
+msgid "Viet Nam"
+msgstr ""
+
+msgctxt "#31240"
+msgid "Virgin Islands, British"
+msgstr ""
+
+msgctxt "#31241"
+msgid "Virgin Islands, U.S."
+msgstr ""
+
+msgctxt "#31242"
+msgid "Wallis and Futuna"
+msgstr ""
+
+msgctxt "#31243"
+msgid "Western Sahara"
+msgstr ""
+
+msgctxt "#31244"
+msgid "Yemen"
+msgstr ""
+
+msgctxt "#31245"
+msgid "Zambia"
+msgstr ""
+
+msgctxt "#31246"
+msgid "Zimbabwe"
+msgstr ""
+
+msgctxt "#31247"
+msgid "Åland Islands"
+msgstr ""

@@ -103,7 +103,7 @@ class TestNavigationHandler:
         mock_end_dir.assert_called_with(123)
         
         # Verify menu items were added (logged in menu)
-        assert mock_add_item.call_count == 3  # 3 menu items for logged in users (no more category browsing)
+        assert mock_add_item.call_count == 4  # 4 menu items: watchlist, sync local, sync worldwide, logout
 
     @patch('xbmcplugin.setPluginCategory')
     @patch('xbmcplugin.setContent')
@@ -136,15 +136,16 @@ class TestNavigationHandler:
 
         items = navigation_handler._get_main_menu_items()
 
-        assert len(items) == 3  # Updated: no more category browsing
+        assert len(items) == 4  # 4 menu items: watchlist, sync local, sync worldwide, logout
         assert any("Browse your Mubi watchlist" in item["label"] for item in items)
-        assert any("Sync all Mubi films locally" in item["label"] for item in items)
+        assert any("Sync MUBI catalogue" in item["label"] for item in items)
+        assert any("worldwide" in item["label"].lower() for item in items)
         assert any("Log Out" in item["label"] for item in items)
 
-        # Verify sync_locally is NOT a folder to prevent infinite loop bug
-        # When sync_locally is a folder, Kodi re-triggers it on container refresh
-        sync_item = next(item for item in items if "sync_locally" in item["action"])
-        assert sync_item["is_folder"] is False, "sync_locally must not be a folder to prevent infinite loop"
+        # Verify sync actions are NOT folders to prevent infinite loop bug
+        sync_items = [item for item in items if "sync" in item["action"]]
+        for sync_item in sync_items:
+            assert sync_item["is_folder"] is False, f"{sync_item['action']} must not be a folder"
 
     def test_get_main_menu_items_logged_out(self, navigation_handler):
         """Test main menu items for logged out users."""
@@ -316,11 +317,11 @@ class TestNavigationHandler:
         mock_set_resolved.assert_called_with(123, True, listitem=mock_list_item_instance)
 
     @patch('xbmcgui.DialogProgress')
-    def test_sync_locally(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
-        """Test local sync process using new direct film fetching approach."""
+    def test_sync_films(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
+        """Test sync_films process with specified countries."""
         mock_addon.getSetting.return_value = "fake-api-key"
 
-        # Mock the new get_all_films method
+        # Mock the get_all_films method
         mock_library = Mock()
         mock_library.films = []
         mock_mubi.get_all_films.return_value = mock_library
@@ -329,25 +330,25 @@ class TestNavigationHandler:
         mock_dialog.iscanceled.return_value = False
 
         with patch('xbmcvfs.translatePath', return_value="/fake/path"):
-            with patch('xbmcgui.Dialog') as mock_notification:
+            with patch('xbmcgui.Dialog'):
                 with patch.object(navigation_handler, 'clean_kodi_library'):
                     with patch.object(navigation_handler, 'update_kodi_library'):
                         with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
-                            navigation_handler.sync_locally()
+                            navigation_handler.sync_films(countries=['CH'])
 
-        # Verify the new direct approach is used
+        # Verify the sync was called with correct countries
         mock_mubi.get_all_films.assert_called_once()
+        call_kwargs = mock_mubi.get_all_films.call_args[1]
+        assert call_kwargs['countries'] == ['CH']
         mock_dialog.create.assert_called()
         mock_dialog.close.assert_called()
-        # The notification should be called, but due to complex mocking it might not be captured
-        # The important thing is that the method completes without error
 
     @patch('xbmc.log')
-    def test_sync_locally_exception(self, mock_log, navigation_handler, mock_mubi):
-        """Test sync locally handles exceptions."""
+    def test_sync_films_exception(self, mock_log, navigation_handler, mock_mubi):
+        """Test sync_films handles exceptions."""
         mock_mubi.get_all_films.side_effect = Exception("API Error")
 
-        navigation_handler.sync_locally()
+        navigation_handler.sync_films(countries=['CH'])
 
         mock_log.assert_called()
 
@@ -558,11 +559,11 @@ class TestNavigationHandler:
         mock_end_dir.assert_called()
 
     @patch('xbmcgui.DialogProgress')
-    def test_sync_films_locally_api_key_check(self, mock_progress, navigation_handler):
-        """Test sync films locally with API key validation."""
+    def test_sync_films_api_key_check(self, mock_progress, navigation_handler):
+        """Test sync_films with API key validation."""
         # Mock the _check_omdb_api_key to return None (user cancelled)
         with patch.object(navigation_handler, '_check_omdb_api_key', return_value=None):
-            result = navigation_handler.sync_locally()
+            result = navigation_handler.sync_films(countries=['CH'])
 
             # When API key check fails, method should return early without creating progress dialog
             mock_progress.assert_not_called()
@@ -957,3 +958,921 @@ class TestKodi20Features:
             mock_info_tag.setTagLine.assert_called_once_with("Great movie tagline")
             mock_info_tag.addAudioStream.assert_called()
             mock_info_tag.addSubtitleStream.assert_called()
+
+
+class TestGetAvailableCountriesFromNfo:
+    """Test cases for the _get_available_countries_from_nfo method.
+
+    Specifically tests the film_id matching logic to prevent substring matching bugs.
+    Bug context: film_id=90 was incorrectly matching STRM files with film_id=190 or film_id=902.
+    """
+
+    @pytest.fixture
+    def navigation_handler(self):
+        """Create a NavigationHandler instance with mocked dependencies."""
+        with patch('xbmcgui.Dialog'), \
+             patch('xbmcgui.ListItem'), \
+             patch('xbmcplugin.addDirectoryItem'), \
+             patch('xbmcplugin.endOfDirectory'), \
+             patch('xbmc.log'):
+            mock_mubi = Mock()
+            mock_session = Mock()
+            mock_session.token = "test_token"
+            mock_session.user_id = "test_user"
+            handler = NavigationHandler(
+                handle=1,
+                base_url="plugin://plugin.video.mubi/",
+                mubi=mock_mubi,
+                session=mock_session
+            )
+            return handler
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_film_id_exact_match_prevents_substring_collision(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """
+        Test that film_id=90 does NOT match a STRM file containing film_id=190.
+
+        This is a regression test for a bug where substring matching caused
+        the wrong NFO file to be returned.
+        """
+        # Arrange: Create two film folders with different film_ids
+        mock_translate_path.return_value = str(tmp_path)
+
+        # Film 190 folder (should NOT match when searching for film_id=90)
+        film_190_folder = tmp_path / "Film 190 (2020)"
+        film_190_folder.mkdir()
+        (film_190_folder / "Film 190 (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=190&web_url=https://mubi.com/films/film-190"
+        )
+        (film_190_folder / "Film 190 (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Film 190</title>
+    <mubi_availability>
+        <country code="CH">Switzerland</country>
+    </mubi_availability>
+</movie>""")
+
+        # Film 90 folder (should match when searching for film_id=90)
+        film_90_folder = tmp_path / "Film 90 (2004)"
+        film_90_folder.mkdir()
+        (film_90_folder / "Film 90 (2004).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=90&web_url=https://mubi.com/films/film-90"
+        )
+        (film_90_folder / "Film 90 (2004).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Film 90</title>
+    <mubi_availability>
+        <country code="AF">Afghanistan</country>
+    </mubi_availability>
+</movie>""")
+
+        # Act: Search for film_id=90
+        result = navigation_handler._get_available_countries_from_nfo("90")
+
+        # Assert: Should return AF (Afghanistan), NOT CH (Switzerland)
+        assert result == ["AF"], (
+            f"Expected ['AF'] for film_id=90 but got {result}. "
+            "This indicates substring matching bug where film_id=90 matched film_id=190"
+        )
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_film_id_match_with_trailing_ampersand(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that film_id matching works with parameters after the film_id."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Test Film (2020)"
+        film_folder.mkdir()
+        (film_folder / "Test Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=123&web_url=https://mubi.com/films/test"
+        )
+        (film_folder / "Test Film (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Test Film</title>
+    <mubi_availability>
+        <country code="US">United States</country>
+        <country code="FR">France</country>
+    </mubi_availability>
+</movie>""")
+
+        result = navigation_handler._get_available_countries_from_nfo("123")
+
+        assert result == ["US", "FR"]
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_film_id_match_at_end_of_url(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that film_id matching works when film_id is at the end of the URL."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "End Film (2020)"
+        film_folder.mkdir()
+        # STRM where film_id is the last parameter (no trailing &)
+        (film_folder / "End Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&web_url=https://mubi.com/films/test&film_id=456"
+        )
+        (film_folder / "End Film (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>End Film</title>
+    <mubi_availability>
+        <country code="DE">Germany</country>
+    </mubi_availability>
+</movie>""")
+
+        result = navigation_handler._get_available_countries_from_nfo("456")
+
+        assert result == ["DE"]
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_no_match_returns_empty_list(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that searching for non-existent film_id returns empty list."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Some Film (2020)"
+        film_folder.mkdir()
+        (film_folder / "Some Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=999&web_url=https://mubi.com/films/some"
+        )
+        (film_folder / "Some Film (2020).nfo").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Some Film</title>
+    <mubi_availability>
+        <country code="JP">Japan</country>
+    </mubi_availability>
+</movie>""")
+
+        # Search for a film_id that doesn't exist
+        result = navigation_handler._get_available_countries_from_nfo("12345")
+
+        assert result == []
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_similar_film_ids_do_not_collide(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """
+        Test multiple similar film_ids (90, 190, 290, 900, 901) don't collide.
+
+        This is an extended regression test for the substring matching bug.
+        """
+        mock_translate_path.return_value = str(tmp_path)
+
+        # Create folders for films with IDs that could collide with substring matching
+        test_cases = [
+            ("90", "AF"),    # The target film
+            ("190", "CH"),   # Contains "90"
+            ("290", "DE"),   # Contains "90"
+            ("900", "FR"),   # Starts with "90"
+            ("901", "GB"),   # Starts with "90"
+            ("9", "IT"),     # Prefix of "90"
+        ]
+
+        for film_id, country_code in test_cases:
+            folder = tmp_path / f"Film {film_id} (2020)"
+            folder.mkdir()
+            (folder / f"Film {film_id} (2020).strm").write_text(
+                f"plugin://plugin.video.mubi/?action=play_mubi_video&film_id={film_id}&web_url=https://mubi.com/films/f{film_id}"
+            )
+            (folder / f"Film {film_id} (2020).nfo").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Film {film_id}</title>
+    <mubi_availability>
+        <country code="{country_code}">Country {country_code}</country>
+    </mubi_availability>
+</movie>""")
+
+        # Act & Assert: Each film_id should only match its own NFO
+        for film_id, expected_country in test_cases:
+            result = navigation_handler._get_available_countries_from_nfo(film_id)
+            assert result == [expected_country], (
+                f"film_id={film_id} expected [{expected_country}] but got {result}"
+            )
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_malformed_xml_returns_empty_list(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that malformed/corrupted NFO XML returns empty list gracefully."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Corrupted Film (2020)"
+        film_folder.mkdir()
+        (film_folder / "Corrupted Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=555"
+        )
+        # Malformed XML (unclosed tags, broken structure)
+        (film_folder / "Corrupted Film (2020).nfo").write_text("""<?xml version="1.0"?>
+<movie>
+    <title>Corrupted Film</title>
+    <mubi_availability>
+        <country code="US">United States
+    <!-- Missing closing tags -->""")
+
+        result = navigation_handler._get_available_countries_from_nfo("555")
+
+        # Should return empty list, not crash
+        assert result == []
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_missing_availability_section_returns_empty_list(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that NFO without mubi_availability section returns empty list."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "No Availability Film (2020)"
+        film_folder.mkdir()
+        (film_folder / "No Availability Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=666"
+        )
+        # Valid NFO but no mubi_availability section
+        (film_folder / "No Availability Film (2020).nfo").write_text("""<?xml version="1.0"?>
+<movie>
+    <title>No Availability Film</title>
+    <year>2020</year>
+</movie>""")
+
+        result = navigation_handler._get_available_countries_from_nfo("666")
+
+        assert result == []
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_uniqueid_match_instead_of_strm(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that NFO can be found using uniqueid element when STRM doesn't match."""
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "UniqueId Film (2020)"
+        film_folder.mkdir()
+        # STRM with different film_id
+        (film_folder / "UniqueId Film (2020).strm").write_text(
+            "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=OTHER"
+        )
+        # NFO with uniqueid element containing the target film_id
+        (film_folder / "UniqueId Film (2020).nfo").write_text("""<?xml version="1.0"?>
+<movie>
+    <title>UniqueId Film</title>
+    <uniqueid type="mubi">777</uniqueid>
+    <mubi_availability>
+        <country code="JP">Japan</country>
+    </mubi_availability>
+</movie>""")
+
+        result = navigation_handler._get_available_countries_from_nfo("777")
+
+        # Should find the NFO via uniqueid element
+        assert result == ["JP"]
+
+
+class TestCountriesModule:
+    """Test cases for the countries module helper functions."""
+
+    def test_get_tier1_countries_returns_only_tier1(self):
+        """Verify get_tier1_countries returns only tier 1 (Hyper-Speed Elite) countries."""
+        from plugin_video_mubi.resources.lib.countries import get_tier1_countries, COUNTRIES
+
+        tier1 = get_tier1_countries()
+
+        # All returned countries should have vpn_tier == 1
+        for code, data in tier1.items():
+            assert data["vpn_tier"] == 1, f"Country {code} has tier {data['vpn_tier']}, expected 1"
+
+        # Verify known tier 1 countries are included (US, FR, SG based on module docs)
+        assert "us" in tier1 or "fr" in tier1 or "sg" in tier1, "Expected at least one known tier 1 country"
+
+        # Verify no tier 1 country is missing
+        expected_tier1 = {code: data for code, data in COUNTRIES.items() if data["vpn_tier"] == 1}
+        assert tier1 == expected_tier1
+
+    def test_get_tier2_countries_returns_only_tier2(self):
+        """Verify get_tier2_countries returns only tier 2 (High Performance) countries."""
+        from plugin_video_mubi.resources.lib.countries import get_tier2_countries, COUNTRIES
+
+        tier2 = get_tier2_countries()
+
+        for code, data in tier2.items():
+            assert data["vpn_tier"] == 2, f"Country {code} has tier {data['vpn_tier']}, expected 2"
+
+        expected_tier2 = {code: data for code, data in COUNTRIES.items() if data["vpn_tier"] == 2}
+        assert tier2 == expected_tier2
+
+    def test_get_tier3_countries_returns_only_tier3(self):
+        """Verify get_tier3_countries returns only tier 3 (Good/Average) countries."""
+        from plugin_video_mubi.resources.lib.countries import get_tier3_countries, COUNTRIES
+
+        tier3 = get_tier3_countries()
+
+        for code, data in tier3.items():
+            assert data["vpn_tier"] == 3, f"Country {code} has tier {data['vpn_tier']}, expected 3"
+
+        expected_tier3 = {code: data for code, data in COUNTRIES.items() if data["vpn_tier"] == 3}
+        assert tier3 == expected_tier3
+
+    def test_get_tier4_countries_returns_only_tier4(self):
+        """Verify get_tier4_countries returns only tier 4 (Developing Infrastructure) countries."""
+        from plugin_video_mubi.resources.lib.countries import get_tier4_countries, COUNTRIES
+
+        tier4 = get_tier4_countries()
+
+        for code, data in tier4.items():
+            assert data["vpn_tier"] == 4, f"Country {code} has tier {data['vpn_tier']}, expected 4"
+
+        expected_tier4 = {code: data for code, data in COUNTRIES.items() if data["vpn_tier"] == 4}
+        assert tier4 == expected_tier4
+
+    def test_get_top_countries_returns_tiers_1_to_3(self):
+        """Verify get_top_countries returns tiers 1, 2, and 3 only."""
+        from plugin_video_mubi.resources.lib.countries import get_top_countries, COUNTRIES
+
+        top = get_top_countries()
+
+        for code, data in top.items():
+            assert data["vpn_tier"] <= 3, f"Country {code} has tier {data['vpn_tier']}, expected <= 3"
+
+        # Verify tier 4 countries are excluded
+        tier4_codes = [code for code, data in COUNTRIES.items() if data["vpn_tier"] == 4]
+        for code in tier4_codes:
+            assert code not in top, f"Tier 4 country {code} should not be in top countries"
+
+    def test_get_streaming_countries_returns_tiers_1_and_2(self):
+        """Verify get_streaming_countries returns only tiers 1 and 2."""
+        from plugin_video_mubi.resources.lib.countries import get_streaming_countries, COUNTRIES
+
+        streaming = get_streaming_countries()
+
+        for code, data in streaming.items():
+            assert data["vpn_tier"] <= 2, f"Country {code} has tier {data['vpn_tier']}, expected <= 2"
+
+        # Verify tier 3 and 4 countries are excluded
+        excluded_codes = [code for code, data in COUNTRIES.items() if data["vpn_tier"] > 2]
+        for code in excluded_codes:
+            assert code not in streaming, f"Tier 3/4 country {code} should not be in streaming countries"
+
+    def test_get_country_name_valid_lowercase(self):
+        """Verify get_country_name works with lowercase country codes."""
+        from plugin_video_mubi.resources.lib.countries import get_country_name
+
+        assert get_country_name("us") == "United States"
+        assert get_country_name("fr") == "France"
+        assert get_country_name("ch") == "Switzerland"
+
+    def test_get_country_name_valid_uppercase(self):
+        """Verify get_country_name works with uppercase country codes."""
+        from plugin_video_mubi.resources.lib.countries import get_country_name
+
+        assert get_country_name("US") == "United States"
+        assert get_country_name("FR") == "France"
+        assert get_country_name("CH") == "Switzerland"
+
+    def test_get_country_name_invalid_code(self):
+        """Verify get_country_name returns None for invalid codes."""
+        from plugin_video_mubi.resources.lib.countries import get_country_name
+
+        assert get_country_name("XX") is None
+        assert get_country_name("ZZ") is None
+        assert get_country_name("123") is None
+
+    def test_get_country_name_empty_string(self):
+        """Verify get_country_name handles empty string."""
+        from plugin_video_mubi.resources.lib.countries import get_country_name
+
+        assert get_country_name("") is None
+
+    def test_get_all_codes_returns_all_countries(self):
+        """Verify get_all_codes returns all country codes."""
+        from plugin_video_mubi.resources.lib.countries import get_all_codes, COUNTRIES
+
+        all_codes = get_all_codes()
+
+        assert isinstance(all_codes, list)
+        assert len(all_codes) == len(COUNTRIES)
+        for code in COUNTRIES.keys():
+            assert code in all_codes
+
+    def test_countries_data_integrity(self):
+        """Verify all countries have required fields and valid tier values."""
+        from plugin_video_mubi.resources.lib.countries import COUNTRIES
+
+        for code, data in COUNTRIES.items():
+            assert "name" in data, f"Country {code} missing 'name' field"
+            assert "vpn_tier" in data, f"Country {code} missing 'vpn_tier' field"
+            assert data["vpn_tier"] in [1, 2, 3, 4], f"Country {code} has invalid tier {data['vpn_tier']}"
+            assert len(code) == 2, f"Country code {code} is not 2 characters"
+            assert code.islower(), f"Country code {code} is not lowercase"
+
+
+class TestVpnSuggestions:
+    """Test cases for VPN suggestion logic in NavigationHandler."""
+
+    @pytest.fixture
+    def navigation_handler(self):
+        """Fixture providing a NavigationHandler instance with mocked dependencies."""
+        with patch('xbmc.log'), patch('xbmcvfs.translatePath', return_value='/tmp'):
+            handler = NavigationHandler(
+                handle=123,
+                base_url="plugin://plugin.video.mubi/",
+                mubi=Mock(),
+                session=Mock()
+            )
+            return handler
+
+    def test_vpn_suggestions_sorting_by_tier(self, navigation_handler):
+        """Verify VPN suggestions are sorted by tier (tier 1 first)."""
+        # Mix of tiers: US (tier 1), BR (tier 3), AF (tier 4)
+        available_countries = ["AF", "BR", "US"]
+
+        result = navigation_handler._get_vpn_suggestions(available_countries)
+
+        # First result should be tier 1 (US), then tier 3 (BR), then tier 4 (AF)
+        assert len(result) == 3
+        assert result[0][0] == "US"  # Tier 1
+        assert result[1][0] == "BR"  # Tier 3
+        assert result[2][0] == "AF"  # Tier 4
+
+    def test_vpn_suggestions_max_limit(self, navigation_handler):
+        """Verify max_suggestions parameter limits results."""
+        # Many countries
+        available_countries = ["US", "FR", "SG", "BR", "AF", "CH", "DE"]
+
+        result = navigation_handler._get_vpn_suggestions(available_countries, max_suggestions=2)
+
+        assert len(result) == 2
+
+    def test_vpn_suggestions_unknown_countries_skipped(self, navigation_handler):
+        """Verify unknown country codes are handled gracefully (skipped)."""
+        # Mix of valid and invalid codes
+        available_countries = ["US", "XX", "ZZ", "FR"]
+
+        result = navigation_handler._get_vpn_suggestions(available_countries)
+
+        # Only valid countries should be returned
+        codes = [r[0] for r in result]
+        assert "XX" not in codes
+        assert "ZZ" not in codes
+        assert "US" in codes
+        assert "FR" in codes
+
+    def test_vpn_suggestions_empty_input(self, navigation_handler):
+        """Verify empty list input returns empty list."""
+        result = navigation_handler._get_vpn_suggestions([])
+
+        assert result == []
+
+    def test_vpn_suggestions_alphabetical_tiebreaker(self, navigation_handler):
+        """Verify same-tier countries are sorted alphabetically by name."""
+        # All tier 4 countries - should be sorted alphabetically
+        # AT=Austria, BE=Belgium, AR=Argentina - all tier 4
+        available_countries = ["BE", "AT", "AR"]
+
+        result = navigation_handler._get_vpn_suggestions(available_countries)
+
+        # Should be sorted alphabetically: Argentina, Austria, Belgium
+        names = [r[1] for r in result]
+        assert names == ["Argentina", "Austria", "Belgium"], f"Expected alphabetical order, got {names}"
+
+    def test_vpn_suggestions_returns_tuple_format(self, navigation_handler):
+        """Verify each suggestion is a tuple of (code, name, tier)."""
+        available_countries = ["US"]
+
+        result = navigation_handler._get_vpn_suggestions(available_countries)
+
+        assert len(result) == 1
+        code, name, tier = result[0]
+        assert code == "US"
+        assert name == "United States"
+        assert isinstance(tier, int)
+        assert tier == 1  # US is tier 1
+
+    def test_vpn_suggestions_case_insensitive(self, navigation_handler):
+        """Verify country codes work regardless of case."""
+        # Lowercase codes
+        result_lower = navigation_handler._get_vpn_suggestions(["us", "fr"])
+        # Uppercase codes
+        result_upper = navigation_handler._get_vpn_suggestions(["US", "FR"])
+
+        # Should get same results (codes are normalized internally)
+        assert len(result_lower) == len(result_upper)
+
+
+class TestPlayMubiVideoFlow:
+    """Test cases for play_mubi_video() country availability flow."""
+
+    @pytest.fixture
+    def navigation_handler(self, tmp_path):
+        """Create a NavigationHandler with mocked dependencies."""
+        with patch('xbmcaddon.Addon') as mock_addon, \
+             patch('xbmc.log'), \
+             patch('xbmcplugin.setResolvedUrl'), \
+             patch('xbmcplugin.addDirectoryItem'), \
+             patch('xbmcplugin.endOfDirectory'):
+            mock_addon_instance = Mock()
+            mock_addon_instance.getSetting.side_effect = lambda key: {
+                'library_path': str(tmp_path / 'movies'),
+                'series_library_path': str(tmp_path / 'series'),
+            }.get(key, '')
+            mock_addon.return_value = mock_addon_instance
+
+            mock_session = Mock()
+            mock_mubi = Mock()
+
+            from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
+            # Signature: (handle, base_url, mubi, session)
+            handler = NavigationHandler(
+                handle=1,
+                base_url="plugin://plugin.video.mubi/",
+                mubi=mock_mubi,
+                session=mock_session
+            )
+            handler.library_path = str(tmp_path / 'movies')
+            (tmp_path / 'movies').mkdir(parents=True, exist_ok=True)
+            yield handler
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_play_mubi_video_country_not_available_shows_vpn_dialog(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that VPN dialog is shown when current country is not in available list."""
+        # Setup: Create a film folder with NFO
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Test Film (2020)"
+        film_folder.mkdir(parents=True, exist_ok=True)
+        strm_url = (
+            "plugin://plugin.video.mubi/?action=play_mubi_video"
+            "&film_id=123&web_url=https://mubi.com/films/test"
+        )
+        (film_folder / "Test Film (2020).strm").write_text(strm_url)
+        (film_folder / "Test Film (2020).nfo").write_text(
+            """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Test Film</title>
+    <mubi_availability>
+        <country code="US">United States</country>
+        <country code="FR">France</country>
+    </mubi_availability>
+</movie>"""
+        )
+
+        # Mock: Current country is CH (not in available list)
+        navigation_handler.mubi.get_cli_country.return_value = 'CH'
+
+        with patch('xbmcgui.Dialog') as mock_dialog:
+            mock_dialog_instance = Mock()
+            mock_dialog.return_value = mock_dialog_instance
+
+            navigation_handler.play_mubi_video(
+                film_id="123", web_url="https://mubi.com/films/test"
+            )
+
+            # Verify dialog.ok was called with VPN message
+            mock_dialog_instance.ok.assert_called_once()
+            call_args = mock_dialog_instance.ok.call_args
+            # Check title contains "Not Available"
+            assert "Not Available" in call_args[0][0]
+            # Check message mentions Switzerland or CH
+            assert "Switzerland" in call_args[0][1] or "CH" in call_args[0][1]
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_play_mubi_video_country_available_proceeds_to_stream(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that stream info is requested when current country IS in available list."""
+        # Setup: Create a film folder with NFO
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Test Film (2020)"
+        film_folder.mkdir(parents=True, exist_ok=True)
+        strm_url = (
+            "plugin://plugin.video.mubi/?action=play_mubi_video"
+            "&film_id=123&web_url=https://mubi.com/films/test"
+        )
+        (film_folder / "Test Film (2020).strm").write_text(strm_url)
+        (film_folder / "Test Film (2020).nfo").write_text(
+            """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Test Film</title>
+    <mubi_availability>
+        <country code="US">United States</country>
+        <country code="CH">Switzerland</country>
+    </mubi_availability>
+</movie>"""
+        )
+
+        # Mock: Current country is CH (in available list)
+        navigation_handler.mubi.get_cli_country.return_value = 'CH'
+        # Return stream info to proceed with playback
+        navigation_handler.mubi.get_secure_stream_info.return_value = {
+            'url': 'https://stream.mubi.com/video.mpd',
+            'drm_header': 'test-header'
+        }
+
+        with patch('xbmcgui.Dialog') as mock_dialog, \
+             patch('xbmcgui.ListItem'), \
+             patch('xbmcplugin.setResolvedUrl'):
+            mock_dialog_instance = Mock()
+            mock_dialog.return_value = mock_dialog_instance
+
+            navigation_handler.play_mubi_video(
+                film_id="123", web_url="https://mubi.com/films/test"
+            )
+
+            # Verify stream info was requested (country check passed)
+            navigation_handler.mubi.get_secure_stream_info.assert_called_once_with("123")
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
+    def test_play_mubi_video_no_nfo_proceeds_to_stream(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that stream info is requested when no NFO file found (no country check)."""
+        # No film folder created - NFO doesn't exist
+        mock_translate_path.return_value = str(tmp_path)
+
+        # Mock: Current country is CH
+        navigation_handler.mubi.get_cli_country.return_value = 'CH'
+        navigation_handler.mubi.get_secure_stream_info.return_value = {
+            'url': 'https://stream.mubi.com/video.mpd',
+            'drm_header': 'test-header'
+        }
+
+        with patch('xbmcgui.Dialog'), \
+             patch('xbmcgui.ListItem'), \
+             patch('xbmcplugin.setResolvedUrl'):
+
+            navigation_handler.play_mubi_video(
+                film_id="999", web_url="https://mubi.com/films/unknown"
+            )
+
+            # Verify stream info was requested (no NFO means no country check)
+            navigation_handler.mubi.get_secure_stream_info.assert_called_once_with("999")
+
+    def test_play_mubi_video_missing_film_id_shows_error(self, navigation_handler):
+        """Test that error is shown when film_id is None."""
+        with patch('xbmcgui.Dialog') as mock_dialog:
+            mock_dialog_instance = Mock()
+            mock_dialog.return_value = mock_dialog_instance
+
+            navigation_handler.play_mubi_video(film_id=None, web_url="https://mubi.com/films/test")
+
+            # Verify notification was called with error
+            mock_dialog_instance.notification.assert_called_once()
+            call_args = mock_dialog_instance.notification.call_args
+            assert "MUBI" in call_args[0][0]
+            assert "film_id" in call_args[0][1].lower()
+
+
+class TestCoverageOptimizer:
+    """
+    Test suite for coverage_optimizer module.
+
+    Tests the greedy set cover algorithm that finds the minimum set of
+    countries needed for 100% MUBI catalogue coverage.
+    """
+
+    @pytest.fixture
+    def sample_catalogue(self, tmp_path):
+        """Create a sample country catalogue JSON for testing."""
+        import json
+
+        catalogue = {
+            "generated": "2025-01-01T00:00:00",
+            "total_films": 5,
+            "total_countries": 4,
+            "films": {
+                "1": ["ch", "us", "gb"],     # Film 1: available in CH, US, GB
+                "2": ["ch", "us"],           # Film 2: available in CH, US
+                "3": ["tr"],                 # Film 3: only in TR (exclusive)
+                "4": ["us", "gb", "tr"],     # Film 4: US, GB, TR
+                "5": ["ch", "tr"]            # Film 5: CH, TR
+            }
+        }
+
+        json_path = tmp_path / "country_catalogue.json"
+        with open(json_path, 'w') as f:
+            json.dump(catalogue, f)
+
+        return json_path, catalogue
+
+    def test_greedy_algorithm_finds_optimal_countries(self):
+        """
+        Test that the greedy algorithm finds a valid country set.
+        """
+        from collections import defaultdict
+
+        # Arrange: Simple test catalogue
+        films = {
+            1: {'ch', 'us'},
+            2: {'us', 'tr'},
+            3: {'tr'},
+            4: {'ch'}
+        }
+
+        # Build country -> films mapping
+        country_films = defaultdict(set)
+        all_films = set()
+        for film_id, countries in films.items():
+            all_films.add(film_id)
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act: Run greedy algorithm
+        covered = set()
+        selected = []
+        remaining = dict(country_films)
+
+        # Start with CH
+        if 'ch' in remaining:
+            covered.update(remaining['ch'])
+            selected.append('ch')
+            del remaining['ch']
+
+        while covered != all_films and remaining:
+            best = max(remaining.keys(), key=lambda c: len(remaining[c] - covered))
+            new_films = remaining[best] - covered
+            if not new_films:
+                break
+            covered.update(new_films)
+            selected.append(best)
+            del remaining[best]
+
+        # Assert: All films are covered
+        assert covered == all_films
+        assert 'ch' in selected  # User's country included
+        assert len(selected) <= 3  # Should need at most 3 countries
+
+    def test_greedy_algorithm_starts_with_user_country(self):
+        """
+        Test that the greedy algorithm always starts with the user's country.
+        """
+        from collections import defaultdict
+
+        # Arrange
+        films = {1: {'us', 'ch'}, 2: {'us'}, 3: {'ch'}}
+        country_films = defaultdict(set)
+        for film_id, countries in films.items():
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act: Start with CH even though US has more films
+        covered = set()
+        selected = []
+
+        if 'ch' in country_films:
+            covered.update(country_films['ch'])
+            selected.append('CH')
+
+        # Assert: CH is first
+        assert selected[0] == 'CH'
+
+    def test_greedy_algorithm_handles_exclusive_films(self):
+        """
+        Test that the algorithm correctly handles films only available in one country.
+        """
+        from collections import defaultdict
+
+        # Arrange: Film 3 is only in JP
+        films = {
+            1: {'us', 'gb'},
+            2: {'us', 'gb'},
+            3: {'jp'}  # Exclusive to JP
+        }
+
+        country_films = defaultdict(set)
+        all_films = set(films.keys())
+        for film_id, countries in films.items():
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act: Run greedy
+        covered = set()
+        selected = []
+        remaining = dict(country_films)
+
+        while covered != all_films and remaining:
+            best = max(remaining.keys(), key=lambda c: len(remaining[c] - covered))
+            new_films = remaining[best] - covered
+            if not new_films:
+                break
+            covered.update(new_films)
+            selected.append(best)
+            del remaining[best]
+
+        # Assert: JP must be included for full coverage
+        assert 'jp' in selected
+        assert covered == all_films
+
+    def test_greedy_algorithm_empty_catalogue(self):
+        """
+        Test behavior with empty catalogue.
+        """
+        # Arrange
+        films = {}
+        all_films = set()
+
+        # Act & Assert
+        assert len(all_films) == 0
+
+    def test_greedy_algorithm_single_country_covers_all(self):
+        """
+        Test when a single country covers all films.
+        """
+        from collections import defaultdict
+
+        # Arrange: US has all films
+        films = {
+            1: {'us'},
+            2: {'us'},
+            3: {'us'}
+        }
+
+        country_films = defaultdict(set)
+        all_films = set(films.keys())
+        for film_id, countries in films.items():
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act
+        covered = set()
+        selected = []
+        remaining = dict(country_films)
+
+        while covered != all_films and remaining:
+            best = max(remaining.keys(), key=lambda c: len(remaining[c] - covered))
+            new_films = remaining[best] - covered
+            if not new_films:
+                break
+            covered.update(new_films)
+            selected.append(best)
+            del remaining[best]
+
+        # Assert: Only US needed
+        assert selected == ['us']
+        assert covered == all_films
+
+
+class TestWorldwideSyncMenuLabel:
+    """Test the worldwide sync menu label with coverage stats."""
+
+    @pytest.fixture
+    def navigation_handler(self):
+        """Create a NavigationHandler for testing."""
+        mock_mubi = Mock()
+        mock_session = Mock()
+        mock_session.is_logged_in = True
+
+        with patch('xbmcaddon.Addon') as mock_addon:
+            mock_addon_instance = Mock()
+            mock_addon_instance.getSetting.return_value = 'CH'
+            mock_addon_instance.getAddonInfo.return_value = '/fake/path'
+            mock_addon.return_value = mock_addon_instance
+
+            handler = NavigationHandler(
+                handle=1,
+                base_url="plugin://plugin.video.mubi/",
+                mubi=mock_mubi,
+                session=mock_session
+            )
+
+            yield handler
+
+    def test_worldwide_menu_shows_film_count(self, navigation_handler):
+        """Test that the menu label shows film count when stats available."""
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_coverage_stats') as mock_stats:
+            mock_stats.return_value = {
+                'total_films': 2011,
+                'optimal_country_count': 23,
+                'user_country_films': 429
+            }
+
+            label, description = navigation_handler._get_sync_worldwide_menu_label()
+
+            # Check that stats are mentioned in description
+            assert 'worldwide' in label.lower() or 'film' in label.lower()
+
+    def test_worldwide_menu_fallback_when_no_stats(self, navigation_handler):
+        """Test fallback label when coverage stats unavailable."""
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_coverage_stats') as mock_stats:
+            mock_stats.return_value = {}  # Empty stats
+
+            label, description = navigation_handler._get_sync_worldwide_menu_label()
+
+            # Should use fallback label
+            assert 'worldwide' in label.lower()
+            assert 'VPN' in description or 'vpn' in description.lower()

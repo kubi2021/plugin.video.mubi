@@ -30,29 +30,49 @@ class Library:
         :param plugin_userdata_path: The path where film folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
         """
+        # Store initial count before filtering
+        initial_film_count = len(self.films)
+
         # Filter film by genre
         self.filter_films_by_genre()
+
+        # Calculate how many were filtered
+        genre_filtered_count = initial_film_count - len(self.films)
 
         # Log films that contain problematic characters for debugging
         for film in self.films:
             if '#' in film.title or any(char in film.title for char in '<>:"/\\|?*^%$&{}@!;`~'):
-                xbmc.log(f"Processing film with special characters: '{film.title}' -> sanitized: '{film.get_sanitized_folder_name()}'", xbmc.LOGINFO)
+                xbmc.log(
+                    f"Processing film with special characters: '{film.title}' "
+                    f"-> sanitized: '{film.get_sanitized_folder_name()}'",
+                    xbmc.LOGINFO
+                )
 
         # Initialize counters
         newly_added = 0
         failed_to_add = 0
+        availability_updated = 0
         films_to_process = len(self.films)
 
-        # Initialize progress dialog
+        # Initialize progress dialog with filter info
         pDialog = xbmcgui.DialogProgress()
-        pDialog.create("Syncing with MUBI 2/2", "Starting the sync...")
+        if genre_filtered_count > 0:
+            pDialog.create(
+                "Syncing with MUBI 2/2",
+                f"Processing {films_to_process} films ({genre_filtered_count} filtered out by genre)..."
+            )
+        else:
+            pDialog.create("Syncing with MUBI 2/2", f"Processing {films_to_process} films...")
 
         try:
             # Process each film and update progress
             for idx, film in enumerate(self.films):
-                percent = int(((idx + 1) / films_to_process) * 100)  # Ensuring 100% on last film
-                pDialog.update(percent, f"Processing movie {idx + 1} of {films_to_process}:\n{film.title}")
-                
+                percent = int(((idx + 1) / films_to_process) * 100)
+                pDialog.update(
+                    percent,
+                    f"Processing movie {idx + 1} of {films_to_process}:\n{film.title}"
+                )
+
                 # Check if user canceled
                 if pDialog.iscanceled():
                     xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
@@ -60,12 +80,15 @@ class Library:
 
                 # Process film if valid
                 if self.is_film_valid(film):
-                    result = self.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+                    result = self.prepare_files_for_film(
+                        film, base_url, plugin_userdata_path, omdb_api_key
+                    )
                     if result is True:
                         newly_added += 1
                     elif result is False:
                         failed_to_add += 1
-                    # If result is None, the film was skipped because files already exist
+                    elif result is None:
+                        availability_updated += 1  # NFO availability was updated for existing film
 
             # Final cleanup of obsolete files
             obsolete_films_count = self.remove_obsolete_files(plugin_userdata_path)
@@ -132,17 +155,17 @@ class Library:
     ) -> Optional[bool]:
         """
         Prepare the necessary files for a given film. Creates NFO and STRM files.
-        The STRM file is only created if the NFO file is successfully created.
-        If the NFO file creation fails, the STRM file is not created, and the movie folder is removed.
+        The NFO file country availability is always updated on each sync.
+        Full NFO creation is only done if NFO doesn't exist (expensive due to OMDB API calls).
 
         :param film: The Film object to process.
         :param base_url: The base URL for the STRM file.
         :param plugin_userdata_path: The path where film folders are stored.
         :param omdb_api_key: The OMDb API key for fetching additional metadata.
-        :return: 
-            - True if both NFO and STRM files were created successfully.
+        :return:
+            - True if files were created/updated successfully.
             - False if file creation failed.
-            - None if files already exist and were skipped.
+            - None if NFO already exists and only availability was updated.
         """
         film_folder_name = film.get_sanitized_folder_name()
         film_path = plugin_userdata_path / film_folder_name
@@ -152,10 +175,13 @@ class Library:
         nfo_file = film_path / f"{film_folder_name}.nfo"
 
         try:
-            # Check if both STRM and NFO files already exist
-            if strm_file.exists() and nfo_file.exists():
-                xbmc.log(f"Skipping film '{film.title}' - files already exist.", xbmc.LOGDEBUG)
-                return None  # Files already exist; no action needed
+            # Check if NFO already exists (skip expensive NFO creation but always update availability)
+            nfo_exists = nfo_file.exists()
+            if nfo_exists:
+                # Update country availability in NFO file (quick operation)
+                xbmc.log(f"Updating availability for '{film.title}' (NFO exists).", xbmc.LOGDEBUG)
+                film.update_nfo_availability(nfo_file)
+                return None  # Indicate availability was updated (not a new film)
         except PermissionError as e:
             xbmc.log(f"PermissionError when accessing files for film '{film.title}': {e}", xbmc.LOGERROR)
             return False  # Indicate failure due to permission error

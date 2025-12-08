@@ -1207,3 +1207,123 @@ class TestParameterHandling:
                     success = True  # Not crashing is the main requirement
 
                 assert success is True
+
+
+class TestSettingsCountrySync:
+    """
+    Test that settings.xml country options are synchronized with countries.py.
+
+    This ensures that if countries are added/removed from either file,
+    the tests will fail and alert us to update both files.
+    """
+
+    def test_settings_countries_match_countries_module(self):
+        """
+        Test that settings.xml has exactly the same countries as countries.py.
+
+        This test will fail if:
+        - A country is added to countries.py but not settings.xml
+        - A country is added to settings.xml but not countries.py
+        - A country is removed from either file
+        """
+        import xml.etree.ElementTree as ET
+        from pathlib import Path
+        from plugin_video_mubi.resources.lib.countries import COUNTRIES
+
+        # Get country codes from countries.py (uppercase for comparison)
+        countries_py_codes = set(code.upper() for code in COUNTRIES.keys())
+
+        # Parse settings.xml and extract country codes from client_country options
+        settings_path = Path(__file__).parent.parent.parent / 'repo' / 'plugin_video_mubi' / 'resources' / 'settings.xml'
+        tree = ET.parse(settings_path)
+        root = tree.getroot()
+
+        settings_xml_codes = set()
+        for setting in root.iter('setting'):
+            if setting.get('id') == 'client_country':
+                options = setting.find('.//options')
+                if options is not None:
+                    for option in options.findall('option'):
+                        # Option text is the country code (e.g., "CH", "US")
+                        if option.text:
+                            settings_xml_codes.add(option.text.upper())
+
+        # Find differences
+        in_py_not_in_xml = countries_py_codes - settings_xml_codes
+        in_xml_not_in_py = settings_xml_codes - countries_py_codes
+
+        # Build helpful error message
+        error_messages = []
+        if in_py_not_in_xml:
+            error_messages.append(
+                f"Countries in countries.py but NOT in settings.xml: {sorted(in_py_not_in_xml)}"
+            )
+        if in_xml_not_in_py:
+            error_messages.append(
+                f"Countries in settings.xml but NOT in countries.py: {sorted(in_xml_not_in_py)}"
+            )
+
+        assert not error_messages, (
+            "Country lists are out of sync!\n" +
+            "\n".join(error_messages) +
+            "\n\nPlease update both files to have the same countries."
+        )
+
+        # Also verify count matches
+        assert len(countries_py_codes) == len(settings_xml_codes), (
+            f"Country count mismatch: countries.py has {len(countries_py_codes)}, "
+            f"settings.xml has {len(settings_xml_codes)}"
+        )
+
+    def test_settings_country_labels_exist_in_strings_po(self):
+        """
+        Test that all country label IDs in settings.xml exist in strings.po.
+
+        This ensures that Kodi can display the country names properly.
+        """
+        import xml.etree.ElementTree as ET
+        from pathlib import Path
+        import re
+
+        # Parse settings.xml and extract label IDs from client_country options
+        settings_path = Path(__file__).parent.parent.parent / 'repo' / 'plugin_video_mubi' / 'resources' / 'settings.xml'
+        tree = ET.parse(settings_path)
+        root = tree.getroot()
+
+        required_labels = set()
+        for setting in root.iter('setting'):
+            if setting.get('id') == 'client_country':
+                options = setting.find('.//options')
+                if options is not None:
+                    for option in options.findall('option'):
+                        label = option.get('label')
+                        if label:
+                            required_labels.add(label)
+
+        # Read strings.po and extract all msgctxt IDs
+        strings_path = Path(__file__).parent.parent.parent / 'repo' / 'plugin_video_mubi' / 'resources' / 'language' / 'resource.language.en_gb' / 'strings.po'
+        with open(strings_path, 'r', encoding='utf-8') as f:
+            strings_content = f.read()
+
+        available_labels = set(re.findall(r'msgctxt "#(\d+)"', strings_content))
+
+        # Find missing labels
+        missing_labels = required_labels - available_labels
+
+        assert not missing_labels, (
+            f"Missing country name labels in strings.po: {sorted(missing_labels)}\n"
+            "These labels are referenced in settings.xml but not defined in strings.po."
+        )
+
+    def test_country_count_is_248(self):
+        """
+        Test that we have exactly 248 MUBI-supported countries.
+
+        This is a sanity check to catch accidental additions/removals.
+        """
+        from plugin_video_mubi.resources.lib.countries import COUNTRIES
+
+        assert len(COUNTRIES) == 248, (
+            f"Expected 248 countries, but found {len(COUNTRIES)}. "
+            "If countries were intentionally added/removed, update this test."
+        )

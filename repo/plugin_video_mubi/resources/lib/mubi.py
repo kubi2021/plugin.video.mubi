@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# This code defines a Python class `Mubi` that interacts with the Mubi API 
+# This code defines a Python class `Mubi` that interacts with the Mubi API
 # to retrieve information about films available on the Mubi streaming platform.
-# It includes functionality for user login, retrieving lists of films 
+# It includes functionality for user login, retrieving lists of films
 # (either daily film programming or film groups), and fetching metadata for individual films.
-# The class uses HTTP requests to communicate with the API, processes the responses, 
+# The class uses HTTP requests to communicate with the API, processes the responses,
 # and organizes the film data into named tuples for easy access.
 
 
@@ -22,10 +22,10 @@ import random
 from urllib.parse import urljoin
 from urllib.parse import urlencode
 import time
-import threading
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from typing import Optional, Tuple
 from .metadata import Metadata
 from .film import Film
 from .library import Library
@@ -34,11 +34,15 @@ from .playback import generate_drm_license_key
 
 class Mubi:
 
-    # Class-level variables for rate limiting
-    _lock = threading.Lock()
-    _last_call_time = 0
-    _calls_made = 0
-    _call_history = []
+    # Country code to full name mapping for user-friendly messages
+    COUNTRY_NAMES = {
+        'CH': 'Switzerland',
+        'DE': 'Germany',
+        'US': 'the United States',
+        'GB': 'the United Kingdom',
+        'FR': 'France',
+        'JP': 'Japan',
+    }
 
     def __init__(self, session_manager):
         """
@@ -150,19 +154,8 @@ class Mubi:
         if json:
             xbmc.log(f"JSON: {json}", xbmc.LOGDEBUG)
 
-        # Rate limiting: Max 60 calls per minute
-        with self._lock:
-            current_time = time.time()
-            self._call_history = [t for t in self._call_history if current_time - t < 60]
-            if len(self._call_history) >= 60:
-                wait_time = 60 - (current_time - self._call_history[0])
-                xbmc.log(f"Rate limit reached. Sleeping for {wait_time:.2f} seconds.", xbmc.LOGINFO)
-                time.sleep(wait_time)
-                self._call_history = [t for t in self._call_history if current_time - t < 60]
-
-            self._call_history.append(time.time())
-
         # Set up retries with exponential backoff for transient errors
+        # Note: 429 (Too Many Requests) is handled separately below with Retry-After
         session = requests.Session()
         retries = Retry(
             total=3,
@@ -174,54 +167,82 @@ class Mubi:
         session.mount('https://', adapter)
         session.mount('http://', adapter)
 
-        try:
-            # Log the final request details (including params)
-            xbmc.log(f"Sending request: {method} {url} with params: {params}", xbmc.LOGDEBUG)
+        # Retry loop for rate limiting (429 responses)
+        # Use longer waits to respect MUBI's rate limits (especially for bulk operations)
+        max_rate_limit_retries = 5
+        base_wait_time = 10  # Start with 10 seconds for rate limit backoff
 
-            response = session.request(
-                method,
-                url,
-                headers=headers,
-                params=params,  # Pass query parameters explicitly here
-                data=data,
-                json=json,
-                timeout=10  # Set a reasonable timeout
-            )
+        for attempt in range(max_rate_limit_retries + 1):
+            try:
+                response = session.request(
+                    method,
+                    url,
+                    headers=headers,
+                    params=params,
+                    data=data,
+                    json=json,
+                    timeout=10
+                )
 
-            # Log the response status
-            xbmc.log(f"Response status code: {response.status_code}", xbmc.LOGDEBUG)
+                # Handle rate limiting (429 Too Many Requests)
+                if response.status_code == 429:
+                    if attempt < max_rate_limit_retries:
+                        # Check for Retry-After header (can be seconds or HTTP date)
+                        retry_after = response.headers.get('Retry-After')
+                        if retry_after:
+                            try:
+                                wait_time = int(retry_after)
+                            except ValueError:
+                                # Might be an HTTP date, use base exponential backoff
+                                wait_time = base_wait_time * (2 ** attempt)
+                        else:
+                            # No Retry-After header, use exponential backoff
+                            # 10s, 20s, 40s, 80s, 160s = up to 5+ minutes total
+                            wait_time = base_wait_time * (2 ** attempt)
 
-            # Check for invalid token before raising HTTPError
-            if response.status_code in [401, 422]:
-                self._check_and_handle_invalid_token(response)
+                        xbmc.log(
+                            f"Rate limited (429). Waiting {wait_time}s before retry "
+                            f"(attempt {attempt + 1}/{max_rate_limit_retries})",
+                            xbmc.LOGWARNING
+                        )
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        xbmc.log("Rate limit retries exhausted", xbmc.LOGERROR)
+                        response.raise_for_status()
 
-            # Raise an HTTPError for bad responses (4xx and 5xx)
-            response.raise_for_status()
+                # Check for invalid token before raising HTTPError
+                if response.status_code in [401, 422]:
+                    self._check_and_handle_invalid_token(response)
 
-            # Log full response content safely
-            response_content = response.text
-            # xbmc.log(f"Full response content: {response_content}", xbmc.LOGDEBUG)
+                # Raise an HTTPError for bad responses (4xx and 5xx)
+                response.raise_for_status()
 
-            return response
+                session.close()
+                return response
 
-        except requests.exceptions.HTTPError as http_err:
-            xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
-            if response is not None:
-                xbmc.log(f"Response Headers: {response.headers}", xbmc.LOGERROR)
-                xbmc.log(f"Response Content: {response.text}", xbmc.LOGERROR)
-            return None
+            except requests.exceptions.HTTPError as http_err:
+                xbmc.log(f"HTTP error occurred: {http_err}", xbmc.LOGERROR)
+                if response is not None:
+                    xbmc.log(f"Response Headers: {response.headers}", xbmc.LOGERROR)
+                    xbmc.log(f"Response Content: {response.text}", xbmc.LOGERROR)
+                session.close()
+                return None
 
-        except requests.exceptions.RequestException as req_err:
-            xbmc.log(f"Request exception occurred: {req_err}", xbmc.LOGERROR)
-            return None
+            except requests.exceptions.RequestException as req_err:
+                xbmc.log(f"Request exception occurred: {req_err}", xbmc.LOGERROR)
+                session.close()
+                return None
 
-        except Exception as err:
-            xbmc.log(f"An unexpected error occurred: {err}", xbmc.LOGERROR)
-            return None
+            except Exception as err:
+                xbmc.log(f"An unexpected error occurred: {err}", xbmc.LOGERROR)
+                session.close()
+                return None
 
-        finally:
-            session.close()
-            xbmc.log("Session closed after API call.", xbmc.LOGDEBUG)
+        # If we exhausted all retries without returning, close session and return None
+        session.close()
+        xbmc.log("All retry attempts exhausted.", xbmc.LOGERROR)
+        return None
 
     def _check_and_handle_invalid_token(self, response):
         """
@@ -323,39 +344,87 @@ class Mubi:
 
     def get_cli_country(self):
         """
-        Retrieves the client's country from Mubi's website.
+        Retrieves the client's country based on current IP using IP geolocation.
 
-        :return: Client country code.
+        This method uses a third-party IP geolocation service to detect the user's
+        current location purely based on IP address. This is essential for VPN users
+        who may change their country without restarting Kodi.
+
+        Falls back to MUBI's website detection if the geolocation service fails.
+
+        :return: Client country code (uppercase, e.g., 'US', 'CH', 'AF').
         :rtype: str
         """
-        headers = {'User-Agent': self.UA}
-        response = self._make_api_call('GET', full_url='https://mubi.com/', headers=headers)
-        if response:
-            resp_text = response.text
-            country = re.findall(r'"Client-Country":"([^"]+?)"', resp_text)
-            cli_country = country[0] if country else 'PL'
-            xbmc.log(f"Client country detected: {cli_country}", xbmc.LOGINFO)
-            return cli_country
-        else:
-            xbmc.log("Failed to detect client country, defaulting to: PL", xbmc.LOGINFO)
-            return 'PL'
+        import requests as fresh_requests
+
+        # Try multiple IP geolocation services for reliability
+        geo_services = [
+            ('https://ipapi.co/country/', 'text'),  # Returns just country code like "US"
+            ('https://ipinfo.io/country', 'text'),  # Returns just country code like "US"
+        ]
+
+        for service_url, response_type in geo_services:
+            try:
+                xbmc.log(f"Detecting country via IP geolocation: {service_url}", xbmc.LOGDEBUG)
+                response = fresh_requests.get(
+                    service_url,
+                    headers={'User-Agent': self.UA},
+                    timeout=5
+                )
+
+                if response and response.status_code == 200:
+                    country_code = response.text.strip().upper()
+                    # Validate it looks like a country code (2 letters)
+                    if len(country_code) == 2 and country_code.isalpha():
+                        xbmc.log(f"Client country detected from IP geolocation: {country_code}", xbmc.LOGINFO)
+                        return country_code
+
+            except Exception as e:
+                xbmc.log(f"IP geolocation service {service_url} failed: {e}", xbmc.LOGDEBUG)
+                continue
+
+        # Fallback: Try MUBI's website (less reliable for VPN users)
+        xbmc.log("IP geolocation failed, falling back to MUBI website detection", xbmc.LOGWARNING)
+        try:
+            headers = {
+                'User-Agent': self.UA,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
+
+            fresh_session = fresh_requests.Session()
+            fresh_session.cookies.clear()
+            response = fresh_session.get('https://mubi.com/', headers=headers, timeout=10)
+
+            if response and response.status_code == 200:
+                country = re.findall(r'"Client-Country":"([^"]+?)"', response.text)
+                cli_country = country[0] if country else 'PL'
+                xbmc.log(f"Client country detected from MUBI: {cli_country}", xbmc.LOGINFO)
+                return cli_country
+        except Exception as e:
+            xbmc.log(f"MUBI fallback detection failed: {e}", xbmc.LOGERROR)
+
+        xbmc.log("All country detection methods failed, defaulting to: PL", xbmc.LOGWARNING)
+        return 'PL'
 
     def get_cli_language(self):
         """
-        Retrieves the client's preferred language from Mubi's website.
+        Returns the client's preferred language for API requests.
+        Uses cached value if available, otherwise returns default 'en'.
+
+        Note: Previously this method fetched language from mubi.com on every call,
+        but that caused issues with rate limiting/CAPTCHA during catalogue sync.
+        Now uses a simple default since the API accepts 'en' for all requests.
 
         :return: Client preferred language code (e.g., 'en' for English).
         :rtype: str
         """
-        headers = {'User-Agent': self.UA}
-        response = self._make_api_call('GET', full_url='https://mubi.com/', headers=headers)
-        if response:
-            resp_text = response.text
-            language = re.findall(r'"Accept-Language":"([^"]+?)"', resp_text)
-            accept_language = language[0] if language else 'en'
-            return accept_language
-        else:
-            return 'en'
+        # Use cached value from session manager if available
+        if hasattr(self.session_manager, 'client_language') and self.session_manager.client_language:
+            return self.session_manager.client_language
+        # Default to English - works well with MUBI's international API
+        return 'en'
 
     def hea_atv_gen(self):
         """
@@ -382,10 +451,11 @@ class Mubi:
         }
 
 
-    def hea_atv_auth(self):
+    def hea_atv_auth(self, country: str = None):
         """
         Generates headers required for API requests with authorization.
 
+        :param country: Optional country code to override Client-Country header.
         :return: Headers dictionary with Authorization token.
         :rtype: dict
         """
@@ -394,7 +464,62 @@ class Mubi:
         if not token:
             xbmc.log("No token found", xbmc.LOGERROR)
         headers['Authorization'] = f'Bearer {token}'
+        # Override country if specified (for multi-country playback)
+        if country:
+            headers['Client-Country'] = country
+            xbmc.log(f"Using override country for API: {country}", xbmc.LOGINFO)
         return headers
+
+    # Common browser User-Agents for rotation to avoid fingerprinting
+    COMMON_USER_AGENTS = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:131.0) Gecko/20100101 Firefox/131.0',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+    ]
+
+    # Countries to sync catalogues from (ISO 3166-1 alpha-2 codes)
+    # Different countries have different film availability on MUBI
+    SYNC_COUNTRIES = ['CH', 'DE', 'US', 'GB', 'FR', 'JP']
+
+    def _get_random_user_agent(self):
+        """
+        Returns a random User-Agent from the pool of common browser UAs.
+        Used to reduce fingerprinting on anonymous requests.
+
+        :return: Random User-Agent string.
+        :rtype: str
+        """
+        return random.choice(self.COMMON_USER_AGENTS)
+
+    def hea_gen_anonymous(self, country_code: Optional[str] = None):
+        """
+        Generates anonymous web headers for API requests that don't require authentication.
+        Used for browsing the catalogue without sending user credentials.
+        Uses a random User-Agent on each call to reduce fingerprinting.
+
+        :param country_code: Optional country code to override the session's client_country.
+                            Used for multi-country catalogue sync.
+        :return: Headers dictionary without Authorization token.
+        :rtype: dict
+        """
+        base_url = 'https://mubi.com'
+        # Use provided country_code or fall back to session's client_country
+        client_country = country_code if country_code else self.session_manager.client_country
+
+        return {
+            'Referer': base_url,
+            'Origin': base_url,
+            'User-Agent': self._get_random_user_agent(),
+            'Client': 'web',
+            'Client-Accept-Video-Codecs': 'h265,vp9,h264',
+            'Client-Country': client_country,
+            'accept-language': self.get_cli_language()
+        }
 
     def hea_gen(self):
         """
@@ -480,171 +605,291 @@ class Mubi:
             return True
         else:
             return False
-
-
-
-
-
-    def get_all_films(self, playable_only=True, progress_callback=None):
+    def _fetch_films_for_country(
+        self, country_code: str, playable_only: bool = True, page_callback=None,
+        global_film_ids: set = None
+    ) -> Tuple[set, dict, int, int]:
         """
-        Retrieves all films directly from the MUBI API V4 /browse/films endpoint, handling pagination.
-        This is more efficient than fetching films category by category.
+        Fetches all films for a specific country from the MUBI API.
+
+        :param country_code: ISO 3166-1 alpha-2 country code (e.g., 'CH', 'DE', 'US')
+        :param playable_only: If True, only fetch currently playable films.
+        :param page_callback: Optional callback called after each page with (globally_new_films).
+                              Returns False if cancelled.
+        :param global_film_ids: Set of film IDs already discovered from previous countries.
+                                Used to count truly new films for progress display.
+        :return: Tuple of (film_ids set, film_data dict {id: film_data}, total_count, pages_fetched)
+        """
+        endpoint = 'v4/browse/films'
+        film_ids = set()
+        film_data_map = {}  # {film_id: film_data}
+        page = 1
+        pages_fetched = 0
+        total_count = 0
+
+        # For counting truly new films (not seen in any previous country)
+        known_global_ids = global_film_ids or set()
+
+        xbmc.log(f"[{country_code}] Starting to fetch films", xbmc.LOGINFO)
+
+        while True:
+            # Generate headers with specific country
+            headers = self.hea_gen_anonymous(country_code=country_code)
+
+            params = {
+                'page': page,
+                'sort': 'title',
+            }
+            if playable_only:
+                params['playable'] = 'true'
+
+            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+
+            if not response:
+                xbmc.log(f"[{country_code}] Failed to retrieve page {page}", xbmc.LOGERROR)
+                break
+
+            data = self._safe_json_parse(response, f"[{country_code}] films page {page}")
+            if not data:
+                break
+
+            films = data.get('films', [])
+            meta = data.get('meta', {})
+            pages_fetched += 1
+
+            # Get total count from first page
+            if page == 1:
+                total_count = meta.get('total_count', 0)
+                total_pages = meta.get('total_pages', 0)
+                xbmc.log(f"[{country_code}] API reports {total_count} films across {total_pages} pages", xbmc.LOGINFO)
+
+            # Process films
+            globally_new_films = 0  # Films not seen in ANY country yet
+            for film_entry in films:
+                film_id = film_entry.get('id')
+                if film_id and film_id not in film_ids:
+                    film_ids.add(film_id)
+                    film_data_map[film_id] = film_entry
+                    # Count as globally new only if not seen in previous countries
+                    if film_id not in known_global_ids:
+                        globally_new_films += 1
+
+            # Call page callback with globally new films count (throttled to every 5 pages)
+            if page_callback and pages_fetched % 5 == 0:
+                should_continue = page_callback(globally_new_films)
+                if should_continue is False:
+                    xbmc.log(f"[{country_code}] Cancelled by user", xbmc.LOGINFO)
+                    break
+
+            # Check for next page
+            next_page = meta.get('next_page')
+            if next_page:
+                page = next_page
+                # Small delay between pages to avoid rate limiting
+                time.sleep(0.3)
+            else:
+                break
+
+            # Safety limit
+            if pages_fetched > 100:
+                xbmc.log(
+                    f"[{country_code}] Safety limit reached at {pages_fetched} pages",
+                    xbmc.LOGWARNING
+                )
+                break
+
+        xbmc.log(f"[{country_code}] Completed: {len(film_ids)} unique films from {pages_fetched} pages", xbmc.LOGINFO)
+        return film_ids, film_data_map, total_count, pages_fetched
+
+    def get_all_films(self, playable_only=True, progress_callback=None, countries=None):
+        """
+        Retrieves all films from MUBI API by syncing across specified countries.
+        Different countries have different film availability.
 
         :param playable_only: If True, only fetch currently playable films. If False, fetch entire catalog.
         :param progress_callback: Optional callback function to report progress.
-                                Called with (current_films, total_films, current_page, total_pages)
+                                Called with (current_films, total_films, current_country, total_countries, country_code)
+        :param countries: List of ISO 3166-1 alpha-2 country codes to sync from.
+                         If None, defaults to the client's configured country from settings.
         :return: Library instance with all films.
         :rtype: Library
         """
         try:
-            endpoint = 'v4/browse/films'
-            headers = self.hea_gen()  # Use web headers for best results
             all_films_library = Library()
-            page = 1
-            total_films_fetched = 0
-            total_series_skipped = 0
+            # Default to client country from settings if no countries specified
+            if countries is None:
+                client_country = xbmcaddon.Addon().getSetting("client_country")
+                if client_country:
+                    countries = [client_country.upper()]
+                    xbmc.log(f"Using client country from settings: {client_country}", xbmc.LOGINFO)
+                else:
+                    # Fallback if no client country configured
+                    countries = self.SYNC_COUNTRIES
+                    xbmc.log("No client country configured, using all SYNC_COUNTRIES", xbmc.LOGWARNING)
+
+            # Statistics tracking
+            country_stats = {}  # {country: {'total': n, 'unique_ids': set}}
+            all_film_ids = set()  # All unique film IDs across all countries
+            all_film_data = {}  # {film_id: film_data} - merged data from all countries
+            film_country_map = {}  # {film_id: set of countries where available}
             total_pages_fetched = 0
-            total_films_available = None  # Will be set from first API response
-            total_pages_available = None  # Will be set from first API response
+            total_api_requests = 0
 
-            xbmc.log(f"Starting to fetch all films from {endpoint} using sort=title (filtering out series)", xbmc.LOGINFO)
+            xbmc.log(f"=" * 60, xbmc.LOGINFO)
+            xbmc.log(f"MULTI-COUNTRY CATALOGUE SYNC", xbmc.LOGINFO)
+            xbmc.log(f"Countries to sync: {', '.join(countries)} ({len(countries)} total)", xbmc.LOGINFO)
+            xbmc.log(f"=" * 60, xbmc.LOGINFO)
 
-            while True:
-                # Use sort=title to get the full catalog
-                params = {
-                    'page': page,
-                    'sort': 'title',  # Sort parameter is required to get full catalog
+            # Fetch films from each country
+            for country_idx, country in enumerate(countries, 1):
+                xbmc.log("", xbmc.LOGINFO)
+                xbmc.log(f"--- Country {country_idx}/{len(countries)}: {country} ---", xbmc.LOGINFO)
+
+                # Track if user cancelled and running film count for this country
+                user_cancelled = False
+                running_new_films = [0]  # Use list to allow modification in closure
+
+                # Create a page callback that updates progress after each page
+                def create_page_callback(c_idx, c_code, c_total, base_count, new_count_ref):
+                    def page_callback(new_films_this_page):
+                        nonlocal user_cancelled
+                        new_count_ref[0] += new_films_this_page
+                        if progress_callback and not user_cancelled:
+                            try:
+                                progress_callback(
+                                    current_films=base_count + new_count_ref[0],
+                                    total_films=0,
+                                    current_country=c_idx,
+                                    total_countries=c_total,
+                                    country_code=c_code
+                                )
+                            except Exception as e:
+                                xbmc.log(f"Progress callback exception (user cancel): {e}", xbmc.LOGINFO)
+                                user_cancelled = True
+                                return False  # Signal to stop fetching
+                        return True  # Continue
+                    return page_callback
+
+                base_film_count = len(all_film_ids)
+                page_cb = create_page_callback(
+                    country_idx, country, len(countries), base_film_count, running_new_films
+                )
+
+                # Initial progress update before fetching
+                if progress_callback:
+                    try:
+                        progress_callback(
+                            current_films=len(all_film_ids),
+                            total_films=0,
+                            current_country=country_idx,
+                            total_countries=len(countries),
+                            country_code=country
+                        )
+                    except Exception as e:
+                        xbmc.log(f"Progress callback exception (user cancel): {e}", xbmc.LOGINFO)
+                        return all_films_library
+
+                film_ids, film_data, total_count, pages = self._fetch_films_for_country(
+                    country_code=country,
+                    playable_only=playable_only,
+                    page_callback=page_cb,
+                    global_film_ids=all_film_ids  # Pass global set for accurate progress
+                )
+
+                # Check if user cancelled during fetch
+                if user_cancelled:
+                    return all_films_library
+
+                # Track statistics
+                country_stats[country] = {
+                    'total_reported': total_count,
+                    'unique_fetched': len(film_ids),
+                    'pages': pages,
+                    'film_ids': film_ids
                 }
+                total_pages_fetched += pages
 
-                if playable_only:
-                    params['playable'] = 'true'
-                    xbmc.log(f"Fetching page {page} with playable filter and sort=title", xbmc.LOGINFO)
-                else:
-                    xbmc.log(f"Fetching page {page} without playable filter, sort=title", xbmc.LOGDEBUG)
+                # Track which films are in which countries
+                for film_id in film_ids:
+                    if film_id not in film_country_map:
+                        film_country_map[film_id] = set()
+                    film_country_map[film_id].add(country)
 
-                xbmc.log(f"Fetching page {page} with params: {params}", xbmc.LOGDEBUG)
-                response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+                # Merge new films into all_film_data
+                new_films_count = 0
+                for film_id, data in film_data.items():
+                    if film_id not in all_film_data:
+                        all_film_data[film_id] = data
+                        all_film_ids.add(film_id)
+                        new_films_count += 1
 
-                if response:
-                    # Check response status
-                    xbmc.log(f"Page {page}: Response status code: {response.status_code}", xbmc.LOGDEBUG)
+                xbmc.log(f"[{country}] Added {new_films_count} new unique films to merged catalogue", xbmc.LOGINFO)
 
-                    data = self._safe_json_parse(response, f"films catalog page {page}")
-                    if not data:
-                        break
+            # Log comprehensive statistics
+            xbmc.log(f"", xbmc.LOGINFO)
+            xbmc.log(f"=" * 60, xbmc.LOGINFO)
+            xbmc.log(f"MULTI-COUNTRY SYNC STATISTICS", xbmc.LOGINFO)
+            xbmc.log(f"=" * 60, xbmc.LOGINFO)
+            xbmc.log(f"Countries synced: {len(countries)}", xbmc.LOGINFO)
+            xbmc.log(f"Total pages fetched: {total_pages_fetched}", xbmc.LOGINFO)
+            xbmc.log(f"Total unique films: {len(all_film_ids)}", xbmc.LOGINFO)
+            xbmc.log(f"", xbmc.LOGINFO)
 
-                    films = data.get('films', [])
-                    meta = data.get('meta', {})
-                    total_pages_fetched += 1
+            # Per-country stats
+            xbmc.log(f"--- Per-Country Breakdown ---", xbmc.LOGINFO)
+            for country, stats in country_stats.items():
+                xbmc.log(f"  {country}: {stats['unique_fetched']} films ({stats['pages']} pages)", xbmc.LOGINFO)
 
-                    # Extract total counts from first response
-                    if total_films_available is None:
-                        total_films_available = meta.get('total_count', 0)
-                        total_pages_available = meta.get('total_pages', 0)
-                        xbmc.log(f"API reports {total_films_available} total films across {total_pages_available} pages", xbmc.LOGINFO)
+            # Films available in all countries vs country-specific
+            films_in_all = set()
+            films_country_exclusive = {}  # {country: set of exclusive film IDs}
 
-                    # Log the complete API response for the first few pages to understand structure
-                    if total_pages_fetched <= 2:  # Only log first 2 pages to avoid spam
-                        xbmc.log(f"DEBUG - Page {page} COMPLETE API RESPONSE: {data}", xbmc.LOGDEBUG)
+            for film_id, available_countries in film_country_map.items():
+                if len(available_countries) == len(countries):
+                    films_in_all.add(film_id)
+                elif len(available_countries) == 1:
+                    country = list(available_countries)[0]
+                    if country not in films_country_exclusive:
+                        films_country_exclusive[country] = set()
+                    films_country_exclusive[country].add(film_id)
 
-                    # Detailed logging for debugging pagination
-                    xbmc.log(f"Page {page}: Received {len(films)} films", xbmc.LOGINFO)
-                    xbmc.log(f"Page {page}: Complete meta object: {meta}", xbmc.LOGINFO)
-                    xbmc.log(f"Page {page}: Complete response keys: {list(data.keys())}", xbmc.LOGINFO)
+            xbmc.log(f"", xbmc.LOGINFO)
+            xbmc.log(f"--- Availability Analysis ---", xbmc.LOGINFO)
+            xbmc.log(f"Films available in ALL {len(countries)} countries: {len(films_in_all)}", xbmc.LOGINFO)
 
-                    # Check if there are any other pagination-related fields
-                    for key, value in data.items():
-                        if 'page' in key.lower() or 'total' in key.lower() or 'count' in key.lower():
-                            xbmc.log(f"Page {page}: Found pagination field {key}: {value}", xbmc.LOGINFO)
+            for country in countries:
+                exclusive = films_country_exclusive.get(country, set())
+                xbmc.log(f"Films EXCLUSIVE to {country}: {len(exclusive)}", xbmc.LOGINFO)
 
-                    # Check if there are any error messages in the response
-                    if 'error' in data or 'message' in data:
-                        xbmc.log(f"Page {page}: API returned error: {data}", xbmc.LOGERROR)
+            xbmc.log(f"=" * 60, xbmc.LOGINFO)
 
-                    # Process each film and add debug logging
-                    for idx, film_data in enumerate(films):
-                        # Debug log: Show the complete film response structure for documentation
-                        if total_films_fetched < 5:  # Log first 5 films for comprehensive documentation
-                            xbmc.log(f"=== FILM {total_films_fetched + 1} COMPLETE RESPONSE ===", xbmc.LOGDEBUG)
-                            xbmc.log(f"Film ID: {film_data.get('id', 'N/A')}", xbmc.LOGDEBUG)
-                            xbmc.log(f"Film Title: {film_data.get('title', 'N/A')}", xbmc.LOGDEBUG)
-                            xbmc.log(f"Complete Film Object: {film_data}", xbmc.LOGDEBUG)
-                            xbmc.log(f"=== END FILM {total_films_fetched + 1} ===", xbmc.LOGDEBUG)
+            # Now process all merged films into the library
+            xbmc.log(f"Processing {len(all_film_data)} films into library...", xbmc.LOGINFO)
+            total_films_added = 0
 
-                            # Also log the top-level keys for structure analysis
-                            film_keys = list(film_data.keys()) if isinstance(film_data, dict) else []
-                            xbmc.log(f"Film {total_films_fetched + 1} top-level keys: {film_keys}", xbmc.LOGDEBUG)
+            # Final progress update - processing phase
+            if progress_callback:
+                try:
+                    progress_callback(
+                        current_films=len(all_film_ids),
+                        total_films=len(all_film_data),
+                        current_country=len(countries),
+                        total_countries=len(countries),
+                        country_code='DONE'  # Signal that country fetching is complete
+                    )
+                except Exception as e:
+                    xbmc.log(f"Progress callback exception: {e}", xbmc.LOGINFO)
 
-                            # Log specific nested objects that might be important
-                            if 'consumable' in film_data:
-                                xbmc.log(f"Film {total_films_fetched + 1} consumable object: {film_data['consumable']}", xbmc.LOGDEBUG)
-                            if 'directors' in film_data:
-                                xbmc.log(f"Film {total_films_fetched + 1} directors: {film_data['directors']}", xbmc.LOGDEBUG)
-                            if 'genres' in film_data:
-                                xbmc.log(f"Film {total_films_fetched + 1} genres: {film_data['genres']}", xbmc.LOGDEBUG)
-                            if 'cast' in film_data:
-                                xbmc.log(f"Film {total_films_fetched + 1} cast: {film_data['cast']}", xbmc.LOGDEBUG)
-                            if 'countries' in film_data or 'historic_countries' in film_data:
-                                countries = film_data.get('countries', film_data.get('historic_countries', []))
-                                xbmc.log(f"Film {total_films_fetched + 1} countries: {countries}", xbmc.LOGDEBUG)
+            for film_id, film_data in all_film_data.items():
+                film_wrapper = {'film': film_data}
+                # Get the list of countries where this film is available
+                countries_for_film = list(film_country_map.get(film_id, set()))
+                film = self.get_film_metadata(film_wrapper, available_countries=countries_for_film)
+                if film:
+                    all_films_library.add_film(film)
+                    total_films_added += 1
 
-                        # Create a wrapper structure similar to category-based approach
-                        # The direct films endpoint returns films directly, not wrapped in 'film' key
-                        film_wrapper = {'film': film_data}
-
-                        # Use "All Films" as the primary category since we don't have collection info
-                        # The direct API doesn't provide collection/category information
-                        category_name = "All Films"
-
-                        film = self.get_film_metadata(film_wrapper)
-                        if film:
-                            # Debug: Log what fields we're using vs what's available
-                            if total_films_fetched < 3:
-                                used_fields = ['id', 'title', 'original_title', 'year', 'duration', 'short_synopsis',
-                                             'default_editorial', 'content_rating', 'directors', 'genres', 'historic_countries', 'average_rating',
-                                             'average_rating_out_of_ten', 'number_of_ratings', 'still_url', 'stills', 'portrait_image',
-                                             'title_treatment_url', 'trailer_url', 'optimised_trailers', 'web_url', 'consumable']
-                                available_fields = list(film_data.keys())
-                                unused_fields = [field for field in available_fields if field not in used_fields]
-                                xbmc.log(f"Film {total_films_fetched + 1} - Fields we use: {used_fields}", xbmc.LOGDEBUG)
-                                xbmc.log(f"Film {total_films_fetched + 1} - Available but unused fields: {unused_fields}", xbmc.LOGDEBUG)
-
-                            all_films_library.add_film(film)
-                            total_films_fetched += 1
-
-                    # Call progress callback if provided
-                    if progress_callback and total_films_available is not None:
-                        try:
-                            progress_callback(
-                                current_films=total_films_fetched,
-                                total_films=total_films_available,
-                                current_page=page,
-                                total_pages=total_pages_available or 0
-                            )
-                        except Exception as e:
-                            # If progress callback raises an exception (e.g., user cancellation), stop fetching
-                            xbmc.log(f"Progress callback raised exception (likely user cancellation): {e}", xbmc.LOGINFO)
-                            break
-
-                    # Check if there's a next page
-                    next_page = meta.get('next_page')
-                    xbmc.log(f"Page {page} processed. Next page: {next_page}. Total films so far: {total_films_fetched}", xbmc.LOGINFO)
-
-                    if next_page:
-                        page = next_page
-                    else:
-                        xbmc.log(f"No more pages. Finished fetching all films.", xbmc.LOGINFO)
-                        break  # No more pages to fetch
-                else:
-                    xbmc.log(f"Failed to retrieve films on page {page}", xbmc.LOGERROR)
-                    break  # Exit the loop on failure
-
-                # Safety check to prevent infinite loops
-                if total_pages_fetched > 100:  # Reasonable upper limit
-                    xbmc.log(f"Safety limit reached: fetched {total_pages_fetched} pages. Stopping.", xbmc.LOGWARNING)
-                    break
-
-            xbmc.log(f"Successfully fetched {total_films_fetched} films from {total_pages_fetched} pages using direct API approach", xbmc.LOGINFO)
+            xbmc.log(f"Successfully added {total_films_added} films to library", xbmc.LOGINFO)
             return all_films_library
 
         except Exception as e:
@@ -746,12 +991,13 @@ class Mubi:
 
 
 
-    def get_film_metadata(self, film_data: dict) -> Film:
+    def get_film_metadata(self, film_data: dict, available_countries: list = None) -> Film:
         """
         Extracts and returns film metadata from the API data.
         Filters out series content to only process actual films.
 
         :param film_data: Dictionary containing film data
+        :param available_countries: List of country codes where this film is available
         :return: Film instance or None if not valid or is a series
         """
         try:
@@ -760,12 +1006,8 @@ class Mubi:
                 return None
 
             # Check if this is a series (like inspiration code does)
-            is_series = False
-            if 'series' in film_info:
-                if film_info['series'] is not None:
-                    is_series = True
-                    xbmc.log(f"Skipping series content: {film_info.get('title', 'Unknown')}", xbmc.LOGDEBUG)
-                    return None  # Skip series content for film sync
+            if 'series' in film_info and film_info['series'] is not None:
+                return None  # Skip series content for film sync
 
             available_at = film_info.get('consumable', {}).get('available_at')
             expires_at = film_info.get('consumable', {}).get('expires_at')
@@ -782,10 +1024,8 @@ class Mubi:
 
             if default_editorial:
                 enhanced_plot = default_editorial
-                xbmc.log(f"Using enhanced editorial content for '{film_info.get('title', 'Unknown')}' ({len(default_editorial)} chars vs {len(short_synopsis)} chars)", xbmc.LOGDEBUG)
             else:
                 enhanced_plot = short_synopsis
-                xbmc.log(f"No editorial content available for '{film_info.get('title', 'Unknown')}', using synopsis", xbmc.LOGDEBUG)
 
             short_outline = short_synopsis  # Keep short synopsis for outline
 
@@ -807,19 +1047,15 @@ class Mubi:
                     if rating_description:
                         mpaa_rating += f" - {rating_description}"
 
-                xbmc.log(f"Content rating for '{film_info.get('title', 'Unknown')}': {mpaa_rating}", xbmc.LOGDEBUG)
-
             # Enhanced rating precision: Use 10-point scale if available, fallback to 5-point
             rating_10_point = film_info.get('average_rating_out_of_ten', 0)
             rating_5_point = film_info.get('average_rating', 0)
 
             if rating_10_point:
                 final_rating = rating_10_point
-                xbmc.log(f"Using 10-point rating for '{film_info.get('title', 'Unknown')}': {rating_10_point}/10 (vs 5-point: {rating_5_point}/5)", xbmc.LOGDEBUG)
             else:
                 # Fallback to 5-point and convert to 10-point scale
                 final_rating = rating_5_point * 2 if rating_5_point else 0
-                xbmc.log(f"No 10-point rating available for '{film_info.get('title', 'Unknown')}', converted 5-point {rating_5_point}/5 to {final_rating}/10", xbmc.LOGDEBUG)
 
             # Extract all artwork URLs
             artwork_urls = self._get_all_artwork_urls(film_info)
@@ -854,7 +1090,8 @@ class Mubi:
                 title=film_info.get('title', ''),
                 artwork=self._get_best_thumbnail_url(film_info),
                 web_url=film_info.get('web_url', ''),
-                metadata=metadata
+                metadata=metadata,
+                available_countries=available_countries or []
             )
         except Exception as e:
             xbmc.log(f"Error parsing film metadata: {e}", xbmc.LOGERROR)
@@ -874,23 +1111,15 @@ class Mubi:
                 # Prefer retina quality for higher resolution
                 retina_url = stills.get('retina', '')
                 if retina_url:
-                    xbmc.log(f"Using retina quality thumbnail for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                     return retina_url
 
                 # Fallback to standard quality
                 standard_url = stills.get('standard', '')
                 if standard_url:
-                    xbmc.log(f"Using standard quality thumbnail for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                     return standard_url
 
             # Final fallback to still_url
-            still_url = film_info.get('still_url', '')
-            if still_url:
-                xbmc.log(f"Using fallback still_url for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-                return still_url
-
-            xbmc.log(f"No thumbnail available for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-            return ''
+            return film_info.get('still_url', '')
 
         except Exception as e:
             xbmc.log(f"Error getting thumbnail URL: {e}", xbmc.LOGERROR)
@@ -915,7 +1144,6 @@ class Mubi:
         try:
             # Handle None or invalid input gracefully
             if not film_info or not isinstance(film_info, dict):
-                xbmc.log(f"Invalid film_info provided to _get_all_artwork_urls: {type(film_info)}", xbmc.LOGDEBUG)
                 return {}
 
             # Thumbnail/Landscape images from stills
@@ -949,12 +1177,10 @@ class Mubi:
                     # Poster from cover_artwork_vertical (vertical/portrait format)
                     if artwork_format == 'cover_artwork_vertical' and 'poster' not in artwork_urls:
                         artwork_urls['poster'] = image_url
-                        xbmc.log(f"Found poster from cover_artwork_vertical for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
 
                     # Fanart from centered_background (large background image)
                     elif artwork_format == 'centered_background' and 'fanart' not in artwork_urls:
                         artwork_urls['fanart'] = image_url
-                        xbmc.log(f"Found fanart from centered_background for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
 
             # Fallback: Portrait image for poster if not found in artworks[]
             if 'poster' not in artwork_urls:
@@ -967,7 +1193,6 @@ class Mubi:
             if title_treatment:
                 artwork_urls['clearlogo'] = title_treatment
 
-            xbmc.log(f"Extracted artwork URLs for '{film_info.get('title', 'Unknown')}': {list(artwork_urls.keys())}", xbmc.LOGDEBUG)
             return artwork_urls
 
         except Exception as e:
@@ -996,17 +1221,10 @@ class Mubi:
                         if isinstance(trailer, dict) and trailer.get('profile') == quality:
                             trailer_url = trailer.get('url', '')
                             if trailer_url:
-                                xbmc.log(f"Using {quality} optimised trailer for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                                 return trailer_url
 
             # Fallback to original trailer_url
-            fallback_url = film_info.get('trailer_url', '')
-            if fallback_url:
-                xbmc.log(f"Using fallback trailer_url for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-                return fallback_url
-
-            xbmc.log(f"No trailer available for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
-            return ''
+            return film_info.get('trailer_url', '')
 
         except Exception as e:
             xbmc.log(f"Error getting trailer URL: {e}", xbmc.LOGERROR)
@@ -1023,12 +1241,10 @@ class Mubi:
             # Get consumable information which contains playback_languages
             consumable = film_info.get('consumable', {})
             if not isinstance(consumable, dict):
-                xbmc.log(f"No consumable data for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                 return [], [], []
 
             playback_languages = consumable.get('playback_languages', {})
             if not isinstance(playback_languages, dict):
-                xbmc.log(f"No playback_languages data for '{film_info.get('title', 'Unknown')}'", xbmc.LOGDEBUG)
                 return [], [], []
 
             # Extract language and feature information
@@ -1048,12 +1264,6 @@ class Mubi:
             subtitle_languages = subtitle_languages if isinstance(subtitle_languages, list) else []
             media_features = media_features if isinstance(media_features, list) else []
 
-            # Log the extracted information
-            if audio_languages or subtitle_languages or media_features:
-                xbmc.log(f"Playback info for '{film_info.get('title', 'Unknown')}': "
-                        f"Audio: {audio_languages}, Subtitles: {subtitle_languages}, Features: {media_features}",
-                        xbmc.LOGDEBUG)
-
             return audio_languages, subtitle_languages, media_features
 
         except Exception as e:
@@ -1065,21 +1275,60 @@ class Mubi:
 
 
 
-    def get_secure_stream_info(self, vid: str) -> dict:
-        try:
-            # Step 1: Attempt to check film viewing availability with parental lock
-            viewing_url = f"{self.apiURL}v4/films/{vid}/viewing"
-            params = {'parental_lock_enabled': 'true'}  # Add as query parameter
-            viewing_response = self._make_api_call("POST", full_url=viewing_url, headers=self.hea_atv_auth(), params=params)
+    def get_secure_stream_info(self, vid: str, film_country: Optional[str] = None) -> dict:
+        """
+        Get secure stream information for a film.
 
-            # If the parental lock check fails, log a warning but continue
-            if not viewing_response or viewing_response.status_code != 200:
-                xbmc.log(f"Parental lock check failed, ignoring. Error: {viewing_response.text if viewing_response else 'No response'}", xbmc.LOGWARNING)
+        :param vid: Film ID
+        :param film_country: Country where the film is available (for error messages only,
+                             not used in API headers - we always use user's actual country)
+        :return: Dictionary with stream info or error
+        """
+        try:
+            # Log the playback attempt
+            user_country = self.session_manager.client_country
+            xbmc.log(f"Getting stream info for film {vid}", xbmc.LOGINFO)
+            xbmc.log(f"User country: {user_country}, Film available in: {film_country}", xbmc.LOGINFO)
+
+            # Always use user's actual country for API headers (geo-restriction is IP-based)
+            headers = self.hea_atv_auth()
+
+            # Step 1: Attempt to check film viewing availability with parental lock
+            # Make a direct request to check for geo-restriction errors
+            viewing_url = f"{self.apiURL}v4/films/{vid}/viewing"
+            params = {'parental_lock_enabled': 'true'}
+
+            try:
+                response = requests.post(viewing_url, headers=headers, params=params, timeout=10)
+                xbmc.log(f"Viewing availability response: {response.status_code}", xbmc.LOGDEBUG)
+
+                # Check for geo-restriction error (422 with "Film not authorized")
+                if response.status_code == 422:
+                    try:
+                        error_data = response.json()
+                        if error_data.get('code') == 50 or 'not authorized' in error_data.get('message', '').lower():
+                            xbmc.log(f"Geo-restriction detected: {error_data}", xbmc.LOGWARNING)
+                            # Include the film's available country in the error message
+                            if film_country:
+                                country_name = self.COUNTRY_NAMES.get(film_country, film_country)
+                                error_msg = f"Film not available in your country. Use a VPN to {country_name} to watch it."
+                            else:
+                                error_msg = "Film not available in your country. Use a VPN to watch it."
+                            return {'error': error_msg}
+                    except (ValueError, KeyError):
+                        pass  # Not a JSON response or missing fields
+
+                # For other non-200 responses, log and continue (some may be recoverable)
+                if response.status_code != 200:
+                    xbmc.log(f"Viewing availability check returned {response.status_code}: {response.text}", xbmc.LOGWARNING)
+
+            except requests.exceptions.RequestException as e:
+                xbmc.log(f"Error checking viewing availability: {e}", xbmc.LOGWARNING)
 
             # Step 2: Handle Pre-roll (if any)
             preroll_url = f"{self.apiURL}v4/prerolls/viewings"
             preroll_data = {'viewing_film_id': int(vid)}
-            preroll_response = self._make_api_call("POST", full_url=preroll_url, headers=self.hea_atv_auth(), json=preroll_data)
+            preroll_response = self._make_api_call("POST", full_url=preroll_url, headers=headers, json=preroll_data)
 
             # Pre-roll is optional, so even if it fails, we can continue
             if preroll_response and preroll_response.status_code != 200:
@@ -1087,7 +1336,7 @@ class Mubi:
 
             # Step 3: Fetch the secure video URL
             secure_url = f"{self.apiURL}v4/films/{vid}/viewing/secure_url"
-            secure_response = self._make_api_call("GET", full_url=secure_url, headers=self.hea_atv_auth())
+            secure_response = self._make_api_call("GET", full_url=secure_url, headers=headers)
 
             # Ensure we keep the entire secure response data intact
             if secure_response and secure_response.status_code == 200:
