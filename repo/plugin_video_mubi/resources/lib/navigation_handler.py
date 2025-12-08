@@ -130,6 +130,27 @@ class NavigationHandler:
         Get the worldwide sync menu label and description.
         Returns a tuple of (label, description with help info).
         """
+        # Try to get coverage stats for a more informative label
+        try:
+            from .coverage_optimizer import get_coverage_stats
+            country_code = self.plugin.getSetting("client_country") or "CH"
+            stats = get_coverage_stats(country_code)
+            if stats:
+                optimal_count = stats.get('optimal_country_count', 0)
+                total_films = stats.get('total_films', 0)
+                label = f"Sync MUBI worldwide (about 2k films)"
+                description = (
+                    f"Sync all {total_films} films from MUBI's worldwide catalogue.\n\n"
+                    f"Uses smart optimization: only {optimal_count} countries needed "
+                    f"for 100% coverage.\n\n"
+                    f"No VPN needed to sync, but a VPN is required to play "
+                    f"movies outside of your country."
+                )
+                return label, description
+        except Exception:
+            pass
+
+        # Fallback if stats not available
         label = "Sync MUBI catalogue worldwide"
         description = (
             "Sync films from all MUBI catalogues worldwide.\n\n"

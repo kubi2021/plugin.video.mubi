@@ -116,10 +116,27 @@ if __name__ == "__main__":
     elif action == "sync_worldwide":
         xbmc.log(f"Calling sync_films (worldwide) with handle: {handle}", xbmc.LOGDEBUG)
         try:
-            # Sync from all countries worldwide
-            from resources.lib.countries import COUNTRIES
-            all_countries = [c.upper() for c in COUNTRIES.keys()]
-            navigation.sync_films(countries=all_countries, dialog_title="Syncing MUBI Worldwide")
+            # Use coverage optimizer to find minimum countries for 100% coverage
+            from resources.lib.coverage_optimizer import get_optimal_countries
+            client_country = plugin.getSetting("client_country") or "CH"
+
+            optimal_countries = get_optimal_countries(client_country)
+
+            if optimal_countries:
+                xbmc.log(
+                    f"Worldwide sync: Using {len(optimal_countries)} optimized countries "
+                    f"(starting with {client_country.upper()})",
+                    xbmc.LOGINFO
+                )
+                dialog_title = f"Syncing MUBI Worldwide ({len(optimal_countries)} countries)"
+                navigation.sync_films(countries=optimal_countries, dialog_title=dialog_title)
+            else:
+                # Fallback: if no catalogue available, use all countries
+                xbmc.log("No country catalogue found, falling back to all countries", xbmc.LOGWARNING)
+                from resources.lib.countries import COUNTRIES
+                all_countries = [c.upper() for c in COUNTRIES.keys()]
+                navigation.sync_films(countries=all_countries, dialog_title="Syncing MUBI Worldwide")
+
             # Refresh the container to return to the main menu after sync completes.
             xbmc.executebuiltin('Container.Refresh')
         except Exception as e:
