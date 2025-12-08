@@ -11,6 +11,7 @@ dramatically reducing API calls and sync time.
 import json
 import os
 from collections import defaultdict
+from typing import Dict, List, Optional
 
 try:
     import xbmc
@@ -31,7 +32,7 @@ def _get_catalogue_path() -> str:
         return os.path.join(current_dir, '..', 'data', 'country_catalogue.json')
 
 
-def load_country_catalogue() -> dict | None:
+def load_country_catalogue() -> Optional[Dict]:
     """
     Load the pre-computed country catalogue from JSON.
 
@@ -63,7 +64,7 @@ def load_country_catalogue() -> dict | None:
         return None
 
 
-def get_optimal_countries(user_country: str) -> list[str]:
+def get_optimal_countries(user_country: str) -> List[str]:
     """
     Use the greedy set cover algorithm to find the minimum set of countries
     needed for 100% catalogue coverage, starting with the user's country.
