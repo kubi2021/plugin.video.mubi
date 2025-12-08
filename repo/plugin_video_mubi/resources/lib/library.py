@@ -68,10 +68,11 @@ class Library:
             # Process each film and update progress
             for idx, film in enumerate(self.films):
                 percent = int(((idx + 1) / films_to_process) * 100)
-                pDialog.update(
-                    percent,
-                    f"Processing movie {idx + 1} of {films_to_process}:\n{film.title}"
-                )
+                if genre_filtered_count > 0:
+                    progress_msg = f"Processing movie {idx + 1} of {films_to_process} ({genre_filtered_count} skipped by genre filter):\n{film.title}"
+                else:
+                    progress_msg = f"Processing movie {idx + 1} of {films_to_process}:\n{film.title}"
+                pDialog.update(percent, progress_msg)
 
                 # Check if user canceled
                 if pDialog.iscanceled():
