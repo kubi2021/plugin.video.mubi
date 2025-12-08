@@ -12,27 +12,17 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 ## Features
 
-The goal of this addon is to harness Kodi's excellent browsing and metadata scraping capabilities while using films from MUBI. 🎥 Therefore, the addon creates a small file for each MUBI movie. These files are then treated as standard library items within Kodi, allowing them to be browsed directly from the main interface. 🔍 The metadata can also be enriched using Kodi's library update feature, giving you a seamless experience. 📚 You can sync the entire MUBI catalogue worldwide — VPN users can access and play films from any country. 🌍
-
-### 🎯 Rich Metadata Experience
-
-This addon goes beyond basic film information to provide a comprehensive metadata experience:
-
-- 🎬 Fetches all movies available on Mubi, including full Mubi ratings and descriptions
-- 👍 Compatible with the Kodi movie library
-- 🛡️ Finds the corresponding movie on IMDb so Kodi scraper can fetch additional metadata
-- 🍿 Automatically selects optimal quality (1080p/720p) Mubi trailers for direct playback within Kodi
-- 📺 Movies are playable directly within Kodi, supporting subtitles and multiple audio streams out of the box using Kodi's features
-- 🎵 Displays available audio languages and formats (stereo, 5.1, Dolby Atmos)
-- 🔤 Shows all available subtitle languages and accessibility options
-- 🎨 Multiple artwork types including posters, thumbnails, and clearlogos
-- 🏆 MPAA ratings and content advisories for informed viewing
-- 🍿 Automatically selects best trailer quality (1080p/720p) for your setup
-- 📊 Media features and quality indicators in film information
-- 🌐 If the movie can't be played within Kodi, the user is prompted to open it in their browser (tested on macOS only)
-- 🈯 Supports display of titles and descriptions in the languages supported by Mubi
-- 🔖 Retrieves and displays your MUBI watchlist within Kodi, allowing quick access to saved films directly from the main interface
-- 🌍 VPN-friendly: detects your current country via IP geolocation and suggests optimal VPN servers when films are geo-restricted
+- 🎬 **Full MUBI catalogue** — Fetches all movies with ratings and descriptions, seamlessly integrated into your Kodi library
+- 🌍 **Worldwide sync** — Access MUBI's entire global catalogue (~2000 films) with smart optimization that syncs from only ~23 countries instead of 248, balancing coverage with speed
+- 🛡️ **Rich metadata** — Finds IMDb matches so Kodi scrapers can fetch cast, ratings, posters, and more
+- 🍿 **Optimal quality** — Automatically selects best stream quality for movies and trailers
+- 📺 **Native playback** — Movies play directly in Kodi with Mubi subtitles and multiple audio streams
+- 🎨 **Artwork** — Posters, thumbnails, fanart, and clearlogos
+- 🏆 **Ratings & advisories** — MPAA ratings and content warnings for informed viewing
+- 🔖 **Watchlist sync** — Your MUBI watchlist accessible directly from Kodi
+- 🈯 **Multi-language** — Titles and descriptions in languages supported by MUBI (configure in plugin settings)
+- � **VPN-friendly** — Detects your country via IP and suggests optimal VPN servers for geo-restricted films
+- 🖥️ **Browser fallback** — Opens films in your browser when Kodi playback isn't available (tested on macOS only)
 
 ## Installation
 
@@ -110,9 +100,10 @@ This project uses a **Kodi repository structure** with automated release managem
 
 1. **Make Changes**: Edit files in `repo/plugin_video_mubi/`
 2. **Run Tests**: `pytest tests/`
-3. **Create PR**: Submit pull request to `main` branch
-4. **Merge PR**: Normal merge
-5. **Manual Release** (when ready): Go to Actions → "Release Plugin Update" → Run workflow:
+3. **Update Country Catalogue** Run the coverage analyzer to regenerate the country optimization data
+4. **Create PR**: Submit pull request to `main` branch
+5. **Merge PR**: Normal merge
+6. **Manual Release** (when ready): Go to Actions → "Release Plugin Update" → Run workflow:
    - Enter release notes (user-facing description)
    - GitHub Actions automatically:
      - Increments version number (simple: 5 → 6)
@@ -154,6 +145,22 @@ python3 _repo_generator.py
 # - addons.xml (metadata)
 # - addons.xml.md5 (checksum)
 ```
+
+### Country Coverage Analyzer
+
+The worldwide sync uses a pre-computed JSON catalogue to optimize which countries to fetch. Run the analyzer to regenerate this data when MUBI's catalogue changes significantly:
+
+```bash
+cd repo/plugin_video_mubi
+
+# Fetch fresh data from MUBI API and save to JSON (requires valid MUBI session)
+python -m tools.analyze_coverage
+
+# Analyze existing JSON without re-fetching
+python -m tools.analyze_coverage --analyze-only --country CH
+```
+
+The analyzer uses a greedy set cover algorithm to find the minimum countries needed for 100% catalogue coverage. Output is saved to `resources/data/country_catalogue.json`.
 
 ### Versioning Policy
 
