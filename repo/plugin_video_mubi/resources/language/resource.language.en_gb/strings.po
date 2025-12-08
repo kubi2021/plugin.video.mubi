@@ -1063,3 +1063,20 @@ msgstr ""
 msgctxt "#31247"
 msgid "Åland Islands"
 msgstr ""
+
+# Filter settings category (30400-30499)
+msgctxt "#30400"
+msgid "Genre Filters"
+msgstr ""
+
+msgctxt "#30403"
+msgid "Skip Horror"
+msgstr ""
+
+msgctxt "#30404"
+msgid "Skip Short"
+msgstr ""
+
+msgctxt "#30405"
+msgid "Enable to filter out films of this genre from your syncing from MUBI"
+msgstr ""

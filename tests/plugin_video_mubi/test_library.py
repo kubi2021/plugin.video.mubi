@@ -716,9 +716,9 @@ def test_sync_locally_with_genre_filtering(
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
 
-        # Mock the settings to have 'skip_genres' as 'horror;comedy'
+        # Mock the settings to have 'skip_genre_horror' enabled
         addon_instance = mock_addon.return_value
-        addon_instance.getSetting.return_value = 'horror;comedy'
+        addon_instance.getSettingBool.side_effect = lambda key: key == 'skip_genre_horror'
 
         # Create a Film object with genre 'Horror'
         metadata_horror = MockMetadata(year=2023)
