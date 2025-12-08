@@ -392,7 +392,7 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
 
         # Assertions for progress dialog
-        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Starting the sync...")
+        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Processing 2 films...")
         assert mock_dialog.update.call_count == 2, "Progress dialog should have been updated twice"
         mock_dialog.close.assert_called_once()
 
@@ -566,7 +566,7 @@ def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress, 
         library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
 
         # Assertions for progress dialog
-        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Starting the sync...")
+        mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Processing 0 films...")
         mock_dialog.update.assert_not_called()
         mock_dialog.close.assert_called_once()
 

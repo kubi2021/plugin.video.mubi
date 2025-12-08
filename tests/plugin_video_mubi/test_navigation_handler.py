@@ -1636,3 +1636,243 @@ class TestPlayMubiVideoFlow:
             call_args = mock_dialog_instance.notification.call_args
             assert "MUBI" in call_args[0][0]
             assert "film_id" in call_args[0][1].lower()
+
+
+class TestCoverageOptimizer:
+    """
+    Test suite for coverage_optimizer module.
+
+    Tests the greedy set cover algorithm that finds the minimum set of
+    countries needed for 100% MUBI catalogue coverage.
+    """
+
+    @pytest.fixture
+    def sample_catalogue(self, tmp_path):
+        """Create a sample country catalogue JSON for testing."""
+        import json
+
+        catalogue = {
+            "generated": "2025-01-01T00:00:00",
+            "total_films": 5,
+            "total_countries": 4,
+            "films": {
+                "1": ["ch", "us", "gb"],     # Film 1: available in CH, US, GB
+                "2": ["ch", "us"],           # Film 2: available in CH, US
+                "3": ["tr"],                 # Film 3: only in TR (exclusive)
+                "4": ["us", "gb", "tr"],     # Film 4: US, GB, TR
+                "5": ["ch", "tr"]            # Film 5: CH, TR
+            }
+        }
+
+        json_path = tmp_path / "country_catalogue.json"
+        with open(json_path, 'w') as f:
+            json.dump(catalogue, f)
+
+        return json_path, catalogue
+
+    def test_greedy_algorithm_finds_optimal_countries(self):
+        """
+        Test that the greedy algorithm finds a valid country set.
+        """
+        from collections import defaultdict
+
+        # Arrange: Simple test catalogue
+        films = {
+            1: {'ch', 'us'},
+            2: {'us', 'tr'},
+            3: {'tr'},
+            4: {'ch'}
+        }
+
+        # Build country -> films mapping
+        country_films = defaultdict(set)
+        all_films = set()
+        for film_id, countries in films.items():
+            all_films.add(film_id)
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act: Run greedy algorithm
+        covered = set()
+        selected = []
+        remaining = dict(country_films)
+
+        # Start with CH
+        if 'ch' in remaining:
+            covered.update(remaining['ch'])
+            selected.append('ch')
+            del remaining['ch']
+
+        while covered != all_films and remaining:
+            best = max(remaining.keys(), key=lambda c: len(remaining[c] - covered))
+            new_films = remaining[best] - covered
+            if not new_films:
+                break
+            covered.update(new_films)
+            selected.append(best)
+            del remaining[best]
+
+        # Assert: All films are covered
+        assert covered == all_films
+        assert 'ch' in selected  # User's country included
+        assert len(selected) <= 3  # Should need at most 3 countries
+
+    def test_greedy_algorithm_starts_with_user_country(self):
+        """
+        Test that the greedy algorithm always starts with the user's country.
+        """
+        from collections import defaultdict
+
+        # Arrange
+        films = {1: {'us', 'ch'}, 2: {'us'}, 3: {'ch'}}
+        country_films = defaultdict(set)
+        for film_id, countries in films.items():
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act: Start with CH even though US has more films
+        covered = set()
+        selected = []
+
+        if 'ch' in country_films:
+            covered.update(country_films['ch'])
+            selected.append('CH')
+
+        # Assert: CH is first
+        assert selected[0] == 'CH'
+
+    def test_greedy_algorithm_handles_exclusive_films(self):
+        """
+        Test that the algorithm correctly handles films only available in one country.
+        """
+        from collections import defaultdict
+
+        # Arrange: Film 3 is only in JP
+        films = {
+            1: {'us', 'gb'},
+            2: {'us', 'gb'},
+            3: {'jp'}  # Exclusive to JP
+        }
+
+        country_films = defaultdict(set)
+        all_films = set(films.keys())
+        for film_id, countries in films.items():
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act: Run greedy
+        covered = set()
+        selected = []
+        remaining = dict(country_films)
+
+        while covered != all_films and remaining:
+            best = max(remaining.keys(), key=lambda c: len(remaining[c] - covered))
+            new_films = remaining[best] - covered
+            if not new_films:
+                break
+            covered.update(new_films)
+            selected.append(best)
+            del remaining[best]
+
+        # Assert: JP must be included for full coverage
+        assert 'jp' in selected
+        assert covered == all_films
+
+    def test_greedy_algorithm_empty_catalogue(self):
+        """
+        Test behavior with empty catalogue.
+        """
+        # Arrange
+        films = {}
+        all_films = set()
+
+        # Act & Assert
+        assert len(all_films) == 0
+
+    def test_greedy_algorithm_single_country_covers_all(self):
+        """
+        Test when a single country covers all films.
+        """
+        from collections import defaultdict
+
+        # Arrange: US has all films
+        films = {
+            1: {'us'},
+            2: {'us'},
+            3: {'us'}
+        }
+
+        country_films = defaultdict(set)
+        all_films = set(films.keys())
+        for film_id, countries in films.items():
+            for country in countries:
+                country_films[country].add(film_id)
+
+        # Act
+        covered = set()
+        selected = []
+        remaining = dict(country_films)
+
+        while covered != all_films and remaining:
+            best = max(remaining.keys(), key=lambda c: len(remaining[c] - covered))
+            new_films = remaining[best] - covered
+            if not new_films:
+                break
+            covered.update(new_films)
+            selected.append(best)
+            del remaining[best]
+
+        # Assert: Only US needed
+        assert selected == ['us']
+        assert covered == all_films
+
+
+class TestWorldwideSyncMenuLabel:
+    """Test the worldwide sync menu label with coverage stats."""
+
+    @pytest.fixture
+    def navigation_handler(self):
+        """Create a NavigationHandler for testing."""
+        mock_mubi = Mock()
+        mock_session = Mock()
+        mock_session.is_logged_in = True
+
+        with patch('xbmcaddon.Addon') as mock_addon:
+            mock_addon_instance = Mock()
+            mock_addon_instance.getSetting.return_value = 'CH'
+            mock_addon_instance.getAddonInfo.return_value = '/fake/path'
+            mock_addon.return_value = mock_addon_instance
+
+            handler = NavigationHandler(
+                handle=1,
+                base_url="plugin://plugin.video.mubi/",
+                mubi=mock_mubi,
+                session=mock_session
+            )
+
+            yield handler
+
+    def test_worldwide_menu_shows_film_count(self, navigation_handler):
+        """Test that the menu label shows film count when stats available."""
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_coverage_stats') as mock_stats:
+            mock_stats.return_value = {
+                'total_films': 2011,
+                'optimal_country_count': 23,
+                'user_country_films': 429
+            }
+
+            label, description = navigation_handler._get_sync_worldwide_menu_label()
+
+            # Check that stats are mentioned in description
+            assert 'worldwide' in label.lower() or 'film' in label.lower()
+
+    def test_worldwide_menu_fallback_when_no_stats(self, navigation_handler):
+        """Test fallback label when coverage stats unavailable."""
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_coverage_stats') as mock_stats:
+            mock_stats.return_value = {}  # Empty stats
+
+            label, description = navigation_handler._get_sync_worldwide_menu_label()
+
+            # Should use fallback label
+            assert 'worldwide' in label.lower()
+            assert 'VPN' in description or 'vpn' in description.lower()

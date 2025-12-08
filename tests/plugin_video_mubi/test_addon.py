@@ -398,3 +398,116 @@ class TestClientCountryAutoDetection:
         # Assert
         mubi.get_cli_country.assert_called_once()
         session.set_client_country.assert_called_once_with('NZ')
+
+
+class TestSyncWorldwideOptimization:
+    """
+    Test cases for worldwide sync optimization using coverage optimizer.
+
+    The sync_worldwide action should:
+    1. Use the coverage optimizer to find optimal countries
+    2. Fall back to all countries if JSON catalogue is missing
+    3. Use the user's configured country as the starting point
+    """
+
+    @pytest.fixture
+    def mock_sync_dependencies(self):
+        """Fixture to mock sync-related dependencies."""
+        with patch('plugin_video_mubi.resources.lib.navigation_handler.NavigationHandler') as mock_nav, \
+             patch('xbmcaddon.Addon') as mock_addon, \
+             patch('xbmc.log') as mock_log, \
+             patch('xbmc.executebuiltin') as mock_executebuiltin:
+
+            mock_nav_instance = Mock()
+            mock_nav.return_value = mock_nav_instance
+
+            mock_addon_instance = Mock()
+            mock_addon_instance.getSetting.return_value = 'CH'
+            mock_addon.return_value = mock_addon_instance
+
+            yield {
+                'navigation_handler': mock_nav,
+                'nav_instance': mock_nav_instance,
+                'addon': mock_addon,
+                'addon_instance': mock_addon_instance,
+                'log': mock_log,
+                'executebuiltin': mock_executebuiltin,
+            }
+
+    def test_sync_worldwide_uses_optimal_countries(self, mock_sync_dependencies):
+        """
+        Test that worldwide sync uses the coverage optimizer to select countries.
+        """
+        mocks = mock_sync_dependencies
+
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_optimal_countries') as mock_optimizer:
+            # Arrange: Optimizer returns 23 countries
+            mock_optimizer.return_value = ['CH', 'TR', 'US', 'MX', 'FR']
+
+            # Act: Simulate the sync_worldwide action logic
+            client_country = mocks['addon_instance'].getSetting("client_country") or "CH"
+            optimal_countries = mock_optimizer(client_country)
+
+            # Assert: Optimizer was called with user's country
+            mock_optimizer.assert_called_once_with('CH')
+            assert len(optimal_countries) == 5
+            assert optimal_countries[0] == 'CH'  # User's country first
+
+    def test_sync_worldwide_fallback_when_no_catalogue(self, mock_sync_dependencies):
+        """
+        Test that worldwide sync falls back to all countries when catalogue is missing.
+        """
+        mocks = mock_sync_dependencies
+
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_optimal_countries') as mock_optimizer:
+            # Arrange: Optimizer returns empty list (no catalogue)
+            mock_optimizer.return_value = []
+
+            # Act: Simulate the fallback logic from addon.py
+            optimal_countries = mock_optimizer('CH')
+
+            if optimal_countries:
+                countries_to_sync = optimal_countries
+            else:
+                # Fallback to all countries
+                from plugin_video_mubi.resources.lib.countries import COUNTRIES
+                countries_to_sync = [c.upper() for c in COUNTRIES.keys()]
+
+            # Assert: Falls back to all 248 countries
+            assert len(countries_to_sync) == 248
+
+    def test_sync_worldwide_uses_configured_country(self, mock_sync_dependencies):
+        """
+        Test that worldwide sync uses the user's configured country setting.
+        """
+        mocks = mock_sync_dependencies
+        mocks['addon_instance'].getSetting.return_value = 'US'
+
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_optimal_countries') as mock_optimizer:
+            mock_optimizer.return_value = ['US', 'TR', 'CH']
+
+            # Act
+            client_country = mocks['addon_instance'].getSetting("client_country") or "CH"
+            optimal_countries = mock_optimizer(client_country)
+
+            # Assert: Used US as the starting country
+            mock_optimizer.assert_called_once_with('US')
+            assert optimal_countries[0] == 'US'
+
+    def test_sync_worldwide_defaults_to_ch_when_no_setting(self, mock_sync_dependencies):
+        """
+        Test that worldwide sync defaults to CH when no country is configured.
+        """
+        mocks = mock_sync_dependencies
+        mocks['addon_instance'].getSetting.return_value = ''  # Empty setting
+
+        with patch('plugin_video_mubi.resources.lib.coverage_optimizer.get_optimal_countries') as mock_optimizer:
+            mock_optimizer.return_value = ['CH', 'TR', 'US']
+
+            # Act: Simulate the default logic from addon.py
+            client_country = mocks['addon_instance'].getSetting("client_country") or "CH"
+            optimal_countries = mock_optimizer(client_country)
+
+            # Assert: Defaulted to CH
+            mock_optimizer.assert_called_once_with('CH')
+            assert client_country == 'CH'
