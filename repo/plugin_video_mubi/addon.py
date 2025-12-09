@@ -16,7 +16,9 @@ import sys
 import xbmc
 from urllib.parse import parse_qsl, unquote_plus
 import xbmcgui
-from resources.lib.migrations import add_mubi_source, is_first_run, mark_first_run
+from resources.lib.migrations import (
+    add_mubi_source, is_first_run, mark_first_run, migrate_genre_settings
+)
 
 if __name__ == "__main__":
     plugin = xbmcaddon.Addon()
@@ -30,12 +32,16 @@ if __name__ == "__main__":
 
     # First run logic: Check and add the MUBI source if this is the first run
     if is_first_run(plugin):
-        xbmc.log("First run detected: Adding MUBI source", xbmc.LOGINFO)  # Log for first run detection
-        add_mubi_source()  # Add the MUBI source
-        mark_first_run(plugin)  # Mark that first run has completed
-        xbmc.log("First run completed: MUBI source added and first run marked", xbmc.LOGINFO)  # Log after adding source
+        xbmc.log("First run detected: Adding MUBI source", xbmc.LOGINFO)
+        add_mubi_source()
+        mark_first_run(plugin)
+        xbmc.log("First run completed: MUBI source added and first run marked", xbmc.LOGINFO)
     else:
-        xbmc.log("Not the first run: Skipping MUBI source addition", xbmc.LOGINFO)  # Log when not first run
+        xbmc.log("Not the first run: Skipping MUBI source addition", xbmc.LOGINFO)
+
+    # Migrate old text-based genre settings to new toggle-based settings
+    # This only runs once if the old skip_genres setting has a value
+    migrate_genre_settings(plugin)
 
 
 

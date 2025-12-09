@@ -104,3 +104,65 @@ def is_first_run(plugin):
 def mark_first_run(plugin):
     # Mark that the first run has been completed
     plugin.setSettingBool('first_run_completed', True)
+
+
+def migrate_genre_settings(plugin):
+    """
+    Migrate from old text-based skip_genres setting to new toggle-based settings.
+
+    Old format: skip_genres = "Horror, Documentary, Short"
+    New format: skip_genre_horror = true, skip_genre_documentary = true, etc.
+
+    This runs only if the old skip_genres setting has a value.
+    After migration, the old setting is cleared to prevent re-running.
+    """
+    old_setting = plugin.getSetting('skip_genres')
+
+    if not old_setting or not old_setting.strip():
+        # No migration needed - old setting is empty or doesn't exist
+        return False
+
+    xbmc.log(f"Migrating genre settings from: '{old_setting}'", level=xbmc.LOGINFO)
+
+    # Mapping from genre names to new setting IDs
+    genre_mapping = {
+        'action': 'skip_genre_action',
+        'adventure': 'skip_genre_adventure',
+        'animation': 'skip_genre_animation',
+        'avant-garde': 'skip_genre_avant_garde',
+        'comedy': 'skip_genre_comedy',
+        'commercial': 'skip_genre_commercial',
+        'crime': 'skip_genre_crime',
+        'cult': 'skip_genre_cult',
+        'documentary': 'skip_genre_documentary',
+        'drama': 'skip_genre_drama',
+        'erotica': 'skip_genre_erotica',
+        'fantasy': 'skip_genre_fantasy',
+        'horror': 'skip_genre_horror',
+        'lgbtq+': 'skip_genre_lgbtq',
+        'mystery': 'skip_genre_mystery',
+        'romance': 'skip_genre_romance',
+        'sci-fi': 'skip_genre_sci_fi',
+        'short': 'skip_genre_short',
+        'thriller': 'skip_genre_thriller',
+        'tv movie': 'skip_genre_tv_movie',
+    }
+
+    # Parse the old comma-separated list
+    genres_to_skip = [g.strip().lower() for g in old_setting.split(',')]
+    migrated_count = 0
+
+    for genre in genres_to_skip:
+        if genre in genre_mapping:
+            setting_id = genre_mapping[genre]
+            plugin.setSettingBool(setting_id, True)
+            xbmc.log(f"Migrated genre '{genre}' -> {setting_id} = True", level=xbmc.LOGINFO)
+            migrated_count += 1
+        elif genre:
+            xbmc.log(f"Unknown genre '{genre}' - skipping migration", level=xbmc.LOGWARNING)
+
+    # Clear the old setting to prevent re-running migration
+    plugin.setSetting('skip_genres', '')
+
+    xbmc.log(f"Genre settings migration complete: {migrated_count} genres migrated", level=xbmc.LOGINFO)
+    return True

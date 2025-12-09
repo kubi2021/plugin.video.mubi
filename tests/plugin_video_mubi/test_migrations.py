@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch, MagicMock
 import xml.etree.ElementTree as ET
 from plugin_video_mubi.resources.lib.migrations import (
     add_mubi_source, read_xml, write_xml, show_source_added_message,
-    is_first_run, mark_first_run
+    is_first_run, mark_first_run, migrate_genre_settings
 )
 
 
@@ -340,3 +340,116 @@ class TestMigrations:
             except Exception:
                 # If exception propagates, that's expected behavior
                 pass
+
+
+class TestMigrateGenreSettings:
+    """Test cases for the migrate_genre_settings function."""
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_no_old_setting(self, mock_log, mock_addon):
+        """Test migration when old skip_genres setting is empty."""
+        mock_addon.getSetting.return_value = ""
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is False
+        mock_addon.setSettingBool.assert_not_called()
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_whitespace_only(self, mock_log, mock_addon):
+        """Test migration when old skip_genres setting is whitespace only."""
+        mock_addon.getSetting.return_value = "   "
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is False
+        mock_addon.setSettingBool.assert_not_called()
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_single_genre(self, mock_log, mock_addon):
+        """Test migration with a single genre."""
+        mock_addon.getSetting.return_value = "Horror"
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is True
+        mock_addon.setSettingBool.assert_called_once_with('skip_genre_horror', True)
+        mock_addon.setSetting.assert_called_with('skip_genres', '')
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_multiple_genres(self, mock_log, mock_addon):
+        """Test migration with multiple genres."""
+        mock_addon.getSetting.return_value = "Horror, Documentary, Short"
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is True
+        # Check all three genres were migrated
+        calls = mock_addon.setSettingBool.call_args_list
+        assert len(calls) == 3
+        assert ('skip_genre_horror', True) in [c[0] for c in calls]
+        assert ('skip_genre_documentary', True) in [c[0] for c in calls]
+        assert ('skip_genre_short', True) in [c[0] for c in calls]
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_case_insensitive(self, mock_log, mock_addon):
+        """Test migration is case-insensitive."""
+        mock_addon.getSetting.return_value = "HORROR, Drama, SCI-FI"
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is True
+        calls = mock_addon.setSettingBool.call_args_list
+        assert len(calls) == 3
+        assert ('skip_genre_horror', True) in [c[0] for c in calls]
+        assert ('skip_genre_drama', True) in [c[0] for c in calls]
+        assert ('skip_genre_sci_fi', True) in [c[0] for c in calls]
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_unknown_genre(self, mock_log, mock_addon):
+        """Test migration skips unknown genres."""
+        mock_addon.getSetting.return_value = "Horror, UnknownGenre, Short"
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is True
+        # Only Horror and Short should be migrated
+        calls = mock_addon.setSettingBool.call_args_list
+        assert len(calls) == 2
+        assert ('skip_genre_horror', True) in [c[0] for c in calls]
+        assert ('skip_genre_short', True) in [c[0] for c in calls]
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_special_genres(self, mock_log, mock_addon):
+        """Test migration handles special genre names."""
+        mock_addon.getSetting.return_value = "LGBTQ+, Sci-Fi, TV Movie, Avant-Garde"
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is True
+        calls = mock_addon.setSettingBool.call_args_list
+        assert len(calls) == 4
+        assert ('skip_genre_lgbtq', True) in [c[0] for c in calls]
+        assert ('skip_genre_sci_fi', True) in [c[0] for c in calls]
+        assert ('skip_genre_tv_movie', True) in [c[0] for c in calls]
+        assert ('skip_genre_avant_garde', True) in [c[0] for c in calls]
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_clears_old_setting(self, mock_log, mock_addon):
+        """Test migration clears old setting after successful migration."""
+        mock_addon.getSetting.return_value = "Horror"
+
+        migrate_genre_settings(mock_addon)
+
+        mock_addon.setSetting.assert_called_with('skip_genres', '')
+
+    @patch('xbmc.log')
+    def test_migrate_genre_settings_with_extra_whitespace(self, mock_log, mock_addon):
+        """Test migration handles extra whitespace around genre names."""
+        mock_addon.getSetting.return_value = "  Horror  ,  Short  ,  Drama  "
+
+        result = migrate_genre_settings(mock_addon)
+
+        assert result is True
+        calls = mock_addon.setSettingBool.call_args_list
+        assert len(calls) == 3
