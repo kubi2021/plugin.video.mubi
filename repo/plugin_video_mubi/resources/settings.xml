@@ -332,12 +332,102 @@
         </category>
         <category id="filters" label="30400" help="">
             <group id="1">
+                <setting id="skip_genre_action" label="30406" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_adventure" label="30407" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_animation" label="30408" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_avant_garde" label="30409" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_comedy" label="30410" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_commercial" label="30411" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_crime" label="30412" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_cult" label="30413" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_documentary" label="30414" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_drama" label="30415" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_erotica" label="30416" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_fantasy" label="30417" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="skip_genre_horror" label="30403" type="boolean" help="30405">
                     <level>0</level>
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="skip_genre_lgbtq" label="30418" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_mystery" label="30419" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_romance" label="30420" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_sci_fi" label="30421" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="skip_genre_short" label="30404" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_thriller" label="30422" type="boolean" help="30405">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="skip_genre_tv_movie" label="30423" type="boolean" help="30405">
                     <level>0</level>
                     <default>false</default>
                     <control type="toggle"/>

@@ -367,6 +367,10 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
 
+        # Mock getSettingBool to return False for all genre settings (no filtering)
+        addon_instance = mock_addon.return_value
+        addon_instance.getSettingBool.return_value = False
+
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
         film1 = Film(mubi_id="123", title="Sample Movie 1", artwork="http://example.com/art1.jpg",
@@ -414,6 +418,10 @@ def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
+
+        # Mock getSettingBool to return False for all genre settings (no filtering)
+        addon_instance = mock_addon.return_value
+        addon_instance.getSettingBool.return_value = False
 
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
@@ -656,6 +664,10 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
+
+        # Mock getSettingBool to return False for all genre settings (no filtering)
+        addon_instance = mock_addon.return_value
+        addon_instance.getSettingBool.return_value = False
 
         # Create 1000 Film objects and add them to the library
         metadata = MockMetadata(year=2023)

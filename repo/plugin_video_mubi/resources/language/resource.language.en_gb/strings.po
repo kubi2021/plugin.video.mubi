@@ -1080,3 +1080,75 @@ msgstr ""
 msgctxt "#30405"
 msgid "Enable to filter out films of this genre from your syncing from MUBI"
 msgstr ""
+
+msgctxt "#30406"
+msgid "Skip Action"
+msgstr ""
+
+msgctxt "#30407"
+msgid "Skip Adventure"
+msgstr ""
+
+msgctxt "#30408"
+msgid "Skip Animation"
+msgstr ""
+
+msgctxt "#30409"
+msgid "Skip Avant-Garde"
+msgstr ""
+
+msgctxt "#30410"
+msgid "Skip Comedy"
+msgstr ""
+
+msgctxt "#30411"
+msgid "Skip Commercial"
+msgstr ""
+
+msgctxt "#30412"
+msgid "Skip Crime"
+msgstr ""
+
+msgctxt "#30413"
+msgid "Skip Cult"
+msgstr ""
+
+msgctxt "#30414"
+msgid "Skip Documentary"
+msgstr ""
+
+msgctxt "#30415"
+msgid "Skip Drama"
+msgstr ""
+
+msgctxt "#30416"
+msgid "Skip Erotica"
+msgstr ""
+
+msgctxt "#30417"
+msgid "Skip Fantasy"
+msgstr ""
+
+msgctxt "#30418"
+msgid "Skip LGBTQ+"
+msgstr ""
+
+msgctxt "#30419"
+msgid "Skip Mystery"
+msgstr ""
+
+msgctxt "#30420"
+msgid "Skip Romance"
+msgstr ""
+
+msgctxt "#30421"
+msgid "Skip Sci-Fi"
+msgstr ""
+
+msgctxt "#30422"
+msgid "Skip Thriller"
+msgstr ""
+
+msgctxt "#30423"
+msgid "Skip TV Movie"
+msgstr ""

@@ -466,6 +466,7 @@ class TestEndToEndWorkflows:
             # Mock addon for genre filtering
             mock_addon_instance = Mock()
             mock_addon_instance.getSetting.return_value = ""
+            mock_addon_instance.getSettingBool.return_value = False  # No genre filtering
             mock_addon_patch.return_value = mock_addon_instance
 
             # Execute the sync workflow
@@ -577,6 +578,7 @@ class TestEndToEndWorkflows:
             # Mock addon for genre filtering
             mock_addon_instance = Mock()
             mock_addon_instance.getSetting.return_value = ""
+            mock_addon_instance.getSettingBool.return_value = False  # No genre filtering
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
@@ -674,6 +676,7 @@ class TestEndToEndWorkflows:
             # Mock addon for genre filtering
             mock_addon_instance = Mock()
             mock_addon_instance.getSetting.return_value = ""
+            mock_addon_instance.getSettingBool.return_value = False  # No genre filtering
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
@@ -750,6 +753,7 @@ class TestEndToEndWorkflows:
             # Mock addon for genre filtering
             mock_addon_instance = Mock()
             mock_addon_instance.getSetting.return_value = ""
+            mock_addon_instance.getSettingBool.return_value = False  # No genre filtering
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
@@ -838,6 +842,7 @@ class TestEndToEndWorkflows:
             # Mock addon for genre filtering
             mock_addon_instance = Mock()
             mock_addon_instance.getSetting.return_value = ""
+            mock_addon_instance.getSettingBool.return_value = False  # No genre filtering
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
@@ -939,6 +944,7 @@ class TestEndToEndWorkflows:
             # Mock addon for genre filtering
             mock_addon_instance = Mock()
             mock_addon_instance.getSetting.return_value = ""
+            mock_addon_instance.getSettingBool.return_value = False  # No genre filtering
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
@@ -1023,6 +1029,7 @@ class TestEndToEndWorkflows:
             # Mock addon for genre filtering
             mock_addon_instance = Mock()
             mock_addon_instance.getSetting.return_value = ""
+            mock_addon_instance.getSettingBool.return_value = False  # No genre filtering
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
@@ -1136,6 +1143,7 @@ class TestEndToEndFlows:
             mock_dialog_instance.iscanceled.return_value = False
             mock_dialog.return_value = mock_dialog_instance
             mock_addon.return_value.getSetting.return_value = ""
+            mock_addon.return_value.getSettingBool.return_value = False  # No genre filtering
 
             library.sync_locally(
                 "plugin://plugin.video.mubi/",

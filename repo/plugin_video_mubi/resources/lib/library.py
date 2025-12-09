@@ -125,13 +125,34 @@ class Library:
         addon = xbmcaddon.Addon()
 
         # Build list of genres to skip based on toggle settings
-        skip_genres = []
+        # Map setting IDs to genre names (lowercase for comparison)
+        genre_settings = {
+            'skip_genre_action': 'action',
+            'skip_genre_adventure': 'adventure',
+            'skip_genre_animation': 'animation',
+            'skip_genre_avant_garde': 'avant-garde',
+            'skip_genre_comedy': 'comedy',
+            'skip_genre_commercial': 'commercial',
+            'skip_genre_crime': 'crime',
+            'skip_genre_cult': 'cult',
+            'skip_genre_documentary': 'documentary',
+            'skip_genre_drama': 'drama',
+            'skip_genre_erotica': 'erotica',
+            'skip_genre_fantasy': 'fantasy',
+            'skip_genre_horror': 'horror',
+            'skip_genre_lgbtq': 'lgbtq+',
+            'skip_genre_mystery': 'mystery',
+            'skip_genre_romance': 'romance',
+            'skip_genre_sci_fi': 'sci-fi',
+            'skip_genre_short': 'short',
+            'skip_genre_thriller': 'thriller',
+            'skip_genre_tv_movie': 'tv movie',
+        }
 
-        # Check each genre toggle setting
-        if addon.getSettingBool('skip_genre_horror'):
-            skip_genres.append('horror')
-        if addon.getSettingBool('skip_genre_short'):
-            skip_genres.append('short')
+        skip_genres = []
+        for setting_id, genre_name in genre_settings.items():
+            if addon.getSettingBool(setting_id):
+                skip_genres.append(genre_name)
 
         xbmc.log(f"Genres to skip: {skip_genres}", xbmc.LOGDEBUG)
 
