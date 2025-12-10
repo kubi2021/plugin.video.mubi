@@ -634,6 +634,118 @@ For protected content, the addon uses Widevine DRM with the following license se
 - **License URL**: `https://lic.drmtoday.com/license-proxy-widevine/cenc/`
 - **Custom Data**: Base64 encoded JSON with userId, sessionId, and merchant
 
+## Watchlist (Wishes)
+
+The watchlist feature allows users to save films for later viewing. These endpoints require authentication.
+
+### Get Watchlist
+**Endpoint**: `GET /wishes`
+**Headers**: Standard web headers with Authorization
+**Parameters**:
+- `page`: Page number for pagination
+- `per_page`: Items per page (default: 24)
+
+**Returns**:
+```json
+{
+  "wishes": [
+    {
+      "id": "integer",
+      "film": {
+        "id": "integer",
+        "title": "string",
+        "year": "integer",
+        "duration": "integer",
+        "directors": [...],
+        "stills": {...},
+        "consumable": {...}
+      }
+    }
+  ],
+  "meta": {
+    "next_page": "integer|null",
+    "current_page": "integer",
+    "total_pages": "integer"
+  }
+}
+```
+
+### Add to Watchlist
+**Endpoint**: `POST /wishes`
+**Headers**: Standard web headers with Authorization + `Content-Type: application/json`
+**Body**:
+```json
+{
+  "film_id": "integer"
+}
+```
+**Returns**:
+```json
+{
+  "id": "integer",
+  "film": {...}
+}
+```
+
+### Remove from Watchlist
+**Endpoint**: `DELETE /wishes/{wish_id}`
+**Headers**: Standard web headers with Authorization
+**Returns**: HTTP 204 No Content on success
+
+**Note**: The `wish_id` is the ID of the wish object (from the GET response), not the film ID.
+
+## Filter Parameters
+
+The browse endpoints support various filter parameters that can be combined with sorting.
+
+### Films Filters
+**Endpoint**: `GET /browse/films`
+**Available Filters**:
+- `genre`: Filter by genre (e.g., "drama", "comedy", "documentary")
+- `country`: Filter by production country (e.g., "united-states", "france", "japan")
+- `decade`: Filter by decade (e.g., "2020s", "2010s", "1990s")
+- `language`: Filter by original language
+- `duration`: Filter by duration range
+
+**Example**:
+```bash
+GET /v4/browse/films?sort=popularity&playable=true&genre=documentary&country=france
+```
+
+### Cast Members Filters
+**Endpoint**: `GET /browse/cast_members`
+**Available Filters**:
+- `primary_type`: Filter by role type (e.g., "director", "actor", "cinematographer")
+
+**Example**:
+```bash
+GET /v4/browse/cast_members?primary_type=director&page=1
+```
+
+### Industry Events Filters
+**Endpoint**: `GET /browse/industry_events`
+**Available Filters**:
+- `year`: Filter by event year
+- `status`: Filter by award status
+
+**Example**:
+```bash
+GET /v4/browse/industry_events?year=2024&page=1
+```
+
+### Sort Options
+
+All browse endpoints support the `sort` parameter with these common values:
+
+| Sort Value | Description |
+|------------|-------------|
+| `popularity` | Sort by popularity (most popular first) |
+| `title` | Sort alphabetically by title |
+| `release_date` | Sort by release date (newest first) |
+| `rating` | Sort by user rating (highest first) |
+
+**Note**: Filter options may vary by country and content availability. The website dynamically provides available filter values via `filterDescriptivesForBrowseType` in page data, but these same filters work directly on the API endpoints.
+
 ## Error Handling
 
 API errors typically return:
@@ -646,6 +758,7 @@ API errors typically return:
 
 Common HTTP status codes:
 - 200: Success
+- 204: No Content (successful deletion)
 - 401: Unauthorized (invalid token)
 - 404: Not found
 - 500: Server error
