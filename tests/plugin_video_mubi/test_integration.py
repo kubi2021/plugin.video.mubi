@@ -145,37 +145,6 @@ class TestRealComponentIntegration:
 
 
 
-    @patch('requests.get')
-    def test_film_imdb_integration(self, mock_get, sample_film):
-        """Test IMDB URL retrieval with realistic API response using private method."""
-        # Mock a realistic OMDB API response
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            'Title': 'Integration Test Movie',
-            'Year': '2023',
-            'imdbID': 'tt1234567',
-            'Type': 'movie',
-            'Response': 'True'
-        }
-        mock_response.raise_for_status.return_value = None
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
-
-        # Test the private _get_imdb_url method directly
-        imdb_url = sample_film._get_imdb_url(
-            original_title="Integration Test Movie",
-            english_title="Integration Test Movie",
-            year="2023",
-            omdb_api_key="real_api_key"
-        )
-
-        assert imdb_url == "https://www.imdb.com/title/tt1234567/"
-
-        # Verify the API was called with correct parameters
-        mock_get.assert_called()
-        call_args = mock_get.call_args
-        assert call_args[1]['params']['apikey'] == "real_api_key"
-        assert call_args[1]['params']['t'] == "Integration Test Movie"
 
     def test_library_file_operations_integration(self, real_film_library, sample_film):
         """Test library file operations with real filesystem."""

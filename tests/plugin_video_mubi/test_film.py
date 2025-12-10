@@ -101,194 +101,6 @@ class TestFilm:
         sanitized2 = film2.get_sanitized_folder_name()
         assert sanitized2 == "Normal Movie (2023)"
 
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_get_imdb_url_success(self, mock_get, mock_metadata):
-        """Test successful IMDB URL retrieval."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-        
-        # Mock successful API response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'Response': 'True',
-            'imdbID': 'tt1234567'
-        }
-        mock_get.return_value = mock_response
-        
-        imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
-        assert imdb_url == "https://www.imdb.com/title/tt1234567/"
-        
-        # Verify API was called with correct parameters
-        mock_get.assert_called_once()
-        call_args = mock_get.call_args
-        assert "fake_api_key" in call_args[1]['params']['apikey']
-
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_get_imdb_url_not_found(self, mock_get, mock_metadata):
-        """Test IMDB URL retrieval when movie not found."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-        
-        # Mock API response with no results
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {'Response': 'False'}
-        mock_get.return_value = mock_response
-        
-        imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
-        assert imdb_url == ""
-
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_get_imdb_url_api_error(self, mock_get, mock_metadata):
-        """Test IMDB URL retrieval with API error."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        # Import the mock exception class
-        from requests.exceptions import RequestException
-
-        # Mock API error with the correct exception type
-        mock_get.side_effect = RequestException("API Error")
-
-        imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
-        assert imdb_url == ""
-
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_get_imdb_url_http_errors(self, mock_get, mock_metadata):
-        """Test IMDB URL retrieval with various HTTP errors."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        # Test 401 Unauthorized
-        mock_response = Mock()
-        mock_response.status_code = 401
-        http_error = requests.exceptions.HTTPError(response=mock_response)
-        mock_get.side_effect = http_error
-
-        imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
-        assert imdb_url == ""
-
-        # Test 404 Not Found
-        mock_response.status_code = 404
-        http_error = requests.exceptions.HTTPError(response=mock_response)
-        mock_get.side_effect = http_error
-
-        imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
-        assert imdb_url == ""
-
-        # Test 429 Too Many Requests
-        mock_response.status_code = 429
-        http_error = requests.exceptions.HTTPError(response=mock_response)
-        mock_get.side_effect = http_error
-
-        imdb_url = film._get_imdb_url("Test Movie", "Test Movie", 2023, "fake_api_key")
-        assert imdb_url == ""
-
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_get_imdb_url_alternative_titles(self, mock_get, mock_metadata):
-        """Test IMDB URL retrieval with alternative title generation."""
-        film = Film("123", "Test Movie and Friends", "", "", mock_metadata)
-
-        # Mock API response that fails for first title but succeeds for alternative
-        def side_effect(*args, **kwargs):
-            params = kwargs.get('params', {})
-            title = params.get('t', '')
-
-            mock_response = Mock()
-            mock_response.status_code = 200
-
-            if 'and' in title:
-                # First title with 'and' fails
-                mock_response.json.return_value = {'Response': 'False'}
-            else:
-                # Alternative title without 'and' succeeds
-                mock_response.json.return_value = {
-                    'Response': 'True',
-                    'imdbID': 'tt1234567'
-                }
-            return mock_response
-
-        mock_get.side_effect = side_effect
-
-        imdb_url = film._get_imdb_url("Test Movie and Friends", "Test Movie and Friends", 2023, "fake_api_key")
-        assert imdb_url == "https://www.imdb.com/title/tt1234567/"
-
-    def test_normalize_title(self, mock_metadata):
-        """Test title normalization functionality."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        # Test removing 'and' as whole word
-        normalized = film._normalize_title("Test Movie and Friends")
-        assert normalized == "Test Movie Friends"  # 'and' removed and spaces normalized
-
-        # Test that '&' is NOT removed (not a word boundary match)
-        normalized = film._normalize_title("Test Movie & Friends")
-        assert normalized == "Test Movie & Friends"  # '&' not removed
-
-        # Test that multiple spaces are normalized to single space
-        normalized = film._normalize_title("Test Movie   and   Friends")
-        assert normalized == "Test Movie Friends"  # 'and' removed and spaces normalized
-
-    def test_generate_alternative_titles(self, mock_metadata):
-        """Test alternative title generation."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        alternatives = film._generate_alternative_titles("Test Movie")
-        assert isinstance(alternatives, list)
-        # Should generate some alternatives based on word replacements
-        assert len(alternatives) >= 0
-
-    def test_should_use_original_title(self, mock_metadata):
-        """Test original title usage logic."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        # Same titles should return False
-        should_use = film._should_use_original_title("Test Movie", "Test Movie")
-        assert should_use == False
-
-        # Different titles should return True
-        should_use = film._should_use_original_title("Original Title", "English Title")
-        assert should_use == True
-
-    def test_is_unauthorized_request(self, mock_metadata):
-        """Test unauthorized request detection."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        # Test with None response
-        assert film._is_unauthorized_request(None) == False
-
-        # Test with 401 response
-        mock_response = Mock()
-        mock_response.status_code = 401
-        assert film._is_unauthorized_request(mock_response) == True
-
-        # Test with other status code
-        mock_response.status_code = 200
-        assert film._is_unauthorized_request(mock_response) == False
-
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_make_omdb_request_success(self, mock_get, mock_metadata):
-        """Test successful OMDB request."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        mock_response = Mock()
-        mock_response.json.return_value = {'Response': 'True', 'imdbID': 'tt123'}
-        mock_get.return_value = mock_response
-
-        params = {'t': 'Test Movie', 'apikey': 'test_key'}
-        result = film._make_omdb_request(params)
-
-        assert result == {'Response': 'True', 'imdbID': 'tt123'}
-        mock_get.assert_called_once()
-
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_make_omdb_request_error(self, mock_get, mock_metadata):
-        """Test OMDB request with error."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        mock_get.side_effect = requests.exceptions.RequestException("Network error")
-
-        params = {'t': 'Test Movie', 'apikey': 'test_key'}
-        result = film._make_omdb_request(params)
-
-        assert result is None
 
     def test_get_nfo_tree(self, mock_metadata):
         """Test NFO XML tree generation."""
@@ -715,48 +527,73 @@ class TestFilm:
             assert film.mubi_id in content
 
     @patch('plugin_video_mubi.resources.lib.film.time.sleep')
-    @patch.object(Film, '_get_imdb_url')
-    def test_create_nfo_file_success(self, mock_get_imdb, mock_sleep, mock_metadata):
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_default_provider')
+    def test_create_nfo_file_success(self, mock_get_provider, mock_sleep, mock_metadata):
         """Test successful NFO file creation."""
+        from plugin_video_mubi.resources.lib.external_metadata.base import ExternalMetadataResult
+
+        # Mock the provider
+        mock_provider = Mock()
+        mock_get_provider.return_value = mock_provider
+
+        # Mock the result
+        mock_result = ExternalMetadataResult(
+            imdb_id="tt123",
+            imdb_url="http://imdb.com/title/tt123",
+            success=True
+        )
+        mock_provider.get_imdb_id.return_value = mock_result
+
         film = Film("123", "Test Movie", "", "", mock_metadata)
-        mock_get_imdb.return_value = "http://imdb.com/title/tt123"
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
             base_url = "plugin://plugin.video.mubi/"
-            
+
             film.create_nfo_file(film_path, base_url, "fake_api_key")
-            
+
             nfo_file = film_path / f"{film.get_sanitized_folder_name()}.nfo"
             assert nfo_file.exists()
-            
+
             # Verify it's valid XML
             content = nfo_file.read_text()
             root = ET.fromstring(content)
             assert root.tag == "movie"
 
-    @patch.object(Film, '_get_imdb_url')
-    def test_create_nfo_file_no_api_key(self, mock_get_imdb, mock_metadata):
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_default_provider')
+    def test_create_nfo_file_no_api_key(self, mock_get_provider, mock_metadata):
         """Test NFO file creation without API key."""
         film = Film("123", "Test Movie", "", "", mock_metadata)
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
             base_url = "plugin://plugin.video.mubi/"
-            
+
             film.create_nfo_file(film_path, base_url, None)
-            
+
             nfo_file = film_path / f"{film.get_sanitized_folder_name()}.nfo"
             assert nfo_file.exists()
-            
-            # Should not have called IMDB API
-            mock_get_imdb.assert_not_called()
 
-    @patch.object(Film, '_get_imdb_url')
-    def test_create_nfo_file_imdb_error(self, mock_get_imdb, mock_metadata):
+            # Should not have called IMDB API
+            mock_get_provider.assert_not_called()
+
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_default_provider')
+    def test_create_nfo_file_imdb_error(self, mock_get_provider, mock_metadata):
         """Test NFO file creation when IMDB lookup fails."""
+        from plugin_video_mubi.resources.lib.external_metadata.base import ExternalMetadataResult
+
+        # Mock the provider
+        mock_provider = Mock()
+        mock_get_provider.return_value = mock_provider
+
+        # Mock the result with failure
+        mock_result = ExternalMetadataResult(
+            success=False,
+            error_message="API error"
+        )
+        mock_provider.get_imdb_id.return_value = mock_result
+
         film = Film("123", "Test Movie", "", "", mock_metadata)
-        mock_get_imdb.return_value = None  # Simulate API error
 
         with tempfile.TemporaryDirectory() as tmpdir:
             film_path = Path(tmpdir)
@@ -772,34 +609,6 @@ class TestFilm:
             content = nfo_file.read_text()
             assert "<imdb>" not in content or "<imdb></imdb>" in content
 
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_get_imdb_url_401_error_with_retry(self, mock_get, mock_metadata):
-        """Test IMDB URL retrieval with 401 error and retry logic."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        # Mock 401 error response
-        mock_response = Mock()
-        mock_response.status_code = 401
-        http_error = requests.exceptions.HTTPError()
-        http_error.response = Mock()
-        http_error.response.status_code = 401
-        mock_response.raise_for_status.side_effect = http_error
-        mock_get.return_value = mock_response
-
-        with patch('time.sleep'):  # Mock sleep to speed up test
-            result = film._get_imdb_url("Test Movie", "Test Movie", 2023, "test_api_key")
-            assert result == ""
-
-    @patch('plugin_video_mubi.resources.lib.film.requests.get')
-    def test_get_imdb_url_request_exception(self, mock_get, mock_metadata):
-        """Test IMDB URL retrieval with request exception."""
-        film = Film("123", "Test Movie", "", "", mock_metadata)
-
-        # Mock request exception
-        mock_get.side_effect = requests.exceptions.RequestException("Network error")
-
-        result = film._get_imdb_url("Test Movie", "Test Movie", 2023, "test_api_key")
-        assert result == ""
 
     def test_nfo_tree_includes_mubi_availability(self, mock_metadata):
         """Test that NFO tree includes mubi_availability section with countries."""
@@ -1336,9 +1145,8 @@ class TestFilmNfoAvailability:
             available_countries=many_countries
         )
 
-        # Create NFO file
-        with patch.object(Film, '_get_imdb_url', return_value=""):
-            film.create_nfo_file(tmp_path, "plugin://test/", None)
+        # Create NFO file (no API key, so no IMDB lookup)
+        film.create_nfo_file(tmp_path, "plugin://test/", None)
 
         # Parse NFO and verify all countries are present
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
@@ -1358,9 +1166,8 @@ class TestFilmNfoAvailability:
             available_countries=['US', 'FR']
         )
 
-        # Create initial NFO
-        with patch.object(Film, '_get_imdb_url', return_value=""):
-            film.create_nfo_file(tmp_path, "plugin://test/", None)
+        # Create initial NFO (no API key)
+        film.create_nfo_file(tmp_path, "plugin://test/", None)
 
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
 
@@ -1386,8 +1193,8 @@ class TestFilmNfoAvailability:
             available_countries=['US', 'FR']
         )
 
-        with patch.object(Film, '_get_imdb_url', return_value=""):
-            film.create_nfo_file(tmp_path, "plugin://test/", None)
+        # Create NFO (no API key)
+        film.create_nfo_file(tmp_path, "plugin://test/", None)
 
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
 
@@ -1496,8 +1303,8 @@ class TestFilmSanitizationEdgeCases:
         )
         film = Film("123", special_title, "", "", metadata)
 
-        with patch.object(Film, '_get_imdb_url', return_value=""):
-            film.create_nfo_file(tmp_path, "plugin://test/", None)
+        # Create NFO (no API key)
+        film.create_nfo_file(tmp_path, "plugin://test/", None)
 
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
         tree = ET.parse(nfo_file)
