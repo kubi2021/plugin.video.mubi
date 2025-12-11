@@ -96,8 +96,24 @@ class TitleNormalizer:
         lower_title = title.lower()
         for word, replacement in self.WORD_VARIATIONS.items():
             if word in lower_title:
-                new_title = title.replace(word, replacement)
-                if new_title != title and new_title not in alternatives:
+                # Use regex for case-insensitive replacement while preserving case of match if possible?
+                # For simplicity, if we match 'Color', we want 'Colour'.
+                # But 'Color' -> 'Colour', 'color' -> 'colour'.
+                # Naive replacement:
+                pattern = re.compile(re.escape(word), re.IGNORECASE)
+                
+                def replace_case_match(match):
+                    g = match.group()
+                    if g.isupper():
+                        return replacement.upper()
+                    if g.istitle():
+                        return replacement.capitalize()
+                    return replacement
+
+                new_title = pattern.sub(replace_case_match, title)
+                
+                # Verify we actually changed something and it's not effectively same
+                if new_title.lower() != title.lower() and new_title not in alternatives:
                     alternatives.append(new_title)
         return alternatives
 
@@ -157,11 +173,21 @@ class RetryStrategy:
             except requests.exceptions.HTTPError as error:
                 status_code = error.response.status_code if error.response else None
                 if status_code in [401, 402, 429]:
+                    retry_after = error.response.headers.get("Retry-After")
+                    wait_time = backoff
+                    
+                    if retry_after:
+                        try:
+                            wait_time = float(retry_after) + 1  # Add small buffer
+                            xbmc.log(f"Server requested wait time: {wait_time}s", xbmc.LOGDEBUG)
+                        except ValueError:
+                            pass
+
                     xbmc.log(
-                        f"HTTP {status_code} received for '{title}'. Retrying after {backoff:.1f}s",
+                        f"HTTP {status_code} received for '{title}'. Retrying after {wait_time:.1f}s",
                         xbmc.LOGWARNING,
                     )
-                    time.sleep(backoff)
+                    time.sleep(wait_time)
                     backoff *= self.multiplier
                     continue
                 if status_code == 404:

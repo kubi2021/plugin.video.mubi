@@ -406,70 +406,7 @@ class TestNavigationHandler:
         # Should call subprocess.Popen with 'xdg-open' command on Linux
         mock_popen.assert_called_with(['xdg-open', "http://example.com/movie"])
 
-    @patch('xbmcgui.Dialog')
-    def test_check_omdb_api_key_missing(self, mock_dialog, navigation_handler):
-        """Test OMDB API key check when key is missing."""
-        # Mock missing API key through the navigation handler's plugin
-        navigation_handler.plugin.getSetting.return_value = ""
 
-        # Mock dialog response - user chooses to go to settings
-        mock_dialog_instance = Mock()
-        mock_dialog.return_value = mock_dialog_instance
-        mock_dialog_instance.yesno.return_value = True
-
-        result = navigation_handler._check_omdb_api_key()
-
-        # Should show dialog and open settings
-        mock_dialog_instance.yesno.assert_called_once()
-        navigation_handler.plugin.openSettings.assert_called_once()
-        assert result is None  # Returns None when API key is missing
-
-    def test_check_omdb_api_key_present(self, navigation_handler):
-        """Test OMDB API key check when key is present."""
-        # Mock existing API key through the navigation handler's plugin
-        navigation_handler.plugin.getSetting.return_value = "test_api_key"
-
-        result = navigation_handler._check_omdb_api_key()
-
-        # Should return the actual API key when it exists
-        assert result == "test_api_key"
-
-    @patch('xbmcgui.Dialog')
-    def test_check_omdb_api_key_user_cancels(self, mock_dialog, navigation_handler):
-        """Test OMDB API key check when user cancels."""
-        # Mock missing API key through the navigation handler's plugin
-        navigation_handler.plugin.getSetting.return_value = ""
-
-        # Mock dialog response - user cancels (returns False)
-        mock_dialog_instance = Mock()
-        mock_dialog.return_value = mock_dialog_instance
-        mock_dialog_instance.yesno.return_value = False
-
-        # Reset the mock to ensure clean state
-        navigation_handler.plugin.openSettings.reset_mock()
-
-        result = navigation_handler._check_omdb_api_key()
-
-        # Should show dialog but not open settings when user cancels
-        mock_dialog_instance.yesno.assert_called_once()
-        navigation_handler.plugin.openSettings.assert_not_called()
-        assert result is None  # Returns None when user cancels
-
-
-
-    @patch('xbmc.log')
-    def test_check_omdb_api_key_exception(self, mock_log, navigation_handler):
-        """Test OMDB API key check with exception."""
-        # Mock exception during settings access
-        navigation_handler.plugin.getSetting.side_effect = Exception("Settings error")
-
-        result = navigation_handler._check_omdb_api_key()
-
-        # Should log error and return None
-        mock_log.assert_called()
-        error_calls = [call for call in mock_log.call_args_list if "Error during OMDb API key" in str(call)]
-        assert len(error_calls) > 0
-        assert result is None
 
     def test_clean_kodi_library(self, navigation_handler):
         """Test Kodi library cleaning functionality."""
@@ -558,16 +495,7 @@ class TestNavigationHandler:
         mock_content.assert_called()
         mock_end_dir.assert_called()
 
-    @patch('xbmcgui.DialogProgress')
-    def test_sync_films_api_key_check(self, mock_progress, navigation_handler):
-        """Test sync_films with API key validation."""
-        # Mock the _check_omdb_api_key to return None (user cancelled)
-        with patch.object(navigation_handler, '_check_omdb_api_key', return_value=None):
-            result = navigation_handler.sync_films(countries=['CH'])
 
-            # When API key check fails, method should return early without creating progress dialog
-            mock_progress.assert_not_called()
-            assert result is None
 
 
 

@@ -11,6 +11,7 @@ class ExternalMetadataResult:
 
     imdb_id: Optional[str] = None
     imdb_url: Optional[str] = None
+    tmdb_id: Optional[str] = None
     tvdb_id: Optional[str] = None
     source_provider: str = ""
     success: bool = False

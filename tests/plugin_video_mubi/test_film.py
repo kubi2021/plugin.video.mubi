@@ -355,7 +355,7 @@ class TestFilm:
             mock_metadata,
             "http://example.com/trailer",
             "http://imdb.com/title/tt123",
-            artwork_paths
+            artwork_paths=artwork_paths
         )
 
         # Assert
@@ -527,7 +527,7 @@ class TestFilm:
             assert film.mubi_id in content
 
     @patch('plugin_video_mubi.resources.lib.film.time.sleep')
-    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_default_provider')
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_provider')
     def test_create_nfo_file_success(self, mock_get_provider, mock_sleep, mock_metadata):
         """Test successful NFO file creation."""
         from plugin_video_mubi.resources.lib.external_metadata.base import ExternalMetadataResult
@@ -550,7 +550,7 @@ class TestFilm:
             film_path = Path(tmpdir)
             base_url = "plugin://plugin.video.mubi/"
 
-            film.create_nfo_file(film_path, base_url, "fake_api_key")
+            film.create_nfo_file(film_path, base_url)
 
             nfo_file = film_path / f"{film.get_sanitized_folder_name()}.nfo"
             assert nfo_file.exists()
@@ -560,7 +560,7 @@ class TestFilm:
             root = ET.fromstring(content)
             assert root.tag == "movie"
 
-    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_default_provider')
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_provider')
     def test_create_nfo_file_no_api_key(self, mock_get_provider, mock_metadata):
         """Test NFO file creation without API key."""
         film = Film("123", "Test Movie", "", "", mock_metadata)
@@ -569,15 +569,15 @@ class TestFilm:
             film_path = Path(tmpdir)
             base_url = "plugin://plugin.video.mubi/"
 
-            film.create_nfo_file(film_path, base_url, None)
+            film.create_nfo_file(film_path, base_url)
 
             nfo_file = film_path / f"{film.get_sanitized_folder_name()}.nfo"
             assert nfo_file.exists()
 
-            # Should not have called IMDB API
-            mock_get_provider.assert_not_called()
+            # get_provider is called to check for configuration
+            mock_get_provider.assert_called_once()
 
-    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_default_provider')
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.MetadataProviderFactory.get_provider')
     def test_create_nfo_file_imdb_error(self, mock_get_provider, mock_metadata):
         """Test NFO file creation when IMDB lookup fails."""
         from plugin_video_mubi.resources.lib.external_metadata.base import ExternalMetadataResult
@@ -600,7 +600,7 @@ class TestFilm:
             base_url = "plugin://plugin.video.mubi/"
 
             # Should still create NFO file even when IMDB lookup fails (without IMDb URL)
-            film.create_nfo_file(film_path, base_url, "fake_api_key")
+            film.create_nfo_file(film_path, base_url)
 
             nfo_file = film_path / f"{film.get_sanitized_folder_name()}.nfo"
             assert nfo_file.exists()
@@ -1146,7 +1146,7 @@ class TestFilmNfoAvailability:
         )
 
         # Create NFO file (no API key, so no IMDB lookup)
-        film.create_nfo_file(tmp_path, "plugin://test/", None)
+        film.create_nfo_file(tmp_path, "plugin://test/")
 
         # Parse NFO and verify all countries are present
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
@@ -1167,7 +1167,7 @@ class TestFilmNfoAvailability:
         )
 
         # Create initial NFO (no API key)
-        film.create_nfo_file(tmp_path, "plugin://test/", None)
+        film.create_nfo_file(tmp_path, "plugin://test/")
 
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
 
@@ -1194,7 +1194,7 @@ class TestFilmNfoAvailability:
         )
 
         # Create NFO (no API key)
-        film.create_nfo_file(tmp_path, "plugin://test/", None)
+        film.create_nfo_file(tmp_path, "plugin://test/")
 
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
 
@@ -1304,7 +1304,7 @@ class TestFilmSanitizationEdgeCases:
         film = Film("123", special_title, "", "", metadata)
 
         # Create NFO (no API key)
-        film.create_nfo_file(tmp_path, "plugin://test/", None)
+        film.create_nfo_file(tmp_path, "plugin://test/")
 
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
         tree = ET.parse(nfo_file)

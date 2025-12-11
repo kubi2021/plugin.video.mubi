@@ -761,37 +761,7 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error during logout: {e}", xbmc.LOGERROR)
 
-    def _check_omdb_api_key(self):
-        """
-        Check if OMDb API key is configured and handle missing key scenario.
 
-        :return: OMDb API key if present, None if missing or user cancels
-        """
-        try:
-            # Retrieve the OMDb API key from the settings
-            omdb_api_key = self.plugin.getSetting("omdbapiKey")
-
-            # Check if the OMDb API key is missing
-            if not omdb_api_key:
-                dialog = xbmcgui.Dialog()
-
-                # Show a message with options to either go to settings or cancel
-                ret = dialog.yesno(
-                    "OMDb API Key Missing",
-                    "OMDB Key is needed to provide rich metadata in your Kodi library. Get it for free here [B]omdbapi.com/apikey.aspx[/B]\n"
-                    "Would you like to go to the plugin settings now?",
-                    yeslabel="Go to Settings",
-                    nolabel="Cancel"
-                )
-
-                if ret:  # If the user clicks 'Go to Settings'
-                    self.plugin.openSettings()  # Opens the settings for the user to add the OMDb API key
-                return None  # Return None if the OMDb API key is missing or the user cancels
-
-            return omdb_api_key
-        except Exception as e:
-            xbmc.log(f"Error during OMDb API key check: {e}", xbmc.LOGERROR)
-            return None
 
     def sync_films(self, countries: list, dialog_title: Optional[str] = None):
         """
@@ -820,10 +790,32 @@ class NavigationHandler:
             NavigationHandler._sync_in_progress = True
 
         try:
-            # Check OMDb API key
-            omdb_api_key = self._check_omdb_api_key()
-            if not omdb_api_key:
-                return
+            # Check if metadata providers are configured
+            from .external_metadata import MetadataProviderFactory
+
+            # Check if configuration is valid (has at least one key)
+            if not MetadataProviderFactory.validate_configuration():
+                dialog = xbmcgui.Dialog()
+                
+                # Show a message with options to either go to settings or cancel
+                ret = dialog.yesno(
+                    "Metadata Provider Required",
+                    "To provide rich metadata (posters, ratings, etc.) in your Kodi library, "
+                    "you need to configure an external metadata provider.\n\n"
+                    "Please execute the Settings to configure TMDB (free) or OMDb API key.",
+                    yeslabel="Go to Settings",
+                    nolabel="Cancel"
+                )
+
+                if ret:
+                    MetadataProviderFactory.open_settings()
+                    # Re-validate after user closes settings
+                    if not MetadataProviderFactory.validate_configuration():
+                         # Still missing keys
+                         return
+                else:
+                    # User cancelled
+                    return
 
             # Validate countries list
             if not countries:
@@ -907,7 +899,7 @@ class NavigationHandler:
 
             # Sync files locally
             all_films_library.sync_locally(
-                self.base_url, plugin_userdata_path, omdb_api_key
+                self.base_url, plugin_userdata_path
             )
 
             # Trigger library operations

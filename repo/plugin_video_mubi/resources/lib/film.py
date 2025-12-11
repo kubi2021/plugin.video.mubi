@@ -240,7 +240,7 @@ class Film:
             # BUG #9 FIX: Re-raise the exception so caller knows the operation failed
             raise
 
-    def create_nfo_file(self, film_path: Path, base_url: str, omdb_api_key: str):
+    def create_nfo_file(self, film_path: Path, base_url: str):
         """Create the .nfo file for the film."""
         # Use sanitized folder name for consistent file naming
         film_folder_name = self.get_sanitized_folder_name()
@@ -253,9 +253,14 @@ class Film:
 
         try:
             imdb_url = ""
-            if omdb_api_key:
-                time.sleep(2)
-                provider = MetadataProviderFactory.get_default_provider(omdb_api_key)
+            tmdb_id = ""
+            
+            # Try to fetch external metadata using the factory's automatic selection
+            # Factory now handles configuration internally
+            provider = MetadataProviderFactory.get_provider()
+            
+            if provider:
+                time.sleep(1) # Small delay to be nice to APIs
                 result = provider.get_imdb_id(
                     title=self.title,
                     original_title=self.metadata.originaltitle,
@@ -263,20 +268,28 @@ class Film:
                     media_type="movie"
                 )
 
-                if result.success and result.imdb_url:
-                    imdb_url = result.imdb_url
-                    xbmc.log(
-                        f"Retrieved IMDB URL for '{self.title}': {imdb_url}",
-                        xbmc.LOGINFO
-                    )
+                if result.success:
+                    if result.imdb_url:
+                        imdb_url = result.imdb_url
+                        xbmc.log(
+                            f"Retrieved IMDB URL for '{self.title}' from {result.source_provider}: {imdb_url}",
+                            xbmc.LOGINFO
+                        )
+                    if result.tmdb_id:
+                        tmdb_id = result.tmdb_id
+                        xbmc.log(
+                            f"Retrieved TMDB ID for '{self.title}': {tmdb_id}",
+                            xbmc.LOGINFO
+                        )
                 else:
                     xbmc.log(
-                        f"Could not retrieve IMDB URL for '{self.title}': {result.error_message}",
+                        f"Could not retrieve external metadata for '{self.title}': {result.error_message}",
                         xbmc.LOGWARNING
                     )
-                    imdb_url = ""
+            else:
+                xbmc.log("Skipping external metadata - no API keys configured", xbmc.LOGINFO)
 
-            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url, artwork_paths)
+            nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_url, tmdb_id, artwork_paths)
             with open(nfo_file, "wb") as f:
                 if isinstance(nfo_tree, str):
                     nfo_tree = nfo_tree.encode("utf-8")
@@ -326,7 +339,7 @@ class Film:
             xbmc.log(f"Failed to update NFO file for '{self.title}': {e}", xbmc.LOGERROR)
             return False
 
-    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str, artwork_paths: dict = None) -> bytes:
+    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_url: str, tmdb_id: str = "", artwork_paths: dict = None) -> bytes:
         """Generate the NFO XML tree structure, including IMDb URL if available."""
         if not metadata.title:
             raise ValueError("Metadata must contain a title")
@@ -469,6 +482,29 @@ class Film:
         if imdb_url:
             # SECURITY FIX: Sanitize IMDb URL to prevent injection
             ET.SubElement(movie, "imdbid").text = self._sanitize_xml_content(imdb_url)
+            # Add as uniqueid (default)
+            uid = ET.SubElement(movie, "uniqueid")
+            uid.set("type", "imdb")
+            uid.set("default", "true")
+            # Extract just the ID from URL if possible, otherwise use full URL (though IMDb uniqueid should be tt...)
+            if "title/tt" in imdb_url:
+                try:
+                     # e.g. https://www.imdb.com/title/tt12345/
+                     imdb_id_only = imdb_url.split("title/")[1].split("/")[0]
+                     uid.text = self._sanitize_xml_content(imdb_id_only)
+                except Exception:
+                     uid.text = self._sanitize_xml_content(imdb_url)
+            else:
+                 uid.text = self._sanitize_xml_content(imdb_url)
+        
+        # Add TMDB ID if available
+        if tmdb_id:
+            uid_tmdb = ET.SubElement(movie, "uniqueid")
+            uid_tmdb.set("type", "tmdb")
+            # If IMDB wasn't found, make TMDB default
+            if not imdb_url:
+                uid_tmdb.set("default", "true")
+            uid_tmdb.text = self._sanitize_xml_content(str(tmdb_id))
 
         # Add MUBI availability information (countries where this film is available)
         self._add_mubi_availability_to_tree(movie)

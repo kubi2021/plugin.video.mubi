@@ -57,3 +57,5 @@ htmlcov/
 # Inspiration/reference code - not to be synced
 repo/plugin_video_mubi/Inspo/
 *.log
+MagicMock/
+*.json

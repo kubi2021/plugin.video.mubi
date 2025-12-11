@@ -37,6 +37,10 @@ msgctxt "#30004"
 msgid "Auto-detected on first run. This determines your default MUBI catalogue country."
 msgstr ""
 
+msgctxt "#30005"
+msgid "TMDB API Key"
+msgstr ""
+
 # Language options
 msgctxt "#30500"
 msgid "Turkish"

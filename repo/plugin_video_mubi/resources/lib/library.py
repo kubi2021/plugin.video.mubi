@@ -22,13 +22,12 @@ class Library:
     def __len__(self):
         return len(self.films)
 
-    def sync_locally(self, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]):
+    def sync_locally(self, base_url: str, plugin_userdata_path: Path):
         """
         Synchronize the local library with fetched film data from MUBI.
 
         :param base_url: The base URL for creating STRM files.
         :param plugin_userdata_path: The path where film folders are stored.
-        :param omdb_api_key: The OMDb API key for fetching additional metadata.
         """
         # Store initial count before filtering
         initial_film_count = len(self.films)
@@ -82,7 +81,7 @@ class Library:
                 # Process film if valid
                 if self.is_film_valid(film):
                     result = self.prepare_files_for_film(
-                        film, base_url, plugin_userdata_path, omdb_api_key
+                        film, base_url, plugin_userdata_path
                     )
                     if result is True:
                         newly_added += 1
@@ -176,7 +175,7 @@ class Library:
         return film.mubi_id and film.title and film.metadata
 
     def prepare_files_for_film(
-        self, film: Film, base_url: str, plugin_userdata_path: Path, omdb_api_key: Optional[str]
+        self, film: Film, base_url: str, plugin_userdata_path: Path
     ) -> Optional[bool]:
         """
         Prepare the necessary files for a given film. Creates NFO and STRM files.
@@ -186,7 +185,6 @@ class Library:
         :param film: The Film object to process.
         :param base_url: The base URL for the STRM file.
         :param plugin_userdata_path: The path where film folders are stored.
-        :param omdb_api_key: The OMDb API key for fetching additional metadata.
         :return:
             - True if files were created/updated successfully.
             - False if file creation failed.
@@ -218,7 +216,7 @@ class Library:
 
             # Attempt to create the NFO file first
             xbmc.log(f"Creating NFO file for film '{film.title}'.", xbmc.LOGDEBUG)
-            film.create_nfo_file(film_path, base_url, omdb_api_key)
+            film.create_nfo_file(film_path, base_url)
 
             # Verify if the NFO file was created successfully
             if not nfo_file.exists():

@@ -112,7 +112,7 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
         strm_file = film_path / f"{film_folder_name}.strm"
 
         # Mock create_nfo_file to create the NFO file
-        def create_nfo_side_effect(film_path_arg, base_url_arg, omdb_api_key_arg):
+        def create_nfo_side_effect(film_path_arg, base_url_arg):
             film_path_arg.mkdir(parents=True, exist_ok=True)
             nfo_file.touch()
 
@@ -127,7 +127,7 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
         # Run prepare_files_for_film
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path)
 
         # Assert that prepare_files_for_film returned True
         assert result is True, "prepare_files_for_film should return True for successful file creation."
@@ -136,7 +136,7 @@ def test_prepare_files_for_film_success(mock_create_strm, mock_create_nfo):
         expected_folder = plugin_userdata_path / film.get_sanitized_folder_name()
 
         # Assert that create_nfo_file is called with expected args
-        mock_create_nfo.assert_called_once_with(expected_folder, base_url, omdb_api_key)
+        mock_create_nfo.assert_called_once_with(expected_folder, base_url)
 
         # Assert that create_strm_file is called with expected args (no user_country)
         mock_create_strm.assert_called_once_with(expected_folder, base_url)
@@ -178,7 +178,7 @@ def test_prepare_files_for_film_nfo_exists_availability_updated(mock_update_avai
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
         result = library.prepare_files_for_film(
-            film, base_url, plugin_userdata_path, omdb_api_key
+            film, base_url, plugin_userdata_path
         )
 
         # Assert that prepare_files_for_film returned None (availability updated)
@@ -216,7 +216,7 @@ def test_prepare_files_for_film_failure(mock_create_strm, mock_create_nfo):
         strm_file = film_path / f"{film_folder_name}.strm"
 
         # Mock create_nfo_file to simulate failure (do nothing)
-        def create_nfo_side_effect(film_path_arg, base_url_arg, omdb_api_key_arg):
+        def create_nfo_side_effect(film_path_arg, base_url_arg):
             pass  # Do nothing; NFO file is not created
 
         mock_create_nfo.side_effect = create_nfo_side_effect
@@ -228,14 +228,14 @@ def test_prepare_files_for_film_failure(mock_create_strm, mock_create_nfo):
         # Ensure that the NFO file does not exist
         assert not nfo_file.exists()
 
-        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path)
 
         # Assert that prepare_files_for_film returned False
         assert result is False, "prepare_files_for_film should return False when file creation fails."
 
         # Assert that create_nfo_file was called
         expected_folder = plugin_userdata_path / film.get_sanitized_folder_name()
-        mock_create_nfo.assert_called_once_with(expected_folder, base_url, omdb_api_key)
+        mock_create_nfo.assert_called_once_with(expected_folder, base_url)
 
         # Assert that create_strm_file was not called since NFO creation failed
         mock_create_strm.assert_not_called()
@@ -393,7 +393,7 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         # Run sync_locally
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
+        library.sync_locally(base_url, plugin_userdata_path)
 
         # Assertions for progress dialog
         mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Processing 2 films...")
@@ -402,8 +402,8 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
 
         # Assert that prepare_files_for_film was called for each film
         expected_calls = [
-            call(film1, base_url, plugin_userdata_path, omdb_api_key),
-            call(film2, base_url, plugin_userdata_path, omdb_api_key)
+            call(film1, base_url, plugin_userdata_path),
+            call(film2, base_url, plugin_userdata_path)
         ]
         mock_prepare_files.assert_has_calls(expected_calls, any_order=False)
 
@@ -442,10 +442,10 @@ def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files
         # Run sync_locally
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
+        library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert that prepare_files_for_film was called only once
-        mock_prepare_files.assert_called_once_with(film1, base_url, plugin_userdata_path, omdb_api_key)
+        mock_prepare_files.assert_called_once_with(film1, base_url, plugin_userdata_path)
 
         # Assert that remove_obsolete_files was called
         mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
@@ -473,7 +473,7 @@ def test_prepare_files_for_film_exception_in_nfo(mock_create_strm, mock_create_n
         # Run prepare_files_for_film
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path)
 
         # Assert that prepare_files_for_film returned False
         assert result is False, "Should return False when an exception occurs in create_nfo_file."
@@ -500,7 +500,7 @@ def test_prepare_files_for_film_exception_in_strm(mock_create_strm, mock_create_
         library.add_film(film)
 
         # Mock create_nfo_file to create the NFO file
-        def create_nfo_side_effect(film_path_arg, base_url_arg, omdb_api_key_arg):
+        def create_nfo_side_effect(film_path_arg, base_url_arg):
             film_path_arg.mkdir(parents=True, exist_ok=True)
             (film_path_arg / f"{film.get_sanitized_folder_name()}.nfo").touch()
 
@@ -512,7 +512,7 @@ def test_prepare_files_for_film_exception_in_strm(mock_create_strm, mock_create_
         # Run prepare_files_for_film
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path)
 
         # Assert that prepare_files_for_film returned False
         assert result is False, "Should return False when an exception occurs in create_strm_file."
@@ -571,7 +571,7 @@ def test_sync_locally_empty_library(mock_remove_obsolete, mock_dialog_progress, 
         # Run sync_locally
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
+        library.sync_locally(base_url, plugin_userdata_path)
 
         # Assertions for progress dialog
         mock_dialog.create.assert_called_once_with("Syncing with MUBI 2/2", "Processing 0 films...")
@@ -604,7 +604,7 @@ def test_prepare_files_for_film_with_invalid_characters():
         # Mock create_nfo_file and create_strm_file to create files
         with patch.object(Film, "create_nfo_file") as mock_create_nfo, \
              patch.object(Film, "create_strm_file") as mock_create_strm:
-            def create_nfo_side_effect(film_path_arg, base_url_arg, omdb_api_key_arg):
+            def create_nfo_side_effect(film_path_arg, base_url_arg):
                 film_path_arg.mkdir(parents=True, exist_ok=True)
                 (film_path_arg / f"{film.get_sanitized_folder_name()}.nfo").touch()
 
@@ -615,7 +615,7 @@ def test_prepare_files_for_film_with_invalid_characters():
             mock_create_strm.side_effect = create_strm_side_effect
 
             result = library.prepare_files_for_film(
-                film, base_url, plugin_userdata_path, omdb_api_key
+                film, base_url, plugin_userdata_path
             )
 
             # Assert that prepare_files_for_film returned True
@@ -648,7 +648,7 @@ def test_prepare_files_for_film_unwritable_path():
         omdb_api_key = "fake_api_key"
 
         # Run prepare_files_for_film
-        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path, omdb_api_key)
+        result = library.prepare_files_for_film(film, base_url, plugin_userdata_path)
 
         # Assert that prepare_files_for_film returned False due to exception
         assert result is False, "Should return False when unable to write to the directory."
@@ -691,7 +691,7 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
         # Run sync_locally
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
+        library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert that prepare_files_for_film was called 1000 times
         assert mock_prepare_files.call_count == 1000, "prepare_files_for_film should be called 1000 times."
@@ -763,7 +763,7 @@ def test_sync_locally_with_genre_filtering(
         # Run sync_locally
         base_url = "plugin://plugin.video.mubi/"
         omdb_api_key = "fake_api_key"
-        library.sync_locally(base_url, plugin_userdata_path, omdb_api_key)
+        library.sync_locally(base_url, plugin_userdata_path)
 
         # After sync_locally, the film with genre 'Horror' should have been filtered out
         assert len(library.films) == 1, "Library should have one film after filtering out horror films."
@@ -771,7 +771,7 @@ def test_sync_locally_with_genre_filtering(
 
         # Assert that prepare_files_for_film was called only for the 'Drama' film
         mock_prepare_files.assert_called_once_with(
-            film_drama, base_url, plugin_userdata_path, omdb_api_key
+            film_drama, base_url, plugin_userdata_path
         )
 
         # Assert that remove_obsolete_files was called

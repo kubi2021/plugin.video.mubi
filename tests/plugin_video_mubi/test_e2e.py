@@ -348,7 +348,7 @@ class TestCompleteUserJourneys:
                 mock_strm.side_effect = lambda path, url, country=None: None
                 
                 result = mubi.library.prepare_files_for_film(
-                    film, "plugin://test/", paths['temp_dir'], "test_api"
+                    film, "plugin://test/", paths['temp_dir']
                 )
                 
                 assert result is True

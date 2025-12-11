@@ -31,7 +31,6 @@ from plugin_video_mubi.resources.lib.external_metadata import (
     TitleNormalizer,
     RetryStrategy,
     MetadataProviderFactory,
-    ProviderType,
     ExternalMetadataResult,
 )
 
@@ -49,16 +48,24 @@ class TestMetadataCache:
             yield mock_addon
 
     @pytest.fixture
-    def mock_xbmcvfs(self):
+    def mock_xbmcvfs(self, tmp_path):
         """Mock xbmcvfs for testing."""
         with patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmcvfs') as mock_vfs:
-            mock_vfs.translatePath.return_value = "/fake/profile/path"
+            # Return a real temp path so files are actually written there and cleaned up
+            mock_vfs.translatePath.return_value = str(tmp_path / "fake_profile")
             yield mock_vfs
 
     @pytest.fixture
     def mock_xbmc(self):
         """Mock xbmc for testing."""
         with patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmc') as mock_xbmc:
+            mock_xbmc.LOGDEBUG = 0
+            mock_xbmc.LOGINFO = 1
+            mock_xbmc.LOGWARNING = 2
+            mock_xbmc.LOGERROR = 3
+            # Also mock translatePath globally if needed, though we check for its absence
+            if hasattr(mock_xbmc, 'translatePath'):
+                del mock_xbmc.translatePath
             yield mock_xbmc
 
     def test_cache_initialization_uses_xbmcvfs_translatePath(self, mock_xbmc_addon, mock_xbmcvfs, mock_xbmc, tmp_path):
@@ -191,7 +198,8 @@ class TestMetadataCache:
 
         # Manually add expired entry
         expired_time = (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
-        cache._cache_data["entries"]["test_key"] = {
+        key = cache._make_cache_key("Test Movie", 2023, "movie")
+        cache._cache_data["entries"][key] = {
             "imdb_id": "tt123",
             "expires_at": expired_time
         }
@@ -201,7 +209,7 @@ class TestMetadataCache:
 
         # Assert
         assert result is None
-        mock_xbmc.log.assert_called_with("Cache entry expired for 'Test Movie'", 1)  # LOGDEBUG
+        mock_xbmc.log.assert_called_with("Cache entry expired for 'Test Movie'", 0)  # LOGDEBUG
         assert "test_key" not in cache._cache_data["entries"]
 
     def test_cache_set_stores_result(self, tmp_path):
@@ -238,7 +246,7 @@ class TestMetadataCache:
 
         # Assert
         assert cache._cache_data["entries"] == {}
-        mock_xbmc.log.assert_called_with("External metadata cache cleared", 3)  # LOGINFO
+        mock_xbmc.log.assert_called_with("External metadata cache cleared", 1)  # LOGINFO
 
     def test_cache_stats(self, tmp_path):
         """Test cache statistics."""
@@ -350,14 +358,11 @@ class TestOMDBProvider:
         mock_responses = [
             Mock(),
             Mock(),
-            Mock()
         ]
         mock_responses[0].raise_for_status.return_value = None
         mock_responses[0].json.return_value = {"Response": "False", "Error": "Movie not found!"}
         mock_responses[1].raise_for_status.return_value = None
-        mock_responses[1].json.return_value = {"Response": "False", "Error": "Movie not found!"}
-        mock_responses[2].raise_for_status.return_value = None
-        mock_responses[2].json.return_value = {"imdbID": "tt9999999", "Title": "Test Movie", "Year": "2023"}
+        mock_responses[1].json.return_value = {"imdbID": "tt9999999", "Title": "Test Movie", "Year": "2023"}
 
         mock_get.side_effect = mock_responses
 
@@ -371,7 +376,7 @@ class TestOMDBProvider:
         # Assert
         assert result.success is True
         assert result.imdb_id == "tt9999999"
-        assert mock_get.call_count == 3  # Tried 3 variants
+        assert mock_get.call_count == 2  # Tried 2 variants
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
     def test_provider_no_match_found(self, mock_get, mock_cache):
@@ -522,9 +527,10 @@ class TestRetryStrategy:
             call_count += 1
             if call_count < 3:
                 import requests
-                error = requests.HTTPError()
+                error = requests.exceptions.HTTPError()
                 error.response = Mock()
                 error.response.status_code = 429
+                error.response.headers = {}  # Empty headers for default backoff
                 raise error
             return ExternalMetadataResult(imdb_id="tt456", success=True)
 
@@ -544,9 +550,10 @@ class TestRetryStrategy:
         # Arrange
         def not_found_func():
             import requests
-            error = requests.HTTPError()
+            error = requests.exceptions.HTTPError()
             error.response = Mock()
             error.response.status_code = 404
+            error.response.headers = {}
             raise error
 
         # Act
@@ -562,9 +569,10 @@ class TestRetryStrategy:
         # Arrange
         def always_fail():
             import requests
-            error = requests.HTTPError()
+            error = requests.exceptions.HTTPError()
             error.response = Mock()
             error.response.status_code = 429
+            error.response.headers = {}
             raise error
 
         # Act
@@ -573,6 +581,33 @@ class TestRetryStrategy:
         # Assert
         assert result.success is False
         assert "Max retries (3) exhausted" in result.error_message
+
+    @patch('plugin_video_mubi.resources.lib.external_metadata.title_utils.time.sleep')
+    @patch('plugin_video_mubi.resources.lib.external_metadata.title_utils.xbmc')
+    def test_retry_respects_retry_after_header(self, mock_xbmc, mock_sleep, strategy):
+        """Test that Retry-After header is respected."""
+        # Arrange
+        call_count = 0
+        def failing_func():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                import requests
+                error = requests.exceptions.HTTPError()
+                error.response = Mock()
+                error.response.status_code = 429
+                # Server asks to wait 5 seconds
+                error.response.headers = {"Retry-After": "5"}
+                raise error
+            return ExternalMetadataResult(imdb_id="tt456", success=True)
+
+        # Act
+        result = strategy.execute(failing_func, "Test Movie")
+
+        # Assert
+        assert result.success is True
+        # Should wait 5 + 1 buffer = 6.0 seconds
+        mock_sleep.assert_called_with(6.0)
 
     def test_retry_generic_exception(self, strategy):
         """Test generic exceptions are handled."""
@@ -591,35 +626,51 @@ class TestRetryStrategy:
 class TestMetadataProviderFactory:
     """Test cases for MetadataProviderFactory class."""
 
-    def test_create_omdb_provider(self):
-        """Test creating OMDB provider."""
-        # Arrange & Act
-        provider = MetadataProviderFactory.create_provider("omdb", "test_key")
+    @pytest.fixture
+    def mock_addon(self):
+        """Mock xbmcaddon for factory tests."""
+        with patch('plugin_video_mubi.resources.lib.external_metadata.factory.xbmcaddon') as mock_addon:
+            mock_instance = Mock()
+            mock_addon.Addon.return_value = mock_instance
+            yield mock_instance
 
-        # Assert
-        assert isinstance(provider, OMDBProvider)
-        assert provider.api_key == "test_key"
 
-    def test_create_provider_invalid_type(self):
-        """Test creating invalid provider type raises error."""
-        # Arrange & Act & Assert
-        with pytest.raises(ValueError, match="Unknown provider type: invalid"):
-            MetadataProviderFactory.create_provider("invalid", "test_key")
 
-    def test_create_tvm_db_provider_not_implemented(self):
-        """Test TVMDB provider raises NotImplementedError."""
-        # Arrange & Act & Assert
-        with pytest.raises(NotImplementedError):
-            MetadataProviderFactory.create_provider("tvmdb", "test_key")
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.TMDBProvider')
+    @patch('plugin_video_mubi.resources.lib.external_metadata.factory.OMDBProvider')
+    def test_get_provider_priority(self, MockOMDB, MockTMDB, mock_addon):
+        """Test provider selection priority (TMDB > OMDB)."""
+        # Case 1: TMDB key available -> TMDB Provider
+        mock_addon.getSetting.side_effect = lambda key: "tmdb_key" if key == "tmdb_api_key" else "omdb_key"
+        provider = MetadataProviderFactory.get_provider()
+        assert MockTMDB.called
+        assert not MockOMDB.called
 
-    def test_get_default_provider(self):
-        """Test getting default provider."""
-        # Arrange & Act
-        provider = MetadataProviderFactory.get_default_provider("test_key")
+        # Reset mocks
+        MockTMDB.reset_mock()
+        MockOMDB.reset_mock()
 
-        # Assert
-        assert isinstance(provider, OMDBProvider)
-        assert provider.api_key == "test_key"
+        # Case 2: Only OMDB key available -> OMDB Provider
+        mock_addon.getSetting.side_effect = lambda key: "omdb_key" if key == "omdbapiKey" else ""
+        provider = MetadataProviderFactory.get_provider()
+        assert not MockTMDB.called
+        assert MockOMDB.called
+
+        # Reset mocks
+        MockTMDB.reset_mock()
+        MockOMDB.reset_mock()
+
+        # Case 3: Only TMDB key available -> TMDB Provider
+        mock_addon.getSetting.side_effect = lambda key: "tmdb_key" if key == "tmdb_api_key" else ""
+        provider = MetadataProviderFactory.get_provider()
+        assert MockTMDB.called
+        assert not MockOMDB.called
+
+    def test_get_provider_no_keys(self, mock_addon):
+        """Test get_provider returns None when no keys available."""
+        mock_addon.getSetting.return_value = ""
+        provider = MetadataProviderFactory.get_provider()
+        assert provider is None
 
 
 class TestKodiAPICompatibility:
@@ -686,7 +737,7 @@ path2 = xbmcvfs.translatePath('special://profile/')
         # Assert
         assert contains_deprecated, f"Should detect deprecated API: {deprecated_api}"
 
-    def test_kodi_api_version_compatibility(self):
+    def test_kodi_api_version_compatibility(self, tmp_path):
         """Test that code is compatible with Kodi 19+ API changes."""
         # This test ensures we're using the correct APIs for Kodi 19+
 
@@ -698,7 +749,9 @@ path2 = xbmcvfs.translatePath('special://profile/')
             mock_instance = Mock()
             mock_instance.getAddonInfo.return_value = "/fake/profile"
             mock_addon.Addon.return_value = mock_instance
-            mock_vfs.translatePath.return_value = "/fake/profile/path"
+            
+            # Use a real temp path so mkdir works
+            mock_vfs.translatePath.return_value = str(tmp_path / "fake_profile")
 
             # Act
             cache = MetadataCache()

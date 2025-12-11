@@ -158,7 +158,7 @@ class TestRealComponentIntegration:
             with patch.object(sample_film, 'create_nfo_file') as mock_nfo, \
                  patch.object(sample_film, 'create_strm_file') as mock_strm:
                 
-                def create_nfo_side_effect(film_path, base_url, api_key):
+                def create_nfo_side_effect(film_path, base_url):
                     film_path.mkdir(parents=True, exist_ok=True)
                     nfo_file = film_path / f"{sample_film.get_sanitized_folder_name()}.nfo"
                     nfo_file.touch()
@@ -174,8 +174,7 @@ class TestRealComponentIntegration:
                 result = real_film_library.prepare_files_for_film(
                     sample_film, 
                     "plugin://test/", 
-                    plugin_userdata_path, 
-                    "test_api_key"
+                    plugin_userdata_path
                 )
                 
                 assert result is True
@@ -440,7 +439,7 @@ class TestEndToEndWorkflows:
 
             # Execute the sync workflow
             base_url = "plugin://plugin.video.mubi/"
-            library.sync_locally(base_url, plugin_userdata_path, None)
+            library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert
         # Verify film folder was created
@@ -551,7 +550,7 @@ class TestEndToEndWorkflows:
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
-            library.sync_locally(base_url, plugin_userdata_path, None)
+            library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert
         # Verify files still exist
@@ -649,7 +648,7 @@ class TestEndToEndWorkflows:
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
-            library.sync_locally(base_url, plugin_userdata_path, None)
+            library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert
         # Verify obsolete folder and all its contents were completely removed
@@ -726,7 +725,7 @@ class TestEndToEndWorkflows:
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
-            library.sync_locally(base_url, plugin_userdata_path, None)
+            library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert
         # Verify sanitized folder was created
@@ -815,7 +814,7 @@ class TestEndToEndWorkflows:
             mock_addon_patch.return_value = mock_addon_instance
 
             base_url = "plugin://plugin.video.mubi/"
-            library.sync_locally(base_url, plugin_userdata_path, None)
+            library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert
         film_folder = plugin_userdata_path / comprehensive_film.get_sanitized_folder_name()
@@ -918,7 +917,7 @@ class TestEndToEndWorkflows:
 
             base_url = "plugin://plugin.video.mubi/"
             # Should not raise exception despite network failure
-            library.sync_locally(base_url, plugin_userdata_path, None)
+            library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert
         # Verify that despite network failure, basic files were still created
@@ -1003,7 +1002,7 @@ class TestEndToEndWorkflows:
 
             base_url = "plugin://plugin.video.mubi/"
             # Should complete without errors
-            library.sync_locally(base_url, plugin_userdata_path, None)
+            library.sync_locally(base_url, plugin_userdata_path)
 
         # Assert
         # Verify no film folders were created
@@ -1116,8 +1115,7 @@ class TestEndToEndFlows:
 
             library.sync_locally(
                 "plugin://plugin.video.mubi/",
-                tmp_path,
-                None
+                tmp_path
             )
 
         # Assert - Files created
