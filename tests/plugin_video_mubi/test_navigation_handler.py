@@ -319,6 +319,10 @@ class TestNavigationHandler:
     @patch('xbmcgui.DialogProgress')
     def test_sync_films(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
         """Test sync_films process with specified countries."""
+        # Fix: Configure the actual plugin instance used by navigation_handler
+        navigation_handler.plugin.getSetting.return_value = "fake-api-key"
+        
+        # Keep mock_addon configuration for consistency if other things use it
         mock_addon.getSetting.return_value = "fake-api-key"
 
         # Mock the get_all_films method
