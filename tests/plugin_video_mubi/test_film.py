@@ -620,7 +620,7 @@ class TestFilm:
         nfo_tree = film._get_nfo_tree(
             mock_metadata,
             kodi_trailer_url="",
-            imdb_url="",
+            imdb_id="",
             artwork_paths=None
         )
 
@@ -650,7 +650,7 @@ class TestFilm:
         nfo_tree = film._get_nfo_tree(
             mock_metadata,
             kodi_trailer_url="",
-            imdb_url="",
+            imdb_id="",
             artwork_paths=None
         )
 

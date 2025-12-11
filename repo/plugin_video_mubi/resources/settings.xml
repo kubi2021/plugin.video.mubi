@@ -41,6 +41,18 @@
                     </constraints>
                     <control type="spinner" format="string"/>
                 </setting>
+                <setting id="sync_concurrency" label="30601" type="integer" help="30602">
+                    <level>0</level>
+                    <default>5</default>
+                    <constraints>
+                        <min>1</min>
+                        <max>20</max>
+                        <step>1</step>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>true</popup>
+                    </control>
+                </setting>
             </group>
             <group id="2">
                 <setting id="client_country" label="30003" type="string" help="30004">

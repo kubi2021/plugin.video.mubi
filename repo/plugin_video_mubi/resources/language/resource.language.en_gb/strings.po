@@ -41,6 +41,20 @@ msgctxt "#30005"
 msgid "TMDB API Key"
 msgstr ""
 
+# Advanced Category
+msgctxt "#30600"
+msgid "Advanced"
+msgstr ""
+
+msgctxt "#30601"
+msgid "Sync Concurrency"
+msgstr ""
+
+msgctxt "#30602"
+msgid "Number of parallel downloads. Lower this if you experience crashes or lag."
+msgstr ""
+
+
 # Language options
 msgctxt "#30500"
 msgid "Turkish"

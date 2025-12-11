@@ -122,7 +122,7 @@ class TestRealComponentIntegration:
         nfo_tree = sample_film._get_nfo_tree(
             metadata=sample_film.metadata,
             kodi_trailer_url="http://test.com/trailer",
-            imdb_url="http://imdb.com/title/tt1234567"
+            imdb_id="tt1234567"
         )
 
         assert nfo_tree is not None

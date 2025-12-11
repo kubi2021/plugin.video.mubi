@@ -414,7 +414,8 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
 @patch("xbmcgui.DialogProgress")
 @patch.object(Library, "prepare_files_for_film")
 @patch.object(Library, "remove_obsolete_files")
-def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
+@patch("plugin_video_mubi.resources.lib.library.xbmc")
+def test_sync_locally_user_cancellation(mock_xbmc, mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon):
     with tempfile.TemporaryDirectory() as tmpdirname:
         plugin_userdata_path = Path(tmpdirname)
         library = Library()
@@ -444,8 +445,9 @@ def test_sync_locally_user_cancellation(mock_remove_obsolete, mock_prepare_files
         omdb_api_key = "fake_api_key"
         library.sync_locally(base_url, plugin_userdata_path)
 
-        # Assert that prepare_files_for_film was called only once
-        mock_prepare_files.assert_called_once_with(film1, base_url, plugin_userdata_path)
+        # In parallel execution, multiple tasks may start before cancellation is detected.
+        # We verify that cancellation logic was triggered.
+        mock_xbmc.log.assert_any_call("User canceled the sync process.", mock_xbmc.LOGDEBUG)
 
         # Assert that remove_obsolete_files was called
         mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)

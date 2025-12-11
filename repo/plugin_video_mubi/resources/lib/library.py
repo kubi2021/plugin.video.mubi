@@ -63,32 +63,64 @@ class Library:
         else:
             pDialog.create("Syncing with MUBI 2/2", f"Processing {films_to_process} films...")
 
+        import concurrent.futures
+
+        # Get concurrency setting (default to 5 for safety on low-end devices)
+        # 1 = Serial, 5 = Standard, 10+ = High Performance
         try:
-            # Process each film and update progress
-            for idx, film in enumerate(self.films):
-                percent = int(((idx + 1) / films_to_process) * 100)
-                if genre_filtered_count > 0:
-                    progress_msg = f"Processing movie {idx + 1} of {films_to_process} ({genre_filtered_count} skipped by genre filter):\n{film.title}"
-                else:
-                    progress_msg = f"Processing movie {idx + 1} of {films_to_process}:\n{film.title}"
-                pDialog.update(percent, progress_msg)
+             # Need to import xbmcaddon if not available in scope, but it is imported inside filter_films_by_genre
+             # Safer to import again or just use xbmcaddon.Addon()
+             import xbmcaddon
+             max_workers = xbmcaddon.Addon().getSettingInt("sync_concurrency")
+             # Fallback if 0 or invalid
+             if max_workers < 1: 
+                 max_workers = 5
+        except Exception:
+             max_workers = 5
+             
+        xbmc.log(f"Starting sync with {max_workers} worker threads.", xbmc.LOGDEBUG)
+        
+        processed_count = 0
 
-                # Check if user canceled
-                if pDialog.iscanceled():
-                    xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
-                    break
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all tasks
+                future_to_film = {
+                    executor.submit(self.prepare_files_for_film, film, base_url, plugin_userdata_path): film
+                    for film in self.films
+                    if self.is_film_valid(film)
+                }
 
-                # Process film if valid
-                if self.is_film_valid(film):
-                    result = self.prepare_files_for_film(
-                        film, base_url, plugin_userdata_path
-                    )
-                    if result is True:
-                        newly_added += 1
-                    elif result is False:
+                # Process results as they complete
+                for future in concurrent.futures.as_completed(future_to_film):
+                    # Check cancel
+                    if pDialog.iscanceled():
+                        xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
+
+                    film = future_to_film[future]
+                    processed_count += 1
+                    
+                    # Update progress
+                    percent = int((processed_count / films_to_process) * 100)
+                    if genre_filtered_count > 0:
+                        progress_msg = f"Processing movie {processed_count} of {films_to_process} ({genre_filtered_count} skipped):\n{film.title}"
+                    else:
+                        progress_msg = f"Processing movie {processed_count} of {films_to_process}:\n{film.title}"
+                    pDialog.update(percent, progress_msg)
+
+                    try:
+                        result = future.result()
+                        if result is True:
+                            newly_added += 1
+                        elif result is False:
+                            failed_to_add += 1
+                        elif result is None:
+                            availability_updated += 1
+                    except Exception as e:
+                        xbmc.log(f"Unhandled exception processing film '{film.title}': {e}", xbmc.LOGERROR)
                         failed_to_add += 1
-                    elif result is None:
-                        availability_updated += 1  # NFO availability was updated for existing film
 
             # Final cleanup of obsolete files
             obsolete_films_count = self.remove_obsolete_files(plugin_userdata_path)
