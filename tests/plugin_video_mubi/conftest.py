@@ -66,6 +66,9 @@ sys.modules['time'] = MagicMock()
 # Mock xbmc and other related modules before any imports
 sys.modules['xbmc'] = MagicMock()
 sys.modules['xbmcaddon'] = MagicMock()
+# Configure default return values to prevent MagicMock folders
+sys.modules['xbmcaddon'].Addon.return_value.getAddonInfo.return_value = "/tmp/mock_addon_path"
+sys.modules['xbmcaddon'].Addon.return_value.getSetting.return_value = ""
 sys.modules['xbmcgui'] = MagicMock()
 sys.modules['xbmcplugin'] = MagicMock()
 
