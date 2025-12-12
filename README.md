@@ -54,8 +54,8 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 ## First run & Populating the Library
 
-1. 🔑 Get an **OMDb API key** from [here](http://www.omdbapi.com/apikey.aspx). It's free and will be needed to populate the library with rich metadata. Don't forget to activate your key using the link in the email.
-2. ⚙️ In the **add-on settings**, enter your **OMDb API key**. It's important to do this before the first sync of Mubi to Kodi.
+1. 🔑 Get an **TMDB API key** from [here](https://www.themoviedb.org/). It's free and will be needed to populate the library with rich metadata. Once you sign-up, head to [the API page](https://www.themoviedb.org/settings/api), fill the form (the information is not so important, you can put kodi.tv as the URL, and in the description, just write that you will use it for fetching movies metadata for a Kodi plugin). Don't forget to activate your key using the link in the email.
+2. ⚙️ In the **add-on settings**, enter your **TMDB API key**. It's important to do this before the first sync of Mubi to Kodi.
 3. 🎬 Launch the **Mubi** add-on.
 4. 📁 The **Mubi Movies** folder is automatically added to the Kodi video sources when the addon is first launched. But you need to restart Kodi to see it.
 5. ⚙️ For the Mubi movies to be properly scraped and displayed in your library, configure the source in **Kodi settings > Media > Video**:
@@ -197,6 +197,11 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
+### Dec 12th, 2025 - TMDB & Speed Boost 🚀
+- **TMDB Integration**: Added The Movie Database (TMDB) as the primary metadata provider for richer and more reliable movie details (ratings, cast, posters).
+- **10x Faster Sync**: Dramatically improved synchronization speed by optimizing API calls and implementing parallel processing.
+- **Strict Validation**: Added robust API key validation to prevent sync errors.
+
 ### Dec 7th, 2025 - VPN & Multi-Country Support 🌍
 
 **VPN-Aware Country Detection:**
@@ -295,23 +300,9 @@ The code was originally forked from user [Jamieu](https://github.com/jamieu/plug
 
 ## Troubleshooting
 
-### 1. Sync Process is Slow ⏳
-
-The addon makes use of two APIs during the sync process:
-
-- **Mubi**: This API is used to fetch all films directly using the V4 /browse/films endpoint.
-- **OMDb**: Queried for each film to retrieve the IMDb ID, which allows Kodi to pull richer metadata like ratings, cast details, and posters.
-
-The connection to Mubi is generally fast and reliable. To prevent overwhelming their servers, we limit the number of requests to 60 per minute. This rate limiting may occasionally cause brief pauses during the sync when processing a large number of films. These pauses are expected and help ensure smooth communication with Mubi's servers.
-
-The OMDb API plays a crucial role in the sync by providing the IMDb ID for each film. This ID enables Kodi to enhance its local library with additional metadata. Unlike Mubi, OMDb’s connection can be less predictable. While we aim to query OMDb as quickly as possible, its rate limits are not clearly defined.
-
-If the addon encounters errors such as "401 Unauthorized" or "429 Too Many Requests," it automatically slows down the rate of requests and introduces pauses to avoid being blocked or restricted. This adjustment can significantly impact the speed of the sync, especially when processing a large number of films.
-
-If the addon is unable to retrieve data from OMDb due to rate limits, those specific movies will not be added to Kodi’s local database during that sync. However, you can easily retry syncing these films later, once the API limits have reset.
 
 
-### 2. Manually Creating the Mubi Source in Kodi 🛠️
+### 1. Manually Creating the Mubi Source in Kodi 🛠️
 
 If for some reason the Mubi Movies folder isn't automatically added as a video source during the installation process, you can manually create the source in Kodi by following these steps:
 
