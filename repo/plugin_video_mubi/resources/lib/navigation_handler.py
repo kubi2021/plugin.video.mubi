@@ -818,7 +818,7 @@ class NavigationHandler:
                     return
 
             # Test connection for the selected provider
-            xbmcgui.Dialog().notification("MUBI", f"Verifying {provider.provider_name} API key...", xbmcgui.NOTIFICATION_INFO, 2000)
+
             if not provider.test_connection():
                 xbmcgui.Dialog().notification(
                     "MUBI", 
