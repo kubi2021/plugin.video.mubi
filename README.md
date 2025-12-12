@@ -10,6 +10,8 @@ I really enjoy MUBI and their curated selection of films. However, I find their 
 
 This project is a personal endeavour I work on in my free time. As I am not a professional developer, updates or changes might take a little longer to implement.
 
+If you are looking for a simple way of browsing the MUBI catalogue without integrating with the Kodi library, another extension does exactly this: [mtr81/kodi_addons](https://github.com/mtr81/kodi_addons).
+
 ## Features
 
 - 🎬 **Full MUBI catalogue** — Fetches all movies with ratings and descriptions, seamlessly integrated into your Kodi library
@@ -202,6 +204,7 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 - **TMDB Integration**: Added The Movie Database (TMDB) as the primary metadata provider for richer and more reliable movie details (ratings, cast, posters).
 - **10x Faster Sync**: Dramatically improved synchronization speed by optimizing API calls and implementing parallel processing.
 - **Strict Validation**: Added robust API key validation to prevent sync errors.
+- **Plugin Compatibility**: Solved conflict with other plugins (e.g. Jellyfin). Thanks to [@axelsimon](https://github.com/axelsimon) for supporting the fix!
 
 ### Dec 7th, 2025 - VPN & Multi-Country Support 🌍
 
