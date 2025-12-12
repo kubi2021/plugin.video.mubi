@@ -478,23 +478,27 @@ class Film:
 
         ET.SubElement(movie, "dateadded").text = self._sanitize_xml_content(str(metadata.dateadded))
 
+        # Add MUBI ID as default uniqueid (Jellyfin/interoperability fix)
+        uid_mubi = ET.SubElement(movie, "uniqueid")
+        uid_mubi.set("type", "mubi")
+        uid_mubi.set("default", "true")
+        uid_mubi.text = self._sanitize_xml_content(self.mubi_id)
+
         # Add IMDb ID if available
         if imdb_id:
             # SECURITY FIX: Sanitize IMDb ID
             ET.SubElement(movie, "imdbid").text = self._sanitize_xml_content(imdb_id)
-            # Add as uniqueid (default)
+            # Add as uniqueid (secondary)
             uid = ET.SubElement(movie, "uniqueid")
             uid.set("type", "imdb")
-            uid.set("default", "true")
+            # Removed default="true" - MUBI ID must be default
             uid.text = self._sanitize_xml_content(imdb_id)
         
         # Add TMDB ID if available
         if tmdb_id:
             uid_tmdb = ET.SubElement(movie, "uniqueid")
             uid_tmdb.set("type", "tmdb")
-            # If IMDB wasn't found, make TMDB default
-            if not imdb_id:
-                uid_tmdb.set("default", "true")
+            # Removed default="true" - MUBI ID must be default
             uid_tmdb.text = self._sanitize_xml_content(str(tmdb_id))
 
         # Add MUBI availability information (countries where this film is available)

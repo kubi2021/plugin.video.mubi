@@ -922,7 +922,10 @@ class NavigationHandler:
 
             # Trigger library operations
             monitor = LibraryMonitor()
-            self.clean_kodi_library(monitor)
+            if self.plugin.getSettingBool("auto_clean_library"):
+                self.clean_kodi_library(monitor)
+            else:
+                 xbmc.log("Library cleaning disabled by setting", xbmc.LOGDEBUG)
             self.update_kodi_library()
 
         except Exception as e:

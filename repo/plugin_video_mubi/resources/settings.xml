@@ -290,6 +290,11 @@
                     </constraints>
                     <control type="spinner" format="string"/>
                 </setting>
+                <setting id="auto_clean_library" label="30701" type="boolean" help="30702">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
             <group id="3">
                 <visible>false</visible>
@@ -433,19 +438,29 @@
                 </setting>
             </group>
         </category>
+
         <category id="advanced" label="30600" help="">
             <group id="1">
                 <setting id="sync_concurrency" label="30601" type="integer" help="30602">
                     <level>0</level>
                     <default>5</default>
                     <constraints>
-                        <min>0</min>
-                        <max>20</max>
-                        <step>1</step>
+                        <options>
+                            <option label="30603">0</option>
+                            <option label="30604">1</option>
+                            <option label="30605">2</option>
+                            <option label="30606">3</option>
+                            <option label="30607">4</option>
+                            <option label="30608">5</option>
+                            <option label="30609">6</option>
+                            <option label="30610">7</option>
+                            <option label="30611">8</option>
+                            <option label="30612">9</option>
+                            <option label="30613">10</option>
+                            <option label="30613">10</option>
+                        </options>
                     </constraints>
-                    <control type="slider" format="integer">
-                        <popup>true</popup>
-                    </control>
+                    <control type="spinner" format="string"/>
                 </setting>
             </group>
         </category>

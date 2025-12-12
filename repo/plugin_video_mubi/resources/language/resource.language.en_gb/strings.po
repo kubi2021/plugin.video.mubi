@@ -41,17 +41,31 @@ msgctxt "#30005"
 msgid "TMDB API Key"
 msgstr ""
 
+# Library / Cleaning
+msgctxt "#30701"
+msgid "Auto-clean library after sync"
+msgstr ""
+
+msgctxt "#30702"
+msgid "Automatically run Clean Library after syncing films. This removes items no longer in the MUBI catalogue/cache."
+msgstr ""
+
+
 # Advanced Category
 msgctxt "#30600"
 msgid "Advanced"
 msgstr ""
 
 msgctxt "#30601"
-msgid "Sync Concurrency (0=Auto)"
+msgid "Sync Concurrency"
 msgstr ""
 
 msgctxt "#30602"
-msgid "Set to 0 to auto-detect optimal threads based on CPU. Otherwise manual."
+msgid "Select 'Auto' to use up to 90% of available CPU threads, or choose a lower number if you experience crashes when syncing."
+msgstr ""
+
+msgctxt "#30603"
+msgid "Auto"
 msgstr ""
 
 
@@ -1166,6 +1180,47 @@ msgstr ""
 msgctxt "#30422"
 msgid "Skip Thriller"
 msgstr ""
+
+msgctxt "#30604"
+msgid "1 Thread"
+msgstr ""
+
+msgctxt "#30605"
+msgid "2 Threads"
+msgstr ""
+
+msgctxt "#30606"
+msgid "3 Threads"
+msgstr ""
+
+msgctxt "#30607"
+msgid "4 Threads"
+msgstr ""
+
+msgctxt "#30608"
+msgid "5 Threads"
+msgstr ""
+
+msgctxt "#30609"
+msgid "6 Threads"
+msgstr ""
+
+msgctxt "#30610"
+msgid "7 Threads"
+msgstr ""
+
+msgctxt "#30611"
+msgid "8 Threads"
+msgstr ""
+
+msgctxt "#30612"
+msgid "9 Threads"
+msgstr ""
+
+msgctxt "#30613"
+msgid "10 Threads"
+msgstr ""
+
 
 msgctxt "#30423"
 msgid "Skip TV Movie"

@@ -56,6 +56,7 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 1. 🔑 Get an **TMDB API key** from [here](https://www.themoviedb.org/). It's free and will be needed to populate the library with rich metadata. Once you sign-up, head to [the API page](https://www.themoviedb.org/settings/api), fill the form (the information is not so important, you can put kodi.tv as the URL, and in the description, just write that you will use it for fetching movies metadata for a Kodi plugin). Don't forget to activate your key using the link in the email.
 2. ⚙️ In the **add-on settings**, enter your **TMDB API key**. It's important to do this before the first sync of Mubi to Kodi.
+3. In the setting, enable the **auto_clean_library** option. Kodi will automatically clean the library after the sync. Leave it disabled if you have other plugins that manage your library, like Jellyfin.
 3. 🎬 Launch the **Mubi** add-on.
 4. 📁 The **Mubi Movies** folder is automatically added to the Kodi video sources when the addon is first launched. But you need to restart Kodi to see it.
 5. ⚙️ For the Mubi movies to be properly scraped and displayed in your library, configure the source in **Kodi settings > Media > Video**:
