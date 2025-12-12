@@ -6,7 +6,6 @@ import requests
 import xbmc
 
 from .base import BaseMetadataProvider, ExternalMetadataResult
-from .cache import MetadataCache
 from .title_utils import TitleNormalizer, RetryStrategy
 
 
@@ -34,8 +33,7 @@ class TMDBProvider(BaseMetadataProvider):
             multiplier=self.config.get("backoff_multiplier", 1.5),
         )
         
-        # Initialize cache
-        self.cache = MetadataCache() if self.config.get("use_cache", True) else None
+
 
     @property
     def provider_name(self) -> str:
@@ -56,12 +54,7 @@ class TMDBProvider(BaseMetadataProvider):
         - tmdb_id: TMDB identifier (e.g., "603")
         - source_provider: "TMDB"
         """
-        # Check cache first
-        if self.cache:
-            cached_result = self.cache.get(title, year or 0, media_type)
-            if cached_result:
-                xbmc.log(f"TMDB: Cache hit for '{title}'", xbmc.LOGDEBUG)
-                return cached_result
+
 
         # Generate search candidates (Original Title, Title, Variants)
         search_candidates = self.title_normalizer.generate_title_variants(title, original_title)
@@ -94,17 +87,12 @@ class TMDBProvider(BaseMetadataProvider):
                 source_provider=self.provider_name,
                 error_message="No match found"
             )
-            # Cache the failure
-            if self.cache:
-                self.cache.set(title, year or 0, media_type, result)
             return result
             
         # Get details to find IMDB ID
         result = self._get_movie_details(tmdb_id)
         
-        # Cache the result
-        if self.cache:
-            self.cache.set(title, year or 0, media_type, result)
+
             
         return result
 

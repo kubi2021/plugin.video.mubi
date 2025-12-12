@@ -6,7 +6,6 @@ import requests
 import xbmc
 
 from .base import BaseMetadataProvider, ExternalMetadataResult
-from .cache import MetadataCache
 from .title_utils import TitleNormalizer, RetryStrategy
 
 
@@ -25,8 +24,7 @@ class OMDBProvider(BaseMetadataProvider):
             multiplier=self.config.get("backoff_multiplier", 1.5),
         )
 
-        use_cache = self.config.get("use_cache", True)
-        self.cache: Optional[MetadataCache] = MetadataCache() if use_cache else None
+
 
     @property
     def provider_name(self) -> str:
@@ -39,21 +37,13 @@ class OMDBProvider(BaseMetadataProvider):
         year: Optional[int] = None,
         media_type: str = "movie",
     ) -> ExternalMetadataResult:
-        if self.cache:
-            cached = self.cache.get(title, year, media_type)
-            if cached:
-                xbmc.log(
-                    f"OMDB: Cache hit for '{title}'",
-                    xbmc.LOGDEBUG,
-                )
-                return cached
+
 
         variants = self.title_normalizer.generate_title_variants(title, original_title)
         for variant in variants:
             result = self._request_with_retry(variant, year, media_type)
             if result.success:
-                if self.cache:
-                    self.cache.set(title, year, media_type, result)
+
                 return result
 
         xbmc.log(
@@ -67,8 +57,7 @@ class OMDBProvider(BaseMetadataProvider):
             error_message="No match found",
         )
 
-        if self.cache:
-            self.cache.set(title, year, media_type, result)
+
 
         return result
 

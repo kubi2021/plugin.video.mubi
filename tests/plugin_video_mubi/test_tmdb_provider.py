@@ -3,25 +3,18 @@ import pytest
 from unittest.mock import Mock, patch
 from plugin_video_mubi.resources.lib.external_metadata import (
     TMDBProvider,
-    MetadataCache,
+
     ExternalMetadataResult,
 )
 
 class TestTMDBProvider:
     """Test cases for TMDBProvider class."""
 
-    @pytest.fixture
-    def mock_cache(self):
-        """Mock MetadataCache for testing."""
-        return Mock(spec=MetadataCache)
-
-    @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.MetadataCache')
-    def test_provider_initialization(self, mock_cache_class, mock_cache):
+    def test_provider_initialization(self):
         """Test TMDB provider initializes correctly."""
         # Arrange
         api_key = "test_tmdb_key"
-        config = {"max_retries": 3, "use_cache": True}
-        mock_cache_class.return_value = mock_cache
+        config = {"max_retries": 3}
 
         # Act
         provider = TMDBProvider(api_key, config)
@@ -30,11 +23,10 @@ class TestTMDBProvider:
         assert provider.api_key == api_key
         assert provider.config == config
         assert provider.provider_name == "TMDB"
-        assert provider.cache is not None
         assert provider.BASE_URL == "https://api.themoviedb.org/3"
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
-    def test_search_movie_success(self, mock_get, mock_cache):
+    def test_search_movie_success(self, mock_get):
         """Test successful movie search."""
         # Arrange
         mock_response = Mock()
@@ -47,7 +39,6 @@ class TestTMDBProvider:
         mock_get.return_value = mock_response
 
         provider = TMDBProvider("test_key")
-        provider.cache = mock_cache
         
         # Act
         tmdb_id = provider._search_movie("Test Movie", 2023)
@@ -67,7 +58,7 @@ class TestTMDBProvider:
         )
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
-    def test_search_movie_no_results(self, mock_get, mock_cache):
+    def test_search_movie_no_results(self, mock_get):
         """Test movie search returns None when no results."""
         # Arrange
         mock_response = Mock()
@@ -76,7 +67,6 @@ class TestTMDBProvider:
         mock_get.return_value = mock_response
 
         provider = TMDBProvider("test_key")
-        provider.cache = mock_cache
 
         # Act
         tmdb_id = provider._search_movie("Nonexistent Movie", 2023)
@@ -85,7 +75,7 @@ class TestTMDBProvider:
         assert tmdb_id is None
         
     @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
-    def test_search_movie_fuzzy_year(self, mock_get, mock_cache):
+    def test_search_movie_fuzzy_year(self, mock_get):
         """Test fuzzy year matching."""
         # Arrange
         mock_response = Mock()
@@ -112,7 +102,7 @@ class TestTMDBProvider:
         assert "year" not in kwargs['params']
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
-    def test_get_movie_details_success(self, mock_get, mock_cache):
+    def test_get_movie_details_success(self, mock_get):
         """Test fetching movie details including IMDB ID."""
         # Arrange
         mock_response = Mock()
@@ -126,7 +116,6 @@ class TestTMDBProvider:
         mock_get.return_value = mock_response
 
         provider = TMDBProvider("test_key")
-        provider.cache = mock_cache
 
         # Act
         result = provider._get_movie_details(12345)
@@ -139,7 +128,7 @@ class TestTMDBProvider:
         assert result.source_provider == "TMDB"
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
-    def test_get_imdb_id_integration(self, mock_get, mock_cache):
+    def test_get_imdb_id_integration(self, mock_get):
         """Test full flow of get_imdb_id."""
         # Arrange
         # Mock search response
@@ -160,8 +149,6 @@ class TestTMDBProvider:
         mock_get.side_effect = [mock_search_response, mock_details_response]
 
         provider = TMDBProvider("test_key")
-        provider.cache = mock_cache
-        mock_cache.get.return_value = None  # Cache miss
 
         # Act
         result = provider.get_imdb_id("The Movie", year=2023)
@@ -170,10 +157,9 @@ class TestTMDBProvider:
         assert result.success is True
         assert result.tmdb_id == "100"
         assert result.imdb_id == "tt100"
-        mock_cache.set.assert_called_once()
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
-    def test_get_imdb_id_fallback_original_title(self, mock_get, mock_cache):
+    def test_get_imdb_id_fallback_original_title(self, mock_get):
         """Test fallback to original title if primary title search fails."""
         # Arrange
         # 1. Search for English title -> No results
@@ -203,8 +189,6 @@ class TestTMDBProvider:
         mock_get.side_effect = [mock_search_fail, mock_search_fail, mock_search_success, mock_details]
 
         provider = TMDBProvider("test_key")
-        provider.cache = mock_cache
-        mock_cache.get.return_value = None
 
         # Act
         result = provider.get_imdb_id("English Title", original_title="Original Title", year=2023)
@@ -215,7 +199,7 @@ class TestTMDBProvider:
         assert mock_get.call_count == 4
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
-    def test_get_imdb_id_fallback_fuzzy_year(self, mock_get, mock_cache):
+    def test_get_imdb_id_fallback_fuzzy_year(self, mock_get):
         """Test fallback to fuzzy year search if strict search fails."""
         # Arrange
         # 1. Strict search (with year) -> Fail
@@ -244,8 +228,6 @@ class TestTMDBProvider:
         mock_get.side_effect = [mock_strict_fail, mock_fuzzy_success, mock_details]
 
         provider = TMDBProvider("test_key")
-        provider.cache = mock_cache
-        mock_cache.get.return_value = None
 
         # Act
         result = provider.get_imdb_id("Movie", year=2023)

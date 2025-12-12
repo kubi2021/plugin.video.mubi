@@ -26,7 +26,6 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 from plugin_video_mubi.resources.lib.external_metadata import (
-    MetadataCache,
     OMDBProvider,
     TitleNormalizer,
     RetryStrategy,
@@ -35,257 +34,19 @@ from plugin_video_mubi.resources.lib.external_metadata import (
 )
 
 
-class TestMetadataCache:
-    """Test cases for MetadataCache class."""
 
-    @pytest.fixture
-    def mock_xbmc_addon(self):
-        """Mock xbmcaddon for testing."""
-        with patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmcaddon') as mock_addon:
-            mock_instance = Mock()
-            mock_instance.getAddonInfo.return_value = "/fake/profile"
-            mock_addon.Addon.return_value = mock_instance
-            yield mock_addon
-
-    @pytest.fixture
-    def mock_xbmcvfs(self, tmp_path):
-        """Mock xbmcvfs for testing."""
-        with patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmcvfs') as mock_vfs:
-            # Return a real temp path so files are actually written there and cleaned up
-            mock_vfs.translatePath.return_value = str(tmp_path / "fake_profile")
-            yield mock_vfs
-
-    @pytest.fixture
-    def mock_xbmc(self):
-        """Mock xbmc for testing."""
-        with patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmc') as mock_xbmc:
-            mock_xbmc.LOGDEBUG = 0
-            mock_xbmc.LOGINFO = 1
-            mock_xbmc.LOGWARNING = 2
-            mock_xbmc.LOGERROR = 3
-            # Also mock translatePath globally if needed, though we check for its absence
-            if hasattr(mock_xbmc, 'translatePath'):
-                del mock_xbmc.translatePath
-            yield mock_xbmc
-
-    def test_cache_initialization_uses_xbmcvfs_translatePath(self, mock_xbmc_addon, mock_xbmcvfs, mock_xbmc, tmp_path):
-        """Test cache initialization uses xbmcvfs.translatePath, not deprecated xbmc.translatePath."""
-        # Arrange
-        cache_file = tmp_path / "test_cache.json"  # Use temp file
-
-        # Act
-        cache = MetadataCache(cache_file)
-
-        # Assert
-        mock_xbmcvfs.translatePath.assert_not_called()  # Not called since we provided cache_file
-        # Ensure deprecated xbmc.translatePath is NOT called
-        assert not hasattr(mock_xbmc, 'translatePath') or not mock_xbmc.translatePath.called
-
-    def test_cache_initialization_custom_file(self, tmp_path):
-        """Test cache initialization with custom cache file."""
-        # Arrange
-        custom_file = tmp_path / "custom_cache.json"
-
-        # Act
-        cache = MetadataCache(custom_file)
-
-        # Assert
-        assert cache.cache_file == custom_file
-        assert cache._cache_data == {"cache_version": "1.0", "entries": {}}
-
-    def test_cache_load_existing_file(self, tmp_path):
-        """Test loading cache from existing file."""
-        # Arrange
-        cache_file = tmp_path / "test_cache.json"
-        test_data = {
-            "cache_version": "1.0",
-            "entries": {
-                "test_key": {
-                    "imdb_id": "tt123",
-                    "expires_at": (datetime.utcnow() + timedelta(days=1)).isoformat() + "Z"
-                }
-            }
-        }
-        cache_file.write_text(json.dumps(test_data))
-
-        # Act
-        cache = MetadataCache(cache_file)
-
-        # Assert
-        assert cache._cache_data == test_data
-
-    def test_cache_load_version_mismatch(self, tmp_path, mock_xbmc):
-        """Test cache resets when version mismatches."""
-        # Arrange
-        cache_file = tmp_path / "test_cache.json"
-        old_data = {
-            "cache_version": "0.9",
-            "entries": {"old": "data"}
-        }
-        cache_file.write_text(json.dumps(old_data))
-
-        # Act
-        cache = MetadataCache(cache_file)
-
-        # Assert
-        mock_xbmc.log.assert_called_once()
-        args = mock_xbmc.log.call_args[0]
-        assert args[0] == "Cache version mismatch, resetting cache"
-        # Note: xbmc.LOGWARNING is mocked, so we just check the message
-        assert cache._cache_data == {"cache_version": "1.0", "entries": {}}
-
-    def test_cache_load_corrupted_file(self, tmp_path, mock_xbmc):
-        """Test cache handles corrupted JSON gracefully."""
-        # Arrange
-        cache_file = tmp_path / "corrupted_cache.json"
-        cache_file.write_text("not valid json")
-
-        # Act
-        cache = MetadataCache(cache_file)
-
-        # Assert
-        mock_xbmc.log.assert_called_with("Failed to load external metadata cache: Expecting value: line 1 column 1 (char 0)", 2)
-        assert cache._cache_data == {"cache_version": "1.0", "entries": {}}
-
-    def test_cache_key_generation(self):
-        """Test cache key generation normalizes titles."""
-        # Arrange
-        cache = MetadataCache()
-
-        # Act
-        key1 = cache._make_cache_key("Test Movie!", 2023, "movie")
-        key2 = cache._make_cache_key("test movie", 2023, "movie")
-
-        # Assert
-        assert key1 == key2 == "test_movie_2023_movie"
-
-    def test_cache_get_hit(self, tmp_path):
-        """Test cache hit returns stored result."""
-        # Arrange
-        cache_file = tmp_path / "cache.json"
-        cache = MetadataCache(cache_file)
-        test_result = ExternalMetadataResult(
-            imdb_id="tt123",
-            imdb_url="https://imdb.com/title/tt123",
-            success=True
-        )
-        cache.set("Test Movie", 2023, "movie", test_result)
-
-        # Act
-        result = cache.get("Test Movie", 2023, "movie")
-
-        # Assert
-        assert result is not None
-        assert result.imdb_id == "tt123"
-        assert result.success is True
-
-    def test_cache_get_miss(self):
-        """Test cache miss returns None."""
-        # Arrange
-        cache = MetadataCache()
-
-        # Act
-        result = cache.get("Nonexistent Movie", 2023, "movie")
-
-        # Assert
-        assert result is None
-
-    def test_cache_get_expired(self, tmp_path, mock_xbmc):
-        """Test expired cache entries are removed."""
-        # Arrange
-        cache_file = tmp_path / "cache.json"
-        cache = MetadataCache(cache_file)
-
-        # Manually add expired entry
-        expired_time = (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
-        key = cache._make_cache_key("Test Movie", 2023, "movie")
-        cache._cache_data["entries"][key] = {
-            "imdb_id": "tt123",
-            "expires_at": expired_time
-        }
-
-        # Act
-        result = cache.get("Test Movie", 2023, "movie")
-
-        # Assert
-        assert result is None
-        mock_xbmc.log.assert_called_with("Cache entry expired for 'Test Movie'", 0)  # LOGDEBUG
-        assert "test_key" not in cache._cache_data["entries"]
-
-    def test_cache_set_stores_result(self, tmp_path):
-        """Test cache stores results with expiration."""
-        # Arrange
-        cache_file = tmp_path / "cache.json"
-        cache = MetadataCache(cache_file, ttl_days=7)
-        result = ExternalMetadataResult(imdb_id="tt456", success=True)
-
-        # Act
-        cache.set("Another Movie", 2024, "movie", result)
-
-        # Assert
-        key = cache._make_cache_key("Another Movie", 2024, "movie")
-        entry = cache._cache_data["entries"][key]
-        assert entry["imdb_id"] == "tt456"
-        assert entry["success"] is True
-
-        # Check expiration is set correctly
-        expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", ""))
-        expected_expiry = datetime.utcnow() + timedelta(days=7)
-        assert abs((expires_at - expected_expiry).total_seconds()) < 1  # Within 1 second
-
-    def test_cache_clear(self, tmp_path, mock_xbmc):
-        """Test cache clear removes all entries."""
-        # Arrange
-        cache_file = tmp_path / "cache.json"
-        cache = MetadataCache(cache_file)
-        cache.set("Movie 1", 2023, "movie", ExternalMetadataResult(imdb_id="tt1", success=True))
-        cache.set("Movie 2", 2023, "movie", ExternalMetadataResult(imdb_id="tt2", success=True))
-
-        # Act
-        cache.clear()
-
-        # Assert
-        assert cache._cache_data["entries"] == {}
-        mock_xbmc.log.assert_called_with("External metadata cache cleared", 1)  # LOGINFO
-
-    def test_cache_stats(self, tmp_path):
-        """Test cache statistics."""
-        # Arrange
-        cache_file = tmp_path / "cache.json"
-        cache = MetadataCache(cache_file, ttl_days=5)
-
-        # Add some entries
-        cache.set("Fresh", 2023, "movie", ExternalMetadataResult(imdb_id="tt1", success=True))
-        # Manually add expired entry
-        expired_key = cache._make_cache_key("Expired", 2023, "movie")
-        cache._cache_data["entries"][expired_key] = {
-            "imdb_id": "tt2",
-            "expires_at": (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
-        }
-
-        # Act
-        stats = cache.stats()
-
-        # Assert
-        assert stats["cache_file"] == str(cache_file)
-        assert stats["ttl_days"] == 5
-        assert stats["total_entries"] == 2
-        assert stats["expired_entries"] == 1
 
 
 class TestOMDBProvider:
     """Test cases for OMDBProvider class."""
 
-    @pytest.fixture
-    def mock_cache(self):
-        """Mock MetadataCache for testing."""
-        return Mock(spec=MetadataCache)
 
-    def test_provider_initialization(self, mock_cache):
+
+    def test_provider_initialization(self):
         """Test OMDB provider initializes correctly."""
         # Arrange
         api_key = "test_key"
-        config = {"max_retries": 5, "use_cache": True}
+        config = {"max_retries": 5}
 
         # Act
         provider = OMDBProvider(api_key, config)
@@ -296,39 +57,12 @@ class TestOMDBProvider:
         assert provider.provider_name == "OMDB"
         assert isinstance(provider.title_normalizer, TitleNormalizer)
         assert isinstance(provider.retry_strategy, RetryStrategy)
-        assert provider.cache is not None
 
-    def test_provider_initialization_no_cache(self):
-        """Test OMDB provider initializes without cache."""
-        # Arrange
-        api_key = "test_key"
-        config = {"use_cache": False}
 
-        # Act
-        provider = OMDBProvider(api_key, config)
 
-        # Assert
-        assert provider.cache is None
-
-    @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.MetadataCache')
-    def test_provider_cache_hit(self, mock_cache_class, mock_cache):
-        """Test provider uses cache when available."""
-        # Arrange
-        mock_cache_class.return_value = mock_cache
-        mock_cache.get.return_value = ExternalMetadataResult(imdb_id="tt123", success=True)
-
-        provider = OMDBProvider("test_key")
-
-        # Act
-        result = provider.get_imdb_id("Test Movie", year=2023)
-
-        # Assert
-        mock_cache.get.assert_called_once_with("Test Movie", 2023, "movie")
-        assert result.imdb_id == "tt123"
-        assert result.success is True
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
-    def test_provider_api_success(self, mock_get, mock_cache):
+    def test_provider_api_success(self, mock_get):
         """Test successful OMDB API call."""
         # Arrange
         mock_response = Mock()
@@ -337,8 +71,6 @@ class TestOMDBProvider:
         mock_get.return_value = mock_response
 
         provider = OMDBProvider("test_key")
-        provider.cache = mock_cache
-        mock_cache.get.return_value = None  # Cache miss
 
         # Act
         result = provider.get_imdb_id("Test Movie", year=2023)
@@ -348,10 +80,9 @@ class TestOMDBProvider:
         assert result.imdb_id == "tt1234567"
         assert result.imdb_url == "https://www.imdb.com/title/tt1234567/"
         assert result.source_provider == "OMDB"
-        mock_cache.set.assert_called_once()
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
-    def test_provider_title_variants(self, mock_get, mock_cache):
+    def test_provider_title_variants(self, mock_get):
         """Test provider tries multiple title variants."""
         # Arrange
         # First two calls return no IMDB ID, third succeeds
@@ -367,8 +98,6 @@ class TestOMDBProvider:
         mock_get.side_effect = mock_responses
 
         provider = OMDBProvider("test_key")
-        provider.cache = mock_cache
-        mock_cache.get.return_value = None
 
         # Act
         result = provider.get_imdb_id("Test Movie", "Original Test Movie", 2023)
@@ -379,7 +108,7 @@ class TestOMDBProvider:
         assert mock_get.call_count == 2  # Tried 2 variants
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
-    def test_provider_no_match_found(self, mock_get, mock_cache):
+    def test_provider_no_match_found(self, mock_get):
         """Test provider returns failure when no match found."""
         # Arrange
         mock_response = Mock()
@@ -388,8 +117,6 @@ class TestOMDBProvider:
         mock_get.return_value = mock_response
 
         provider = OMDBProvider("test_key")
-        provider.cache = mock_cache
-        mock_cache.get.return_value = None
 
         # Act
         result = provider.get_imdb_id("Nonexistent Movie", year=2023)
@@ -398,7 +125,6 @@ class TestOMDBProvider:
         assert result.success is False
         assert result.imdb_id is None
         assert "No match found" in result.error_message
-        mock_cache.set.assert_called_once()  # Still caches the failure
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
     def test_provider_test_connection_success(self, mock_get):
@@ -736,27 +462,3 @@ path2 = xbmcvfs.translatePath('special://profile/')
 
         # Assert
         assert contains_deprecated, f"Should detect deprecated API: {deprecated_api}"
-
-    def test_kodi_api_version_compatibility(self, tmp_path):
-        """Test that code is compatible with Kodi 19+ API changes."""
-        # This test ensures we're using the correct APIs for Kodi 19+
-
-        # Arrange - check that the cache code uses xbmcvfs
-        with patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmcaddon') as mock_addon, \
-             patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmcvfs') as mock_vfs, \
-             patch('plugin_video_mubi.resources.lib.external_metadata.cache.xbmc') as mock_xbmc:
-
-            mock_instance = Mock()
-            mock_instance.getAddonInfo.return_value = "/fake/profile"
-            mock_addon.Addon.return_value = mock_instance
-            
-            # Use a real temp path so mkdir works
-            mock_vfs.translatePath.return_value = str(tmp_path / "fake_profile")
-
-            # Act
-            cache = MetadataCache()
-
-            # Assert
-            mock_vfs.translatePath.assert_called_once_with("/fake/profile")
-            # Ensure deprecated xbmc.translatePath is NOT called
-            assert not hasattr(mock_xbmc, 'translatePath') or not mock_xbmc.translatePath.called
