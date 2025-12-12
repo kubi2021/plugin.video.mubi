@@ -47,11 +47,11 @@ msgid "Advanced"
 msgstr ""
 
 msgctxt "#30601"
-msgid "Sync Concurrency"
+msgid "Sync Concurrency (0=Auto)"
 msgstr ""
 
 msgctxt "#30602"
-msgid "Number of parallel downloads. Lower this if you experience crashes or lag."
+msgid "Set to 0 to auto-detect optimal threads based on CPU. Otherwise manual."
 msgstr ""
 
 

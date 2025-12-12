@@ -72,8 +72,14 @@ class Library:
              # Safer to import again or just use xbmcaddon.Addon()
              import xbmcaddon
              max_workers = xbmcaddon.Addon().getSettingInt("sync_concurrency")
-             # Fallback if 0 or invalid
-             if max_workers < 1: 
+             
+             if max_workers == 0:
+                 # Auto mode: 5 workers per CPU core, max 20
+                 cpu_count = os.cpu_count() or 1
+                 max_workers = min(20, cpu_count * 5)
+                 xbmc.log(f"MUBI Sync: Auto-concurrency detected {cpu_count} CPUs. Using {max_workers} threads.", xbmc.LOGINFO)
+             elif max_workers < 1:
+                 # Fallback for invalid negative values
                  max_workers = 5
         except Exception:
              max_workers = 5
