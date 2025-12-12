@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 import xbmc
 import xbmcgui
 import xbmcaddon
@@ -102,7 +103,11 @@ class Library:
                     # Check cancel
                     if pDialog.iscanceled():
                         xbmc.log("User canceled the sync process.", xbmc.LOGDEBUG)
-                        executor.shutdown(wait=False, cancel_futures=True)
+                        # cancel_futures was added in Python 3.9
+                        if sys.version_info >= (3, 9):
+                            executor.shutdown(wait=False, cancel_futures=True)
+                        else:
+                            executor.shutdown(wait=False)
                         break
 
                     film = future_to_film[future]
