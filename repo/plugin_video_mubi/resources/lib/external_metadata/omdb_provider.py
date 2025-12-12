@@ -122,7 +122,7 @@ class OMDBProvider(BaseMetadataProvider):
                 params={"apikey": self.api_key, "t": "test", "type": "movie"},
                 timeout=10,
             )
-            return response.status_code in {200, 401}
+            return response.status_code == 200
         except Exception:  # pragma: no cover
             xbmc.log("OMDB: Connection test failed", xbmc.LOGERROR)
             return False

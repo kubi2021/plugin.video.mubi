@@ -141,7 +141,7 @@ class TestOMDBProvider:
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
     def test_provider_test_connection_401(self, mock_get):
-        """Test connection test succeeds with 401 (valid API key check)."""
+        """Test connection test fails with 401 (invalid API key)."""
         # Arrange
         mock_response = Mock()
         mock_response.status_code = 401
@@ -150,7 +150,7 @@ class TestOMDBProvider:
         provider = OMDBProvider("invalid_key")
 
         # Act & Assert
-        assert provider.test_connection() is True
+        assert provider.test_connection() is False
 
     @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
     def test_provider_test_connection_failure(self, mock_get):

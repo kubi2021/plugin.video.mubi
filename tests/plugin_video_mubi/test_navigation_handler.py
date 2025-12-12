@@ -338,7 +338,13 @@ class TestNavigationHandler:
                 with patch.object(navigation_handler, 'clean_kodi_library'):
                     with patch.object(navigation_handler, 'update_kodi_library'):
                         with patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
-                            navigation_handler.sync_films(countries=['CH'])
+                            with patch('plugin_video_mubi.resources.lib.external_metadata.MetadataProviderFactory') as mock_factory:
+                                # Ensure validation passes
+                                mock_provider = Mock()
+                                mock_provider.test_connection.return_value = True
+                                mock_factory.get_provider.return_value = mock_provider
+                                
+                                navigation_handler.sync_films(countries=['CH'])
 
         # Verify the sync was called with correct countries
         mock_mubi.get_all_films.assert_called_once()
@@ -351,8 +357,16 @@ class TestNavigationHandler:
     def test_sync_films_exception(self, mock_log, navigation_handler, mock_mubi):
         """Test sync_films handles exceptions."""
         mock_mubi.get_all_films.side_effect = Exception("API Error")
+        
+        with patch('plugin_video_mubi.resources.lib.external_metadata.MetadataProviderFactory') as mock_factory, \
+             patch('xbmcgui.Dialog'), \
+             patch('plugin_video_mubi.resources.lib.navigation_handler.LibraryMonitor'):
+             
+             mock_provider = Mock()
+             mock_provider.test_connection.return_value = True
+             mock_factory.get_provider.return_value = mock_provider
 
-        navigation_handler.sync_films(countries=['CH'])
+             navigation_handler.sync_films(countries=['CH'])
 
         mock_log.assert_called()
 

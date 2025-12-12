@@ -793,10 +793,11 @@ class NavigationHandler:
             # Check if metadata providers are configured
             from .external_metadata import MetadataProviderFactory
 
-            # Check if configuration is valid (has at least one key)
-            if not MetadataProviderFactory.validate_configuration():
+            # Check if configuration is valid and provider is reachable
+            provider = MetadataProviderFactory.get_provider()
+            
+            if not provider:
                 dialog = xbmcgui.Dialog()
-                
                 # Show a message with options to either go to settings or cancel
                 ret = dialog.yesno(
                     "Metadata Provider Required",
@@ -810,12 +811,29 @@ class NavigationHandler:
                 if ret:
                     MetadataProviderFactory.open_settings()
                     # Re-validate after user closes settings
-                    if not MetadataProviderFactory.validate_configuration():
-                         # Still missing keys
+                    provider = MetadataProviderFactory.get_provider()
+                    if not provider:
                          return
                 else:
-                    # User cancelled
                     return
+
+            # Test connection for the selected provider
+            xbmcgui.Dialog().notification("MUBI", f"Verifying {provider.provider_name} API key...", xbmcgui.NOTIFICATION_INFO, 2000)
+            if not provider.test_connection():
+                xbmcgui.Dialog().notification(
+                    "MUBI", 
+                    f"Invalid API Key for {provider.provider_name}. Sync aborted.", 
+                    xbmcgui.NOTIFICATION_ERROR,
+                    5000
+                )
+                xbmc.log(f"Sync aborted: Invalid API key for {provider.provider_name}", xbmc.LOGERROR)
+                
+                # Release lock before return since we are inside the 'with lock' logically (handled by caller logic if we used 'with', but here we set boolean)
+                # ERROR: The original code sets `_sync_in_progress = True` BEFORE this check (line 790).
+                # We simply return, so we MUST reset the lock flag.
+                with NavigationHandler._sync_lock:
+                    NavigationHandler._sync_in_progress = False
+                return
 
             # Validate countries list
             if not countries:
