@@ -135,8 +135,8 @@ class TMDBProvider(BaseMetadataProvider):
                         try:
                             # Parse year from "YYYY-MM-DD"
                             movie_year = int(release_date.split("-")[0])
-                            # Check tolerance ±1 year
-                            if abs(movie_year - target_year) <= 1:
+                            # Check tolerance ±2 year
+                            if abs(movie_year - target_year) <= 2:
                                 return ExternalMetadataResult(
                                     success=True,
                                     tmdb_id=str(movie["id"]),
@@ -149,7 +149,7 @@ class TMDBProvider(BaseMetadataProvider):
                 return ExternalMetadataResult(
                     success=False,
                     source_provider=self.provider_name,
-                    error_message=f"No match found within 1 year of {target_year}"
+                    error_message=f"No match found within 2 years of {target_year}"
                 )
                 
             # Return the ID of the first result (default strict behavior)

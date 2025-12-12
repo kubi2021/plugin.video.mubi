@@ -96,8 +96,31 @@ class TestTMDBProvider:
         tmdb_id = provider._search_movie("Movie", year=None, target_year=2023)
         
         # Assert
+        # Assert
         assert tmdb_id == 102
-        # Verify year param was NOT sent
+
+    @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
+    def test_search_movie_fuzzy_year_extended_tolerance(self, mock_get):
+        """Test fuzzy year matching with increased tolerance (±2 years)."""
+        # Arrange
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [
+                {"id": 201, "title": "Miss", "release_date": "1990-01-01"},
+                {"id": 202, "title": "Hit", "release_date": "2025-01-01"},  # Target + 2
+            ]
+        }
+        mock_get.return_value = mock_response
+        
+        provider = TMDBProvider("test_key")
+        
+        # Act
+        # Target 2023. 2025 is within ±2
+        tmdb_id = provider._search_movie("Movie", year=None, target_year=2023)
+        
+        # Assert
+        assert tmdb_id == 202
         args, kwargs = mock_get.call_args
         assert "year" not in kwargs['params']
 
