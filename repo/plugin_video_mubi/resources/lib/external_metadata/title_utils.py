@@ -117,23 +117,59 @@ class TitleNormalizer:
                     alternatives.append(new_title)
         return alternatives
 
+    def clean_title(self, title: str) -> str:
+        """Remove common extra information that causes search failures."""
+        # Patterns to remove
+        patterns = [
+            r"\(.*?Director'?s Cut.*?\)",
+            r"\(.*?Redux.*?\)",
+            r"\(.*?Restored.*?\)",
+            r"\(.*?Remastered.*?\)",
+            r"Director'?s Cut",
+            r"Redux",
+            r"\[MV\]",  # Music Video
+        ]
+        
+        cleaned = title
+        for pattern in patterns:
+            cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+            
+        return re.sub(r"\s+", " ", cleaned).strip()
+
     def generate_title_variants(
         self,
         title: str,
         original_title: Optional[str] = None,
     ) -> List[str]:
-        """Return list of titles to try in order (original, normalized, alternatives)."""
+        """Return list of titles to try in order (original, cleaned, normalized, alternatives)."""
         variants: List[str] = []
 
         normalized_title = title.strip()
+        
+        # 1. Original MUBI title
+        variants.append(normalized_title)
+        
+        # 2. Original title (from metadata)
         if original_title and original_title.strip().lower() != normalized_title.lower():
             variants.append(original_title.strip())
 
+        # 3. Cleaned title (suffixes removed)
+        cleaned = self.clean_title(normalized_title)
+        if cleaned and cleaned.lower() != normalized_title.lower():
+            variants.append(cleaned)
+
+        # 4. Normalized title (conjunctions removed)
         normalized = self.normalize_title(normalized_title)
-        if normalized:
+        if normalized and normalized != normalized_title and normalized != cleaned:
             variants.append(normalized)
 
-        variants.extend(self.generate_alternative_spellings(normalized))
+        # 5. Alternative spellings
+        # Generate alternatives from the BEST candidate (usually the cleaned one)
+        base_for_alternatives = cleaned if cleaned else normalized_title
+        alternatives = self.generate_alternative_spellings(base_for_alternatives)
+        for alt in alternatives:
+            if alt not in variants:
+                variants.append(alt)
 
         return variants
 

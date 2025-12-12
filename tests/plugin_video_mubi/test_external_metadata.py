@@ -184,6 +184,52 @@ class TestTitleNormalizer:
         # This test documents current behavior - '&' is not removed
         assert result2 == "Film & the Sea"
 
+    @pytest.mark.parametrize(
+        "title, expected",
+        [
+            ("Normal Title", "Normal Title"),
+            ("Title (Director's Cut)", "Title"),
+            ("Movie (Redux)", "Movie"),
+            ("Film [MV]", "Film"),
+            ("Title (Restored)", "Title"),
+            ("Title (Remastered)", "Title"),
+            ("Movie (2024 Director's Cut)", "Movie"),
+        ],
+    )
+    def test_clean_title(self, title, expected):
+        """Test suffix stripping logic."""
+        normalizer = TitleNormalizer()
+        assert normalizer.clean_title(title) == expected
+
+    def test_generate_title_variants_with_suffix_stripping(self):
+        """Test that generate_title_variants includes the cleaned title."""
+        normalizer = TitleNormalizer()
+        orig_title = "Until the End of the World (Director's Cut)"
+        variants = normalizer.generate_title_variants(orig_title)
+        
+        # Verify cleaned title is present
+        assert "Until the End of the World" in variants
+        
+        # Verify order: Original -> Cleaned -> Normalized
+        assert variants[0] == orig_title
+        assert variants[1] == "Until the End of the World"
+
+    def test_generate_title_variants_music_video(self):
+        """Test cleaning of music video tags."""
+        normalizer = TitleNormalizer()
+        orig_title = "Leningrad Cowboys: These Boots [MV]"
+        variants = normalizer.generate_title_variants(orig_title)
+        
+        assert "Leningrad Cowboys: These Boots" in variants
+
+    def test_generate_title_variants_ignores_empty_cleaned(self):
+        """Test avoids adding empty string if cleaning removes everything."""
+        normalizer = TitleNormalizer()
+        # Edge case: Title is purely a suffix to be removed (unlikely but good to validte)
+        variants = normalizer.generate_title_variants("[MV]")
+        assert "" not in variants
+        assert variants == ["[MV]"] # Should fall back to original if cleaned is empty
+
     def test_normalize_title_collapses_whitespace(self, normalizer):
         """Test title normalization collapses multiple spaces."""
         # Arrange & Act
@@ -380,6 +426,7 @@ class TestMetadataProviderFactory:
         mock_addon.getSetting.side_effect = lambda key: "omdb_key" if key == "omdbapiKey" else ""
         provider = MetadataProviderFactory.get_provider()
         assert not MockTMDB.called
+        assert MockOMDB.called
         assert MockOMDB.called
 
         # Reset mocks

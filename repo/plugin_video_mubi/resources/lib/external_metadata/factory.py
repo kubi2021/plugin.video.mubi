@@ -72,7 +72,7 @@ class MetadataProviderFactory:
             )
             return TMDBProvider(api_key=tmdb_key)
         
-        # Priority 2: OMDB (fallback for existing users)
+        # Priority 3: OMDB (fallback for existing users)
         if omdb_key:
             xbmc.log(
                 "External metadata: Using OMDB provider",
@@ -80,7 +80,7 @@ class MetadataProviderFactory:
             )
             return OMDBProvider(api_key=omdb_key)
         
-        # Priority 3: No provider available
+        # Priority 4: No provider available
         xbmc.log(
             "External metadata: No provider available - no API keys configured",
             xbmc.LOGWARNING
