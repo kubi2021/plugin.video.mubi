@@ -147,98 +147,102 @@ class MubiScraper:
 
         return validation_errors
 
-    def detect_clusters(self, final_items, fuzzy_threshold=0.98):
+    def calculate_greedy_targets(self, existing_films):
         """
-        Analyzes the full dataset to find countries with identical or highly similar catalogues.
-        Uses a fuzzy matching approach (Jaccard similarity >= threshold OR subset relationship).
-        Returns a dictionary representing the clusters.
+        Uses a Greedy Set Cover algorithm to find the minimum set of countries
+        needed to cover all films in the existing dataset.
         """
-        logger.info(f"Analyzing data for clusters (Fuzzy Threshold: {fuzzy_threshold})...")
-        country_films = {} # country_code -> set of film IDs
-
-        # 1. Build country -> film_ids map
-        for film in final_items:
+        logger.info("Calculating optimal country set using Greedy Set Cover...")
+        
+        # 1. Build Universe and Subsets
+        # Universe: All Film IDs we need to cover
+        universe = set()
+        # Subsets: Country -> Set of Film IDs available there
+        country_coverage = {c: set() for c in self.COUNTRIES}
+        
+        for film in existing_films:
             fid = film['mubi_id']
-            for country in film['countries']:
-                if country not in country_films:
-                    country_films[country] = set()
-                country_films[country].add(fid)
-
-        # 2. Sort potential leaders by catalogue size (descending)
-        sorted_countries = sorted(country_films.keys(), key=lambda c: len(country_films[c]), reverse=True)
+            universe.add(fid)
+            for c in film.get('countries', []):
+                if c in country_coverage:
+                    country_coverage[c].add(fid)
         
-        assigned = set()
-        clusters = []
+        logger.info(f"Universe size: {len(universe)} films across {len(self.COUNTRIES)} countries.")
         
-        for leader in sorted_countries:
-            if leader in assigned:
-                continue
-                
-            cluster_members = [leader]
-            leader_set = country_films[leader]
-            assigned.add(leader)
+        # 2. Greedy Loop
+        selected_countries = []
+        covered_films = set()
+        
+        while len(covered_films) < len(universe):
+            # Find country that covers the most *uncovered* films
+            best_country = None
+            best_new_coverage = 0
             
-            # Greedy search for members
-            for candidate in sorted_countries:
-                if candidate in assigned:
+            remaining_needed = universe - covered_films
+            
+            for country, films in country_coverage.items():
+                if country in selected_countries:
                     continue
                 
-                candidate_set = country_films[candidate]
+                # Intersection of this country's films with what we still need
+                newly_covered = len(films.intersection(remaining_needed))
                 
-                # Check similarity
-                intersection = len(leader_set & candidate_set)
-                union = len(leader_set | candidate_set)
-                jaccard = intersection / union if union > 0 else 0
-                
-                is_subset = candidate_set.issubset(leader_set)
-                
-                if jaccard >= fuzzy_threshold or is_subset:
-                     cluster_members.append(candidate)
-                     assigned.add(candidate)
+                if newly_covered > best_new_coverage:
+                    best_new_coverage = newly_covered
+                    best_country = country
             
-            cluster = {
-                "leader": leader,
-                "members": sorted(cluster_members),
-                "count": len(leader_set),
-                "hash": hashlib.md5(",".join(map(str, sorted(list(leader_set)))).encode('utf-8')).hexdigest()
-            }
-            clusters.append(cluster)
-        
-        # Sort clusters by member count (descending)
-        clusters.sort(key=lambda x: len(x['members']), reverse=True)
-        
-        logger.info(f"Detected {len(clusters)} unique clusters across {len(country_films)} countries.")
-        return clusters
+            if best_country is None:
+                # This happens if remaining films are not available in any known country (should not happen if data is consistent)
+                logger.warning(f"Could not find coverage for {len(remaining_needed)} remaining films. Stopping greedy search.")
+                break
+            
+            selected_countries.append(best_country)
+            covered_films.update(country_coverage[best_country])
+            logger.info(f"Selected {best_country} (Covers {best_new_coverage} new films). Total covered: {len(covered_films)}/{len(universe)}")
+            
+        logger.info(f"Optimal set found: {len(selected_countries)} countries cover {len(covered_films)} films.")
+        # Sort for consistent execution order
+        return sorted(selected_countries)
 
-    def run(self, output_path='films.json', mode='deep', clusters_path='clusters.json'):
+    def run(self, output_path='films.json', mode='deep', input_path=None):
         all_films = {} # id -> film_data
         film_countries = {} # id -> set(countries)
         errors = [] # Track errors per country
         
         target_countries = []
-        cluster_map = {} # leader -> list of members (only for shallow mode)
 
+        # -- INITIALIZATION --
         if mode == 'deep':
-            logger.info("Starting DEEP sync (Calibration Mode)...")
+            logger.info("Starting DEEP sync (Full Calibration)...")
             target_countries = self.COUNTRIES
+        
         elif mode == 'shallow':
-            logger.info("Starting SHALLOW sync (Fast Mode)...")
-            if not os.path.exists(clusters_path):
-                logger.error(f"Clusters file {clusters_path} not found. Cannot run shallow sync.")
+            logger.info("Starting SHALLOW sync (Incremental Update)...")
+            
+            if not input_path or not os.path.exists(input_path):
+                logger.error(f"Input file {input_path} not found. Cannot run shallow sync without previous state.")
                 sys.exit(1)
             
-            with open(clusters_path, 'r') as f:
-                clusters = json.load(f)
+            # Load previous state
+            with open(input_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                existing_items = data.get('items', [])
             
-            for c in clusters:
-                target_countries.append(c['leader'])
-                cluster_map[c['leader']] = c['members']
+            logger.info(f"Loaded {len(existing_items)} existing films.")
             
-            logger.info(f"Loaded {len(clusters)} clusters. Will scrape {len(target_countries)} leaders.")
+            # 1. Calculate Targets
+            target_countries = self.calculate_greedy_targets(existing_items)
+            
+            # 2. Pre-populate data structures with existing data (Append-Only / Merge Strategy)
+            for film in existing_items:
+                fid = film['mubi_id']
+                all_films[fid] = film
+                film_countries[fid] = set(film.get('countries', []))
 
         # --- SCRAPING LOOP (PARALLEL) ---
+        logger.info(f"Starting scrape for {len(target_countries)} countries: {target_countries}")
+        
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
-            # Map countries to futures
             future_to_country = {executor.submit(self.fetch_films_for_country, country): country for country in target_countries}
             
             for future in concurrent.futures.as_completed(future_to_country):
@@ -247,72 +251,61 @@ class MubiScraper:
                 try:
                     films = future.result()
                     
-                    # Check for empty result if expected
                     if not films:
-                        logger.warning(f"No films found for {country}")
-                        if country in self.CRITICAL_COUNTRIES:
-                                msg = f"Critical country {country} returned 0 films."
-                                logger.error(msg)
-                                errors.append(msg)
+                         logger.warning(f"No films found for {country}")
+                         # Only enforce critical country check in DEEP mode
+                         if mode == 'deep' and country in self.CRITICAL_COUNTRIES:
+                                 errors.append(f"Critical country {country} returned 0 films.")
 
-                    # Determine which countries get credit for these films
-                    countries_to_assign = [country]
-                    if mode == 'shallow' and country in cluster_map:
-                        countries_to_assign = cluster_map[country]
-
+                    # MERGE LOGIC
                     for film in films:
                         fid = film['id']
+                        
+                        # Update or Create Film Object
                         if fid not in all_films:
-                            # Simplify film object to match schema
                             all_films[fid] = {
                                 'mubi_id': fid,
                                 'title': film.get('title'),
                                 'original_title': film.get('original_title'),
                                 'genres': film.get('genres'),
-                                'countries': [], # Populated later
+                                'countries': [], 
                                 'year': film.get('year'),
                                 'duration': film.get('duration'),
                                 'directors': [d['name'] for d in film.get('directors', [])]
                             }
                             film_countries[fid] = set()
                         
-                        # Assign to ALL members of the cluster
-                        for member in countries_to_assign:
-                            film_countries[fid].add(member)
+                        # ALWAYS Add country (never remove)
+                        film_countries[fid].add(country)
                     
-                    logger.info(f"Finished {country} (Cluster size: {len(countries_to_assign)}). Unique films: {len(all_films)}")
+                    logger.info(f"Finished {country}. Total unique films: {len(all_films)}")
                     
                 except Exception as e:
                     logger.error(f"Failed to process {country}: {e}")
+                    # In shallow mode, individual country failures shouldn't stop the whole process 
+                    # unless it's catastrophic, but we'll track them.
                     errors.append(f"{country}: {str(e)}")
 
-        # Merge countries into film objects
+        # --- FINALIZATION ---
         final_items = []
         for fid, film in all_films.items():
             film['countries'] = sorted(list(film_countries[fid]))
             final_items.append(film)
 
-        # PANIC CHECK: If 0 films, this is a critical failure.
+        # PANIC CHECK
         if len(final_items) == 0:
             logger.error("CRITICAL: Scraper generated 0 films. Aborting.")
             sys.exit(1)
 
-        # VALIDATE DATA
-        data_errors = self.validate_data(final_items)
-        if data_errors:
-            logger.error(f"Data Validation Failed with {len(data_errors)} errors:")
-            for err in data_errors:
-                logger.error(f"  - {err}")
-            errors.extend(data_errors)
+        # VALIDATE (Only in Deep Mode)
+        if mode == 'deep':
+            data_errors = self.validate_data(final_items)
+            if data_errors:
+                errors.extend(data_errors)
+        else:
+             logger.info("Skipping data validation for Shallow Sync (Append-Only mode).")
 
-        # CLUSTER CALIBRATION (Deep Mode Only)
-        if mode == 'deep' and not errors:
-            clusters = self.detect_clusters(final_items)
-            with open(clusters_path, 'w', encoding='utf-8') as f:
-                json.dump(clusters, f, indent=2)
-            logger.info(f"Saved cluster map to {clusters_path}")
-
-        # Create output object
+        # SAVE
         output = {
             'meta': {
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
@@ -323,17 +316,13 @@ class MubiScraper:
             'items': final_items
         }
 
-        # Save to file
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
         
         logger.info(f"Successfully saved {len(final_items)} films to {output_path}")
 
-        # NOTIFICATION ON ERRORS
         if errors:
-            logger.error(f"Scraper finished with {len(errors)} errors:")
-            for err in errors:
-                logger.error(f"  - {err}")
+            logger.error(f"Scraper finished with {len(errors)} errors.")
             sys.exit(1)
 
 if __name__ == "__main__":
@@ -341,9 +330,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mubi Catalog Scraper")
     parser.add_argument('--mode', choices=['deep', 'shallow'], default='deep', help="Deep (calibration) or Shallow (fast) sync")
     parser.add_argument('--output', default='films.json', help="Output file path")
-    parser.add_argument('--clusters', default='clusters.json', help="Clusters map file path")
+    parser.add_argument('--input', default=None, help="Input file path (required for shallow mode)")
     
     args = parser.parse_args()
     
     scraper = MubiScraper()
-    scraper.run(output_path=args.output, mode=args.mode, clusters_path=args.clusters)
+    scraper.run(output_path=args.output, mode=args.mode, input_path=args.input)

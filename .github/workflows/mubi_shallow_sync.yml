@@ -2,7 +2,7 @@ name: Mubi Shallow Sync (Fast)
 
 on:
   schedule:
-    - cron: '0 4 */3 * *' # Every 3 days at 4am UTC
+    - cron: '0 12 * * 2,4,6' # Every Tuesday, Thursday, Saturday at 12:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -31,12 +31,13 @@ jobs:
         # Create database directory
         mkdir -p database/v1
         
-        # Fetch clusters.json from database branch (latest version)
-        # Using wget to fetch raw file from GitHub
-        wget https://raw.githubusercontent.com/${{ github.repository }}/database/v1/clusters.json -O backend/clusters.json
+        # Fetch films.json (gzipped) from database branch to use as input for greedy algorithm
+        # We need to decompress it first because the scraper expects raw JSON
+        wget https://raw.githubusercontent.com/${{ github.repository }}/database/v1/films.json.gz -O backend/previous_films.json.gz
+        gzip -d backend/previous_films.json.gz
         
-        # Run scraper in SHALLOW mode
-        python backend/scraper.py --mode shallow --output database/v1/films.json --clusters backend/clusters.json
+        # Run scraper in SHALLOW mode with input
+        python backend/scraper.py --mode shallow --output database/v1/films.json --input backend/previous_films.json
         
     - name: Generate Repo Files (Compress & Hash)
       run: |
@@ -53,3 +54,18 @@ jobs:
         folder: database # The folder the action should deploy.
         clean: true # Automatically remove deleted files from the deploy branch
         force: true # Force push to ignore history (orphan-like behavior)
+
+    - name: Notify on Failure
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { repo, owner } = context.repo;
+          const run_url = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+          
+          await github.rest.issues.create({
+            owner,
+            repo,
+            title: `🚨 Scraper Failed: Shallow Sync`,
+            body: `The scheduled shallow sync failed.\n\n[View Run logs](${run_url})\n\nPlease check the logs for 429 errors or API changes.`
+          });

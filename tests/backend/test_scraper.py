@@ -1,5 +1,7 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
+import tempfile
+import shutil
 import json
 import os
 import sys
@@ -205,89 +207,155 @@ class TestMubiScraper(unittest.TestCase):
         errors = self.scraper.validate_data(items)
         self.assertTrue(any("Field Integrity" in e for e in errors))
 
-    def test_detect_clusters(self):
-        """Test that fuzzy clustering groups similar catalogues."""
-        # Setup:
-        # DE (Leader): [1, 2, 3] (3 films)
-        # AT (Subset): [1, 2]    (2 films, 100% subset, Jaccard 0.66) -> Should be grouped
-        # CH (Similar): [1, 2, 4] (3 films, Jaccard 0.5) -> Should NOT be grouped with 0.98 threshold
-        # US (Different): [5]
+    def test_run_deep_mode_validation(self):
+        """Test deep mode still runs validation."""
+        # Setup mocks to return valid data but fail validation
+        self.scraper.session.get.return_value.status_code = 200
+        self.scraper.session.get.return_value.json.return_value = {
+             'films': [{'id': 1, 'title': ''}], # Missing title triggers validation error
+             'meta': {}
+        }
         
-        final_items = [
-            {'mubi_id': 1, 'countries': ['DE', 'AT', 'CH']},
-            {'mubi_id': 2, 'countries': ['DE', 'AT', 'CH']},
+        with patch('backend.scraper.MubiScraper.COUNTRIES', ['US']):
+           with patch('builtins.open', mock_open()) as mocked_file:
+                # Mock sys.exit to catch failure
+                with self.assertRaises(SystemExit):
+                     self.scraper.run(mode='deep')
+
+    def test_run_shallow_mode_merge(self):
+        """Test that shallow mode merges new countries into existing films without duplicating."""
+        # Create temp dir
+        test_dir = tempfile.mkdtemp()
+        try:
+            # 1. Setup Input: Film 1 known in US
+            previous_data = {
+                'items': [
+                    {'mubi_id': 1, 'countries': ['US'], 'title': 'Film 1'}
+                ]
+            }
+            input_file = os.path.join(test_dir, "previous.json")
+            with open(input_file, 'w') as f:
+                json.dump(previous_data, f)
+                
+            # 2. Setup Scrape Result: Film 1 found in GB (New country)
+            self.scraper.session.get.return_value.status_code = 200
+            self.scraper.session.get.return_value.json.return_value = {
+                 'films': [{'id': 1, 'title': 'Film 1', 'directors': []}], 
+                 'meta': {'next_page': None}
+            }
+            
+            with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB']):
+                 # Force target to GB to simulate finding the film there
+                 with patch.object(self.scraper, 'calculate_greedy_targets', return_value=['GB']):
+                     output_file = os.path.join(test_dir, "output.json")
+                     self.scraper.run(output_path=output_file, mode='shallow', input_path=input_file)
+                     
+                     # 3. Verify Output
+                     with open(output_file, 'r') as f:
+                         output = json.load(f)
+                         items = output['items']
+                         
+                         # Should have 1 item (no duplicate)
+                         self.assertEqual(len(items), 1)
+                         film = items[0]
+                         self.assertEqual(film['mubi_id'], 1)
+                         # Should have BOTH countries merged
+                         self.assertIn('US', film['countries'])
+                         self.assertIn('GB', film['countries'])
+        finally:
+            shutil.rmtree(test_dir)
+
+    def test_run_shallow_mode(self):
+        """Test shallow mode uses input file and greedy strategy."""
+        test_dir = tempfile.mkdtemp()
+        try:
+            # Create dummy input file
+            previous_data = {
+                'items': [
+                    {'mubi_id': 1, 'countries': ['US'], 'title': 'Test 1', 'year': 2020},
+                    {'mubi_id': 2, 'countries': ['GB'], 'title': 'Test 2', 'year': 2020}
+                ]
+            }
+            input_file = os.path.join(test_dir, "previous.json")
+            with open(input_file, 'w') as f:
+                json.dump(previous_data, f)
+                
+            # Mock scraper session to return NO new films (so we just keep existing ones)
+            self.scraper.session.get.return_value.status_code = 200
+            self.scraper.session.get.return_value.json.return_value = {
+                 'films': [], 'meta': {'next_page': None}
+            }
+            
+            with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB']):
+                 output_file = os.path.join(test_dir, "output.json")
+                 self.scraper.run(output_path=output_file, mode='shallow', input_path=input_file)
+                 
+                 # Check output
+                 with open(output_file, 'r') as f:
+                     output = json.load(f)
+                     self.assertEqual(len(output['items']), 2)
+                     # Should still have the original films even if scrape returned nothing (Append-Only)
+                     self.assertEqual(output['items'][0]['mubi_id'], 1)
+        finally:
+            shutil.rmtree(test_dir)
+
+    def test_calculate_greedy_targets(self):
+        """Test that greedy set cover finds the optimal countries."""
+        # Scenario:
+        # Film 1: [US, GB]
+        # Film 2: [US]
+        # Film 3: [DE]
+        # Film 4: [FR, DE]
+        # Optimal Set: US (covers 1, 2) + DE (covers 3, 4) -> 2 countries
+        
+        sample_data = [
+            {'mubi_id': 1, 'countries': ['US', 'GB']},
+            {'mubi_id': 2, 'countries': ['US']},
             {'mubi_id': 3, 'countries': ['DE']},
-            {'mubi_id': 4, 'countries': ['CH']},
-            {'mubi_id': 5, 'countries': ['US']}
+            {'mubi_id': 4, 'countries': ['FR', 'DE']}
         ]
         
-        # Test Default Threshold (0.98) - Subset logic should still catch AT if subset logic is active?
-        # My implementation says: "if jaccard >= threshold or is_subset".
-        # So AT (subset of DE) should be grouped with DE.
-        # CH (not subset, low Jaccard) should be separate.
-        
-        clusters = self.scraper.detect_clusters(final_items)
-        
-        # Expect 3 clusters: DE+AT, CH, US
-        self.assertEqual(len(clusters), 3)
-        
-        # Verify DE cluster
-        de_cluster = next((c for c in clusters if c['leader'] == 'DE'), None)
-        self.assertIsNotNone(de_cluster)
-        self.assertIn('AT', de_cluster['members'])
-        self.assertNotIn('CH', de_cluster['members']) # CH has film 4 which DE doesn't have
+        with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB', 'DE', 'FR']):
+             targets = self.scraper.calculate_greedy_targets(sample_data)
+             
+             self.assertEqual(len(targets), 2)
+             self.assertIn('US', targets)
+             self.assertIn('DE', targets)
 
-        # Verify CH cluster
-        ch_cluster = next((c for c in clusters if c['leader'] == 'CH'), None)
-        self.assertIsNotNone(ch_cluster)
-        
-        # Verify US cluster
-        us_cluster = next((c for c in clusters if c['leader'] == 'US'), None)
-        self.assertIsNotNone(us_cluster)
-    
-    def test_detect_clusters_high_threshold(self):
-        """Test strict threshold behavior."""
-        # A=[1,2,3], B=[1,2] (subset)
-        final_items = [
-            {'mubi_id': 1, 'countries': ['A', 'B']},
-            {'mubi_id': 2, 'countries': ['A', 'B']},
-            {'mubi_id': 3, 'countries': ['A']}
-        ]
-        # Should group because B is subset of A
-        clusters = self.scraper.detect_clusters(final_items, fuzzy_threshold=0.99)
-        self.assertEqual(len(clusters), 1)
-        self.assertEqual(clusters[0]['leader'], 'A')
-        self.assertIn('B', clusters[0]['members'])
+    def test_run_shallow_mode(self):
+        """Test shallow mode uses input file and greedy strategy."""
+        test_dir = tempfile.mkdtemp()
+        try:
+            # Create dummy input file
+            previous_data = {
+                'items': [
+                    {'mubi_id': 1, 'countries': ['US'], 'title': 'Test 1', 'year': 2020},
+                    {'mubi_id': 2, 'countries': ['GB'], 'title': 'Test 2', 'year': 2020}
+                ]
+            }
+            input_file = os.path.join(test_dir, "previous.json")
+            with open(input_file, 'w') as f:
+                json.dump(previous_data, f)
+                
+            # Mock scraper session to return NO new films (so we just keep existing ones)
+            self.scraper.session.get.return_value.status_code = 200
+            self.scraper.session.get.return_value.json.return_value = {
+                 'films': [], 'meta': {'next_page': None}
+            }
+            
+            with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB']):
+                 output_file = os.path.join(test_dir, "output.json")
+                 self.scraper.run(output_path=output_file, mode='shallow', input_path=input_file)
+                 
+                 # Check output
+                 with open(output_file, 'r') as f:
+                     output = json.load(f)
+                     self.assertEqual(len(output['items']), 2)
+                     # Should still have the original films even if scrape returned nothing (Append-Only)
+                     self.assertEqual(output['items'][0]['mubi_id'], 1)
+        finally:
+            shutil.rmtree(test_dir)
 
-    @patch('backend.scraper.MubiScraper.fetch_films_for_country')
-    @patch('json.load')
-    @patch('os.path.exists')
-    def test_run_shallow_mode(self, mock_exists, mock_json_load, mock_fetch):
-        """Test that shallow mode only scrapes leaders and attributes films to members."""
-        # Setup mocks
-        mock_exists.return_value = True
-        mock_json_load.return_value = [
-            {"leader": "A", "members": ["A", "B", "C"]}
-        ]
-        
-        # Setup fetch return
-        mock_fetch.return_value = [
-            {'id': 101, 'title': 'Film 101'}
-        ]
-        
-        # Run in shallow mode
-        with patch('builtins.open', MagicMock(), create=True) as mock_file:
-             # We need to mock validate_data to start fresh or ensure it passes
-             with patch.object(self.scraper, 'validate_data', return_value=[]):
-                self.scraper.run(mode='shallow', clusters_path='dummy.json', output_path='out.json')
-        
-        # Verify:
-        # 1. fetch_films_for_country called ONLY for 'A'
-        mock_fetch.assert_called_once_with('A')
-        
-        # 2. We can't easily inspect the 'out.json' write content with simple mock_open
-        # But we can verify no errors were logged/raised.
-        # Ideally we'd inspect what was passed to json.dump.
 
 if __name__ == '__main__':
     unittest.main()

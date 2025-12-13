@@ -2,7 +2,7 @@ name: Mubi Deep Sync (Calibration)
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Every Sunday at 00:00 UTC
+    - cron: '0 12 * * 5' # Every Friday at 12:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -32,8 +32,8 @@ jobs:
         mkdir -p database/v1
         
         # Run scraper in DEEP mode
-        # Output both films.json and clusters.json to the deploy folder
-        python backend/scraper.py --mode deep --output database/v1/films.json --clusters database/v1/clusters.json
+        # Output films.json only (clusters are no longer used)
+        python backend/scraper.py --mode deep --output database/v1/films.json
         
     - name: Generate Repo Files (Compress & Hash)
       run: |
@@ -43,6 +43,20 @@ jobs:
         # Verify output
         ls -la
 
+    - name: Notify on Failure
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { repo, owner } = context.repo;
+          const run_url = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+          
+          await github.rest.issues.create({
+            owner,
+            repo,
+            title: `🚨 Scraper Failed: Deep Sync`,
+            body: `The weekly deep sync failed.\n\n[View Run logs](${run_url})\n\nPlease check the logs for 429 errors or API changes.`
+          });
     - name: Deploy to Database Branch
       uses: JamesIves/github-pages-deploy-action@v4
       with:
