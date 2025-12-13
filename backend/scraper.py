@@ -8,6 +8,7 @@ import hashlib
 import concurrent.futures
 import logging
 import pycountry
+import random
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -20,7 +21,7 @@ class MubiScraper:
     BASE_URL = 'https://api.mubi.com/v4'
     UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
     MIN_TOTAL_FILMS = 1000
-    MAX_WORKERS = 5 # Number of concurrent country scrapes
+    MAX_WORKERS = 2 # Reduced to avoid 429s
     CRITICAL_COUNTRIES = ['US', 'GB', 'FR', 'DE']
     MAX_MISSING_PERCENT = 5.0 # Max % of films allowed to have missing critical fields before failure
     
@@ -33,8 +34,8 @@ class MubiScraper:
     def _create_session(self):
         session = requests.Session()
         retries = Retry(
-            total=5,
-            backoff_factor=1,
+            total=8, # Increased retries
+            backoff_factor=2, # Increased backoff
             status_forcelist=[500, 502, 503, 504, 429],
             allowed_methods=["GET"]
         )
@@ -58,6 +59,9 @@ class MubiScraper:
         return headers
 
     def fetch_films_for_country(self, country_code):
+        # Add random jitter to desynchronize threads
+        time.sleep(random.uniform(0.5, 2.0))
+        
         logger.info(f"Fetching films for {country_code}...")
         film_ids = set()
         films_data = [] # List of film objects
@@ -76,7 +80,7 @@ class MubiScraper:
                 
                 if response.status_code == 429:
                     retry_after = int(response.headers.get('Retry-After', 10))
-                    logger.warning(f"Rate limited. Waiting {retry_after}s...")
+                    logger.warning(f"Rate limited (429). Waiting {retry_after}s...")
                     time.sleep(retry_after)
                     continue
 
