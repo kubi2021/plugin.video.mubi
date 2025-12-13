@@ -5,11 +5,12 @@ import time
 import os
 import gzip
 import hashlib
+import concurrent.futures
+import logging
+import pycountry
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-import pycountry
-import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -19,6 +20,7 @@ class MubiScraper:
     BASE_URL = 'https://api.mubi.com/v4'
     UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
     MIN_TOTAL_FILMS = 1000
+    MAX_WORKERS = 5 # Number of concurrent country scrapes
     CRITICAL_COUNTRIES = ['US', 'GB', 'FR', 'DE']
     MAX_MISSING_PERCENT = 5.0 # Max % of films allowed to have missing critical fields before failure
     
@@ -29,7 +31,6 @@ class MubiScraper:
         self.session = self._create_session()
 
     def _create_session(self):
-        # ... (same as before) ...
         session = requests.Session()
         retries = Retry(
             total=5,
@@ -57,7 +58,6 @@ class MubiScraper:
         return headers
 
     def fetch_films_for_country(self, country_code):
-        # ... (same as before) ...
         logger.info(f"Fetching films for {country_code}...")
         film_ids = set()
         films_data = [] # List of film objects
@@ -95,7 +95,7 @@ class MubiScraper:
                     break
                 
                 page = meta['next_page']
-                time.sleep(0.5) # Politeness delay
+                time.sleep(0.5) # Politeness delay between pages
 
             except Exception as e:
                 logger.error(f"Error fetching page {page} for {country_code}: {e}")
@@ -133,14 +133,9 @@ class MubiScraper:
         # Calculate percentages
         if total > 0:
             pct_missing_year = (missing_year / total) * 100
-             # pct_missing_mubi_id check is implicit: if any missing mubi_id, it's a warning, but we might want to fail if MANY are missing
-             # Users request: warning for single null mubi_id, but fail if widespread corruption?
-             # Let's stick to the plan: Fail if >5% corrupt.
-            
             if pct_missing_year > self.MAX_MISSING_PERCENT:
                 validation_errors.append(f"Field Integrity: {pct_missing_year:.1f}% of films missing 'year' (max {self.MAX_MISSING_PERCENT}%)")
             
-            # Critical fields (title/id) should probably have closer to 0 tolerance, but sticking to 5% for now or separate check
             if missing_title > 0:
                  pct_missing_title = (missing_title / total) * 100
                  if pct_missing_title > self.MAX_MISSING_PERCENT:
@@ -166,7 +161,6 @@ class MubiScraper:
                 country_films[country].add(fid)
 
         # 2. Sort potential leaders by catalogue size (descending)
-        # We want the "Superset" to be the leader so members don't miss films.
         sorted_countries = sorted(country_films.keys(), key=lambda c: len(country_films[c]), reverse=True)
         
         assigned = set()
@@ -176,12 +170,6 @@ class MubiScraper:
             if leader in assigned:
                 continue
                 
-            # If 'US', 'GB', 'FR', 'DE' are in the list, they might not be picked as leader 
-            # if they are smaller than another country, which is rare for critical markets.
-            # But with fuzzy logic, we prioritize size to ensure coverage.
-            # We can force critical countries to NOT be members of others if we want, 
-            # but usually they are big enough to be leaders anyway.
-
             cluster_members = [leader]
             leader_set = country_films[leader]
             assigned.add(leader)
@@ -198,9 +186,6 @@ class MubiScraper:
                 union = len(leader_set | candidate_set)
                 jaccard = intersection / union if union > 0 else 0
                 
-                # Allow assignment if:
-                # 1. High similarity
-                # 2. OR Candidate is a substantial subset of Leader (e.g. >99% contained)
                 is_subset = candidate_set.issubset(leader_set)
                 
                 if jaccard >= fuzzy_threshold or is_subset:
@@ -215,7 +200,7 @@ class MubiScraper:
             }
             clusters.append(cluster)
         
-        # Sort clusters by member count (descending) for logging
+        # Sort clusters by member count (descending)
         clusters.sort(key=lambda x: len(x['members']), reverse=True)
         
         logger.info(f"Detected {len(clusters)} unique clusters across {len(country_films)} countries.")
@@ -247,50 +232,55 @@ class MubiScraper:
             
             logger.info(f"Loaded {len(clusters)} clusters. Will scrape {len(target_countries)} leaders.")
 
-        # --- SCRAPING LOOP ---
-        for country in target_countries:
-            try:
-                films = self.fetch_films_for_country(country)
-                
-                # Check for empty result if expected
-                if not films:
-                    logger.warning(f"No films found for {country}")
-                    if country in self.CRITICAL_COUNTRIES:
-                         msg = f"Critical country {country} returned 0 films."
-                         logger.error(msg)
-                         errors.append(msg)
-
-                # Determine which countries get credit for these films
-                countries_to_assign = [country]
-                if mode == 'shallow' and country in cluster_map:
-                    countries_to_assign = cluster_map[country]
-
-                for film in films:
-                    fid = film['id']
-                    if fid not in all_films:
-                        # Simplify film object to match schema
-                        all_films[fid] = {
-                            'mubi_id': fid,
-                            'title': film.get('title'),
-                            'original_title': film.get('original_title'),
-                            'genres': film.get('genres'),
-                            'countries': [], # Populated later
-                            'year': film.get('year'),
-                            'duration': film.get('duration'),
-                            'directors': [d['name'] for d in film.get('directors', [])]
-                        }
-                        film_countries[fid] = set()
-                    
-                    # Assign to ALL members of the cluster
-                    for member in countries_to_assign:
-                        film_countries[fid].add(member)
-                
-                logger.info(f"Finished {country} (Cluster size: {len(countries_to_assign)}). Unique films: {len(all_films)}")
-            except Exception as e:
-                logger.error(f"Failed to process {country}: {e}")
-                errors.append(f"{country}: {str(e)}")
+        # --- SCRAPING LOOP (PARALLEL) ---
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            # Map countries to futures
+            future_to_country = {executor.submit(self.fetch_films_for_country, country): country for country in target_countries}
             
-            time.sleep(2) # Delay between countries
+            for future in concurrent.futures.as_completed(future_to_country):
+                country = future_to_country[future]
+                
+                try:
+                    films = future.result()
+                    
+                    # Check for empty result if expected
+                    if not films:
+                        logger.warning(f"No films found for {country}")
+                        if country in self.CRITICAL_COUNTRIES:
+                                msg = f"Critical country {country} returned 0 films."
+                                logger.error(msg)
+                                errors.append(msg)
+
+                    # Determine which countries get credit for these films
+                    countries_to_assign = [country]
+                    if mode == 'shallow' and country in cluster_map:
+                        countries_to_assign = cluster_map[country]
+
+                    for film in films:
+                        fid = film['id']
+                        if fid not in all_films:
+                            # Simplify film object to match schema
+                            all_films[fid] = {
+                                'mubi_id': fid,
+                                'title': film.get('title'),
+                                'original_title': film.get('original_title'),
+                                'genres': film.get('genres'),
+                                'countries': [], # Populated later
+                                'year': film.get('year'),
+                                'duration': film.get('duration'),
+                                'directors': [d['name'] for d in film.get('directors', [])]
+                            }
+                            film_countries[fid] = set()
+                        
+                        # Assign to ALL members of the cluster
+                        for member in countries_to_assign:
+                            film_countries[fid].add(member)
+                    
+                    logger.info(f"Finished {country} (Cluster size: {len(countries_to_assign)}). Unique films: {len(all_films)}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process {country}: {e}")
+                    errors.append(f"{country}: {str(e)}")
 
         # Merge countries into film objects
         final_items = []
