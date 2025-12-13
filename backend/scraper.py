@@ -148,13 +148,13 @@ class MubiScraper:
 
         return validation_errors
 
-    def detect_clusters(self, final_items):
+    def detect_clusters(self, final_items, fuzzy_threshold=0.98):
         """
-        Analyzes the full dataset to find countries with identical catalogues.
+        Analyzes the full dataset to find countries with identical or highly similar catalogues.
+        Uses a fuzzy matching approach (Jaccard similarity >= threshold OR subset relationship).
         Returns a dictionary representing the clusters.
         """
-        logger.info("Analyzing data for clusters...")
-        country_hashes = {} # country_code -> hash of sorted film IDs
+        logger.info(f"Analyzing data for clusters (Fuzzy Threshold: {fuzzy_threshold})...")
         country_films = {} # country_code -> set of film IDs
 
         # 1. Build country -> film_ids map
@@ -162,37 +162,56 @@ class MubiScraper:
             fid = film['mubi_id']
             for country in film['countries']:
                 if country not in country_films:
-                    country_films[country] = []
-                country_films[country].append(fid)
+                    country_films[country] = set()
+                country_films[country].add(fid)
 
-        # 2. Compute hash for each country
-        for country, fids in country_films.items():
-            fids.sort()
-            # Create a string representation to hash
-            content_str = ",".join(map(str, fids))
-            c_hash = hashlib.md5(content_str.encode('utf-8')).hexdigest()
-            
-            if c_hash not in country_hashes:
-                country_hashes[c_hash] = []
-            country_hashes[c_hash].append(country)
-
-        # 3. Form clusters
+        # 2. Sort potential leaders by catalogue size (descending)
+        # We want the "Superset" to be the leader so members don't miss films.
+        sorted_countries = sorted(country_films.keys(), key=lambda c: len(country_films[c]), reverse=True)
+        
+        assigned = set()
         clusters = []
-        for c_hash, countries in country_hashes.items():
-            countries.sort() # Ensure deterministic order
-            leader = countries[0] # Pick first as leader
+        
+        for leader in sorted_countries:
+            if leader in assigned:
+                continue
+                
+            # If 'US', 'GB', 'FR', 'DE' are in the list, they might not be picked as leader 
+            # if they are smaller than another country, which is rare for critical markets.
+            # But with fuzzy logic, we prioritize size to ensure coverage.
+            # We can force critical countries to NOT be members of others if we want, 
+            # but usually they are big enough to be leaders anyway.
+
+            cluster_members = [leader]
+            leader_set = country_films[leader]
+            assigned.add(leader)
             
-            # If 'US', 'GB', 'FR', 'DE' are in the list, prefer them as leader
-            for priority in self.CRITICAL_COUNTRIES:
-                if priority in countries:
-                    leader = priority
-                    break
+            # Greedy search for members
+            for candidate in sorted_countries:
+                if candidate in assigned:
+                    continue
+                
+                candidate_set = country_films[candidate]
+                
+                # Check similarity
+                intersection = len(leader_set & candidate_set)
+                union = len(leader_set | candidate_set)
+                jaccard = intersection / union if union > 0 else 0
+                
+                # Allow assignment if:
+                # 1. High similarity
+                # 2. OR Candidate is a substantial subset of Leader (e.g. >99% contained)
+                is_subset = candidate_set.issubset(leader_set)
+                
+                if jaccard >= fuzzy_threshold or is_subset:
+                     cluster_members.append(candidate)
+                     assigned.add(candidate)
             
             cluster = {
                 "leader": leader,
-                "members": countries,
-                "count": len(country_films[leader]),
-                "hash": c_hash
+                "members": sorted(cluster_members),
+                "count": len(leader_set),
+                "hash": hashlib.md5(",".join(map(str, sorted(list(leader_set)))).encode('utf-8')).hexdigest()
             }
             clusters.append(cluster)
         

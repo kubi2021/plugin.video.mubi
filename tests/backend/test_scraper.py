@@ -206,31 +206,58 @@ class TestMubiScraper(unittest.TestCase):
         self.assertTrue(any("Field Integrity" in e for e in errors))
 
     def test_detect_clusters(self):
-        """Test that identical catalogues are grouped correctly."""
-        # Setup: DE, AT, CH have films [1, 2]. US has [3].
+        """Test that fuzzy clustering groups similar catalogues."""
+        # Setup:
+        # DE (Leader): [1, 2, 3] (3 films)
+        # AT (Subset): [1, 2]    (2 films, 100% subset, Jaccard 0.66) -> Should be grouped
+        # CH (Similar): [1, 2, 4] (3 films, Jaccard 0.5) -> Should NOT be grouped with 0.98 threshold
+        # US (Different): [5]
+        
         final_items = [
             {'mubi_id': 1, 'countries': ['DE', 'AT', 'CH']},
             {'mubi_id': 2, 'countries': ['DE', 'AT', 'CH']},
-            {'mubi_id': 3, 'countries': ['US']}
+            {'mubi_id': 3, 'countries': ['DE']},
+            {'mubi_id': 4, 'countries': ['CH']},
+            {'mubi_id': 5, 'countries': ['US']}
         ]
+        
+        # Test Default Threshold (0.98) - Subset logic should still catch AT if subset logic is active?
+        # My implementation says: "if jaccard >= threshold or is_subset".
+        # So AT (subset of DE) should be grouped with DE.
+        # CH (not subset, low Jaccard) should be separate.
         
         clusters = self.scraper.detect_clusters(final_items)
         
-        # Expect 2 clusters
-        self.assertEqual(len(clusters), 2)
+        # Expect 3 clusters: DE+AT, CH, US
+        self.assertEqual(len(clusters), 3)
         
-        # Verify DACH cluster
-        dach_cluster = next((c for c in clusters if 'DE' in c['members']), None)
-        self.assertIsNotNone(dach_cluster)
-        self.assertEqual(dach_cluster['leader'], 'DE') # DE is critical, should be leader
-        self.assertEqual(set(dach_cluster['members']), {'DE', 'AT', 'CH'})
-        self.assertEqual(dach_cluster['count'], 2)
+        # Verify DE cluster
+        de_cluster = next((c for c in clusters if c['leader'] == 'DE'), None)
+        self.assertIsNotNone(de_cluster)
+        self.assertIn('AT', de_cluster['members'])
+        self.assertNotIn('CH', de_cluster['members']) # CH has film 4 which DE doesn't have
 
+        # Verify CH cluster
+        ch_cluster = next((c for c in clusters if c['leader'] == 'CH'), None)
+        self.assertIsNotNone(ch_cluster)
+        
         # Verify US cluster
-        us_cluster = next((c for c in clusters if 'US' in c['members']), None)
+        us_cluster = next((c for c in clusters if c['leader'] == 'US'), None)
         self.assertIsNotNone(us_cluster)
-        self.assertEqual(us_cluster['leader'], 'US')
-        self.assertEqual(us_cluster['members'], ['US'])
+    
+    def test_detect_clusters_high_threshold(self):
+        """Test strict threshold behavior."""
+        # A=[1,2,3], B=[1,2] (subset)
+        final_items = [
+            {'mubi_id': 1, 'countries': ['A', 'B']},
+            {'mubi_id': 2, 'countries': ['A', 'B']},
+            {'mubi_id': 3, 'countries': ['A']}
+        ]
+        # Should group because B is subset of A
+        clusters = self.scraper.detect_clusters(final_items, fuzzy_threshold=0.99)
+        self.assertEqual(len(clusters), 1)
+        self.assertEqual(clusters[0]['leader'], 'A')
+        self.assertIn('B', clusters[0]['members'])
 
     @patch('backend.scraper.MubiScraper.fetch_films_for_country')
     @patch('json.load')
