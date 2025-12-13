@@ -32,22 +32,9 @@ jobs:
         mkdir -p database/v1
         
         # Run scraper in DEEP mode
-        # This scans ALL countries, detects clusters, and updates backend/clusters.json
-        python backend/scraper.py --mode deep --output database/v1/films.json --clusters backend/clusters.json
+        # Output both films.json and clusters.json to the deploy folder
+        python backend/scraper.py --mode deep --output database/v1/films.json --clusters database/v1/clusters.json
         
-    - name: Commit Updated Clusters
-      run: |
-        # Check if clusters.json changed
-        if [[ `git status --porcelain backend/clusters.json` ]]; then
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
-          git add backend/clusters.json
-          git commit -m "chore(data): auto-update clusters.json from deep sync"
-          git push origin HEAD:main
-        else
-          echo "No changes to clusters.json"
-        fi
-
     - name: Generate Repo Files (Compress & Hash)
       run: |
         cd database/v1

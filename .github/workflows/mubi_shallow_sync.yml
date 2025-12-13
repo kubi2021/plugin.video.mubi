@@ -28,11 +28,14 @@ jobs:
 
     - name: Run Scraper (Shallow Mode)
       run: |
-        # Create output directory
+        # Create database directory
         mkdir -p database/v1
         
+        # Fetch clusters.json from database branch (latest version)
+        # Using wget to fetch raw file from GitHub
+        wget https://raw.githubusercontent.com/${{ github.repository }}/database/v1/clusters.json -O backend/clusters.json
+        
         # Run scraper in SHALLOW mode
-        # This uses backend/clusters.json to minimize API calls
         python backend/scraper.py --mode shallow --output database/v1/films.json --clusters backend/clusters.json
         
     - name: Generate Repo Files (Compress & Hash)
