@@ -1,4 +1,5 @@
 import requests
+import sys
 import json
 import time
 import os
@@ -90,39 +91,49 @@ class MubiScraper:
 
             except Exception as e:
                 logger.error(f"Error fetching page {page} for {country_code}: {e}")
-                # Retry logic is handled by session, but if we fail here, we might want to panic or just skip
-                break
+                # Re-raise so run() can track the error
+                raise e
         
         return films_data
 
     def run(self, output_path='films.json'):
         all_films = {} # id -> film_data
         film_countries = {} # id -> set(countries)
+        errors = [] # Track errors per country
 
         for country in self.COUNTRIES:
-            films = self.fetch_films_for_country(country)
-            for film in films:
-                fid = film['id']
-                if fid not in all_films:
-                    # Simplify film object to match schema
-                    all_films[fid] = {
-                        'mubi_id': fid,
-                        'title': film.get('title'),
-                        'original_title': film.get('original_title'),
-                        'genres': film.get('genres'),
-                        'countries': [], # Populated later
-                        # 'tmdb_id': film.get('tmdb_id'), # Removed per user request
-                        # 'imdb_id': film.get('imdb_id'), # Removed per user request
-                        # 'image': film.get('stills', {}).get('medium'), # Removed per user request 
-                        'year': film.get('year'),
-                        'duration': film.get('duration'),
-                        'directors': [d['name'] for d in film.get('directors', [])]
-                    }
-                    film_countries[fid] = set()
+            try:
+                films = self.fetch_films_for_country(country)
+                # Check for empty result if expected (optional, but fetch_films already logs)
+                if not films:
+                    logger.warning(f"No films found for {country}")
+
+                for film in films:
+                    fid = film['id']
+                    if fid not in all_films:
+                        # Simplify film object to match schema
+                        all_films[fid] = {
+                            'mubi_id': fid,
+                            'title': film.get('title'),
+                            'original_title': film.get('original_title'),
+                            'genres': film.get('genres'),
+                            'countries': [], # Populated later
+                            # 'tmdb_id': film.get('tmdb_id'), # Removed per user request
+                            # 'imdb_id': film.get('imdb_id'), # Removed per user request
+                            # 'image': film.get('stills', {}).get('medium'), # Removed per user request 
+                            'year': film.get('year'),
+                            'duration': film.get('duration'),
+                            'directors': [d['name'] for d in film.get('directors', [])]
+                        }
+                        film_countries[fid] = set()
+                    
+                    film_countries[fid].add(country)
                 
-                film_countries[fid].add(country)
+                logger.info(f"Finished {country}. Total unique films so far: {len(all_films)}")
+            except Exception as e:
+                logger.error(f"Failed to process {country}: {e}")
+                errors.append(f"{country}: {str(e)}")
             
-            logger.info(f"Finished {country}. Total unique films so far: {len(all_films)}")
             time.sleep(2) # Delay between countries
 
         # Merge countries into film objects
@@ -130,6 +141,11 @@ class MubiScraper:
         for fid, film in all_films.items():
             film['countries'] = sorted(list(film_countries[fid]))
             final_items.append(film)
+
+        # PANIC CHECK: If 0 films, this is a critical failure.
+        if len(final_items) == 0:
+            logger.error("CRITICAL: Scraper generated 0 films. Aborting.")
+            sys.exit(1)
 
         # Create output object
         output = {
@@ -146,6 +162,16 @@ class MubiScraper:
             json.dump(output, f, indent=2, ensure_ascii=False)
         
         logger.info(f"Successfully saved {len(final_items)} films to {output_path}")
+
+        # NOTIFICATION ON PARTIAL ERRORS
+        if errors:
+            logger.error(f"Scraper finished with {len(errors)} errors:")
+            for err in errors:
+                logger.error(f"  - {err}")
+            # Exit with error code to trigger GitHub Action failure notification
+            # AFTER saving the partial data (so we can inspect it if needed, 
+            # though default workflow might not deploy it unless we change 'if' conditions)
+            sys.exit(1)
 
 if __name__ == "__main__":
     scraper = MubiScraper()

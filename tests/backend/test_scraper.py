@@ -76,9 +76,62 @@ class TestMubiScraper(unittest.TestCase):
             self.assertNotIn('imdb_id', film1)
             self.assertNotIn('image', film1)
 
+            # Verify removed fields are not present
+            self.assertNotIn('tmdb_id', film1)
+            self.assertNotIn('imdb_id', film1)
+            self.assertNotIn('image', film1)
+
         finally:
             if os.path.exists(output_file):
                 os.remove(output_file)
+
+    @patch('sys.exit')
+    def test_run_panic_if_no_films(self, mock_exit):
+        # Mock empty response
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {'films': [], 'meta': {'next_page': None}}
+        self.scraper.session.get.return_value = mock_resp
+        
+        self.scraper.COUNTRIES = ['US']
+        self.scraper.run(output_path='test_panic.json')
+        
+        # Verify sys.exit(1) was called
+        mock_exit.assert_called_with(1)
+
+    @patch('sys.exit')
+    def test_run_partial_error(self, mock_exit):
+        # Mock one success, one failure
+        def side_effect(*args, **kwargs):
+            # args[0] is url
+            # check headers or url for country... 
+            # simplified: inspect call args or just use side_effect generator
+            return MagicMock() # catch-all
+            
+        # Better approach: check 'Client-Country' header in call args
+        mock_resp_success = MagicMock()
+        mock_resp_success.status_code = 200
+        mock_resp_success.json.return_value = {
+            'films': [{'id': 1, 'title': 'OK'}], 'meta': {'next_page': None}
+        }
+        
+        # Requests raises exception
+        self.scraper.session.get.side_effect = [
+            mock_resp_success, # US
+            Exception("Request failed") # GB
+        ]
+        
+        self.scraper.COUNTRIES = ['US', 'GB']
+        
+        try:
+            self.scraper.run(output_path='test_partial.json')
+            # Verify sys.exit(1) was called because of the error
+            mock_exit.assert_called_with(1)
+            # Verify file WAS created despite error (partial success)
+            self.assertTrue(os.path.exists('test_partial.json'))
+        finally:
+            if os.path.exists('test_partial.json'):
+                os.remove('test_partial.json')
 
 if __name__ == '__main__':
     unittest.main()
