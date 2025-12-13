@@ -1,0 +1,54 @@
+name: Update Mubi Catalog
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-catalog:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11' 
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+
+    - name: Run Scraper
+      run: |
+        # Create output directory
+        mkdir -p database/v1
+        
+        # Run scraper (outputs to database/v1/films.json)
+        python backend/scraper.py
+        
+        # Move output to correct location if scraper doesn't write directly
+        if [ -f films.json ]; then mv films.json database/v1/; fi
+
+    - name: Generate Repo Files (Compress & Hash)
+      run: |
+        cd database/v1
+        python ../../backend/generate_repo.py
+        
+        # Verify output
+        ls -la
+
+    - name: Deploy to Database Branch
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: database # The branch the action should deploy to.
+        folder: database # The folder the action should deploy.
+        clean: true # Automatically remove deleted files from the deploy branch
+        force: true # Force push to ignore history (orphan-like behavior)
