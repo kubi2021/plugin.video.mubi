@@ -165,7 +165,6 @@ python -m tools.analyze_coverage --analyze-only --country CH
 
 The analyzer uses a greedy set cover algorithm to find the minimum countries needed for 100% catalogue coverage. Output is saved to `resources/data/country_catalogue.json`.
 
-### Versioning Policy
 
 ### The "Shadow Backend" 👻
 
@@ -188,6 +187,8 @@ Instead of the Kodi plugin crawling the Mubi API for every user (which is slow a
 The generated database files are stored in the **[database branch](https://github.com/kubi2021/plugin.video.mubi/tree/database)** (orphan branch).
 - **Catalogue:** [`v1/films.json.gz`](https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz)
 - **Checksum:** [`v1/films.json.gz.md5`](https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz.md5)
+
+### Versioning Policy
 
 - **Simple incremental**: 1, 2, 3, 4, 5... (no semantic versioning)
 - **Auto-managed**: Version increments automatically on PR merge
