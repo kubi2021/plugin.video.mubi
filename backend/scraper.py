@@ -148,12 +148,88 @@ class MubiScraper:
 
         return validation_errors
 
-    def run(self, output_path='films.json'):
+    def detect_clusters(self, final_items):
+        """
+        Analyzes the full dataset to find countries with identical catalogues.
+        Returns a dictionary representing the clusters.
+        """
+        logger.info("Analyzing data for clusters...")
+        country_hashes = {} # country_code -> hash of sorted film IDs
+        country_films = {} # country_code -> set of film IDs
+
+        # 1. Build country -> film_ids map
+        for film in final_items:
+            fid = film['mubi_id']
+            for country in film['countries']:
+                if country not in country_films:
+                    country_films[country] = []
+                country_films[country].append(fid)
+
+        # 2. Compute hash for each country
+        for country, fids in country_films.items():
+            fids.sort()
+            # Create a string representation to hash
+            content_str = ",".join(map(str, fids))
+            c_hash = hashlib.md5(content_str.encode('utf-8')).hexdigest()
+            
+            if c_hash not in country_hashes:
+                country_hashes[c_hash] = []
+            country_hashes[c_hash].append(country)
+
+        # 3. Form clusters
+        clusters = []
+        for c_hash, countries in country_hashes.items():
+            countries.sort() # Ensure deterministic order
+            leader = countries[0] # Pick first as leader
+            
+            # If 'US', 'GB', 'FR', 'DE' are in the list, prefer them as leader
+            for priority in self.CRITICAL_COUNTRIES:
+                if priority in countries:
+                    leader = priority
+                    break
+            
+            cluster = {
+                "leader": leader,
+                "members": countries,
+                "count": len(country_films[leader]),
+                "hash": c_hash
+            }
+            clusters.append(cluster)
+        
+        # Sort clusters by member count (descending) for logging
+        clusters.sort(key=lambda x: len(x['members']), reverse=True)
+        
+        logger.info(f"Detected {len(clusters)} unique clusters across {len(country_films)} countries.")
+        return clusters
+
+    def run(self, output_path='films.json', mode='deep', clusters_path='clusters.json'):
         all_films = {} # id -> film_data
         film_countries = {} # id -> set(countries)
         errors = [] # Track errors per country
+        
+        target_countries = []
+        cluster_map = {} # leader -> list of members (only for shallow mode)
 
-        for country in self.COUNTRIES:
+        if mode == 'deep':
+            logger.info("Starting DEEP sync (Calibration Mode)...")
+            target_countries = self.COUNTRIES
+        elif mode == 'shallow':
+            logger.info("Starting SHALLOW sync (Fast Mode)...")
+            if not os.path.exists(clusters_path):
+                logger.error(f"Clusters file {clusters_path} not found. Cannot run shallow sync.")
+                sys.exit(1)
+            
+            with open(clusters_path, 'r') as f:
+                clusters = json.load(f)
+            
+            for c in clusters:
+                target_countries.append(c['leader'])
+                cluster_map[c['leader']] = c['members']
+            
+            logger.info(f"Loaded {len(clusters)} clusters. Will scrape {len(target_countries)} leaders.")
+
+        # --- SCRAPING LOOP ---
+        for country in target_countries:
             try:
                 films = self.fetch_films_for_country(country)
                 
@@ -164,6 +240,11 @@ class MubiScraper:
                          msg = f"Critical country {country} returned 0 films."
                          logger.error(msg)
                          errors.append(msg)
+
+                # Determine which countries get credit for these films
+                countries_to_assign = [country]
+                if mode == 'shallow' and country in cluster_map:
+                    countries_to_assign = cluster_map[country]
 
                 for film in films:
                     fid = film['id']
@@ -181,9 +262,11 @@ class MubiScraper:
                         }
                         film_countries[fid] = set()
                     
-                    film_countries[fid].add(country)
+                    # Assign to ALL members of the cluster
+                    for member in countries_to_assign:
+                        film_countries[fid].add(member)
                 
-                logger.info(f"Finished {country}. Total unique films so far: {len(all_films)}")
+                logger.info(f"Finished {country} (Cluster size: {len(countries_to_assign)}). Unique films: {len(all_films)}")
             except Exception as e:
                 logger.error(f"Failed to process {country}: {e}")
                 errors.append(f"{country}: {str(e)}")
@@ -209,12 +292,20 @@ class MubiScraper:
                 logger.error(f"  - {err}")
             errors.extend(data_errors)
 
+        # CLUSTER CALIBRATION (Deep Mode Only)
+        if mode == 'deep' and not errors:
+            clusters = self.detect_clusters(final_items)
+            with open(clusters_path, 'w', encoding='utf-8') as f:
+                json.dump(clusters, f, indent=2)
+            logger.info(f"Saved cluster map to {clusters_path}")
+
         # Create output object
         output = {
             'meta': {
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
                 'version': 1,
                 'total_count': len(final_items),
+                'mode': mode
             },
             'items': final_items
         }
@@ -233,5 +324,13 @@ class MubiScraper:
             sys.exit(1)
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Mubi Catalog Scraper")
+    parser.add_argument('--mode', choices=['deep', 'shallow'], default='deep', help="Deep (calibration) or Shallow (fast) sync")
+    parser.add_argument('--output', default='films.json', help="Output file path")
+    parser.add_argument('--clusters', default='clusters.json', help="Clusters map file path")
+    
+    args = parser.parse_args()
+    
     scraper = MubiScraper()
-    scraper.run()
+    scraper.run(output_path=args.output, mode=args.mode, clusters_path=args.clusters)
