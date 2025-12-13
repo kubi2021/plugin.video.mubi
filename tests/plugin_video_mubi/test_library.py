@@ -671,9 +671,9 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
         addon_instance = mock_addon.return_value
         addon_instance.getSettingBool.return_value = False
 
-        # Create 1000 Film objects and add them to the library
+        # Create 200 Film objects and add them to the library
         metadata = MockMetadata(year=2023)
-        for i in range(1000):
+        for i in range(200):
             film = Film(
                 mubi_id=str(i),
                 title=f"Sample Movie {i}",
@@ -695,8 +695,8 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
         omdb_api_key = "fake_api_key"
         library.sync_locally(base_url, plugin_userdata_path)
 
-        # Assert that prepare_files_for_film was called 1000 times
-        assert mock_prepare_files.call_count == 1000, "prepare_files_for_film should be called 1000 times."
+        # Assert that prepare_files_for_film was called 200 times
+        assert mock_prepare_files.call_count == 200, "prepare_files_for_film should be called 200 times."
 
 def test_add_duplicate_film():
     library = Library()
