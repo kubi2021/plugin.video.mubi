@@ -26,17 +26,15 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
 
-    - name: Run Scraper
+    - name: Run Scraper (Shallow Mode)
       run: |
         # Create output directory
         mkdir -p database/v1
         
-        # Run scraper (outputs to database/v1/films.json)
-        python backend/scraper.py
+        # Run scraper in SHALLOW mode
+        # This uses backend/clusters.json to minimize API calls
+        python backend/scraper.py --mode shallow --output database/v1/films.json --clusters backend/clusters.json
         
-        # Move output to correct location if scraper doesn't write directly
-        if [ -f films.json ]; then mv films.json database/v1/; fi
-
     - name: Generate Repo Files (Compress & Hash)
       run: |
         cd database/v1

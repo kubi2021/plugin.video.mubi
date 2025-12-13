@@ -1,0 +1,65 @@
+name: Mubi Deep Sync (Calibration)
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at 00:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deep-sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11' 
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+
+    - name: Run Scraper (Deep Mode)
+      run: |
+        # Create output directory
+        mkdir -p database/v1
+        
+        # Run scraper in DEEP mode
+        # This scans ALL countries, detects clusters, and updates backend/clusters.json
+        python backend/scraper.py --mode deep --output database/v1/films.json --clusters backend/clusters.json
+        
+    - name: Commit Updated Clusters
+      run: |
+        # Check if clusters.json changed
+        if [[ `git status --porcelain backend/clusters.json` ]]; then
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add backend/clusters.json
+          git commit -m "chore(data): auto-update clusters.json from deep sync"
+          git push
+        else
+          echo "No changes to clusters.json"
+        fi
+
+    - name: Generate Repo Files (Compress & Hash)
+      run: |
+        cd database/v1
+        python ../../backend/generate_repo.py
+        
+        # Verify output
+        ls -la
+
+    - name: Deploy to Database Branch
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: database # The branch the action should deploy to.
+        folder: database # The folder the action should deploy.
+        clean: true # Automatically remove deleted files from the deploy branch
+        force: true # Force push to ignore history (orphan-like behavior)
