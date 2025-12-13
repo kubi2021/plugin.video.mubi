@@ -59,3 +59,4 @@ repo/plugin_video_mubi/Inspo/
 *.log
 MagicMock/
 *.json
+!backend/clusters.json
