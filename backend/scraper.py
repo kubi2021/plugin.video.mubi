@@ -17,12 +17,15 @@ logger = logging.getLogger(__name__)
 class MubiScraper:
     BASE_URL = 'https://api.mubi.com/v4'
     UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
-    COUNTRIES = ['CH', 'DE', 'US', 'GB', 'FR', 'JP', 'TR', 'IN', 'CA', 'AU', 'BR', 'MX']
+    MIN_TOTAL_FILMS = 1000
+    CRITICAL_COUNTRIES = ['US', 'GB', 'FR', 'DE', 'CH']
+    MAX_MISSING_PERCENT = 5.0 # Max % of films allowed to have missing critical fields before failure
 
     def __init__(self):
         self.session = self._create_session()
 
     def _create_session(self):
+        # ... (same as before) ...
         session = requests.Session()
         retries = Retry(
             total=5,
@@ -50,6 +53,7 @@ class MubiScraper:
         return headers
 
     def fetch_films_for_country(self, country_code):
+        # ... (same as before) ...
         logger.info(f"Fetching films for {country_code}...")
         film_ids = set()
         films_data = [] # List of film objects
@@ -96,6 +100,50 @@ class MubiScraper:
         
         return films_data
 
+    def validate_data(self, final_items):
+        """
+        Validates the harvested data against safety thresholds.
+        Returns a list of error messages (empty if valid).
+        """
+        validation_errors = []
+        total = len(final_items)
+
+        # 1. Total Count Threshold
+        if total < self.MIN_TOTAL_FILMS:
+            validation_errors.append(f"Total film count {total} is below minimum threshold ({self.MIN_TOTAL_FILMS})")
+
+        # 2. Field Integrity
+        missing_mubi_id = 0
+        missing_title = 0
+        missing_year = 0
+        
+        for item in final_items:
+            if not item.get('mubi_id'):
+                missing_mubi_id += 1
+                logger.warning(f"Film missing mubi_id: {item}")
+            if not item.get('title'):
+                missing_title += 1
+            if not item.get('year'):
+                missing_year += 1
+        
+        # Calculate percentages
+        if total > 0:
+            pct_missing_year = (missing_year / total) * 100
+             # pct_missing_mubi_id check is implicit: if any missing mubi_id, it's a warning, but we might want to fail if MANY are missing
+             # Users request: warning for single null mubi_id, but fail if widespread corruption?
+             # Let's stick to the plan: Fail if >5% corrupt.
+            
+            if pct_missing_year > self.MAX_MISSING_PERCENT:
+                validation_errors.append(f"Field Integrity: {pct_missing_year:.1f}% of films missing 'year' (max {self.MAX_MISSING_PERCENT}%)")
+            
+            # Critical fields (title/id) should probably have closer to 0 tolerance, but sticking to 5% for now or separate check
+            if missing_title > 0:
+                 pct_missing_title = (missing_title / total) * 100
+                 if pct_missing_title > self.MAX_MISSING_PERCENT:
+                     validation_errors.append(f"Field Integrity: {pct_missing_title:.1f}% of films missing 'title'")
+
+        return validation_errors
+
     def run(self, output_path='films.json'):
         all_films = {} # id -> film_data
         film_countries = {} # id -> set(countries)
@@ -104,9 +152,14 @@ class MubiScraper:
         for country in self.COUNTRIES:
             try:
                 films = self.fetch_films_for_country(country)
-                # Check for empty result if expected (optional, but fetch_films already logs)
+                
+                # Check for empty result if expected
                 if not films:
                     logger.warning(f"No films found for {country}")
+                    if country in self.CRITICAL_COUNTRIES:
+                         msg = f"Critical country {country} returned 0 films."
+                         logger.error(msg)
+                         errors.append(msg)
 
                 for film in films:
                     fid = film['id']
@@ -118,9 +171,6 @@ class MubiScraper:
                             'original_title': film.get('original_title'),
                             'genres': film.get('genres'),
                             'countries': [], # Populated later
-                            # 'tmdb_id': film.get('tmdb_id'), # Removed per user request
-                            # 'imdb_id': film.get('imdb_id'), # Removed per user request
-                            # 'image': film.get('stills', {}).get('medium'), # Removed per user request 
                             'year': film.get('year'),
                             'duration': film.get('duration'),
                             'directors': [d['name'] for d in film.get('directors', [])]
@@ -147,6 +197,14 @@ class MubiScraper:
             logger.error("CRITICAL: Scraper generated 0 films. Aborting.")
             sys.exit(1)
 
+        # VALIDATE DATA
+        data_errors = self.validate_data(final_items)
+        if data_errors:
+            logger.error(f"Data Validation Failed with {len(data_errors)} errors:")
+            for err in data_errors:
+                logger.error(f"  - {err}")
+            errors.extend(data_errors)
+
         # Create output object
         output = {
             'meta': {
@@ -163,14 +221,11 @@ class MubiScraper:
         
         logger.info(f"Successfully saved {len(final_items)} films to {output_path}")
 
-        # NOTIFICATION ON PARTIAL ERRORS
+        # NOTIFICATION ON ERRORS
         if errors:
             logger.error(f"Scraper finished with {len(errors)} errors:")
             for err in errors:
                 logger.error(f"  - {err}")
-            # Exit with error code to trigger GitHub Action failure notification
-            # AFTER saving the partial data (so we can inspect it if needed, 
-            # though default workflow might not deploy it unless we change 'if' conditions)
             sys.exit(1)
 
 if __name__ == "__main__":
