@@ -8,6 +8,7 @@ import hashlib
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+import pycountry
 import logging
 
 # Configure logging
@@ -18,8 +19,11 @@ class MubiScraper:
     BASE_URL = 'https://api.mubi.com/v4'
     UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
     MIN_TOTAL_FILMS = 1000
-    CRITICAL_COUNTRIES = ['US', 'GB', 'FR', 'DE', 'CH']
+    CRITICAL_COUNTRIES = ['US', 'GB', 'FR', 'DE']
     MAX_MISSING_PERCENT = 5.0 # Max % of films allowed to have missing critical fields before failure
+    
+    # Dynamically generate full country list
+    COUNTRIES = [country.alpha_2 for country in pycountry.countries]
 
     def __init__(self):
         self.session = self._create_session()
