@@ -167,6 +167,28 @@ The analyzer uses a greedy set cover algorithm to find the minimum countries nee
 
 ### Versioning Policy
 
+### The "Shadow Backend" 👻
+
+As of **Dec 2025**, this project uses a decoupled architecture to manage the global film catalogue. 
+
+**Concept:**
+Instead of the Kodi plugin crawling the Mubi API for every user (which is slow and error-prone), a GitHub Action runs periodically to harvest the entire catalogue. This data is compressed and pushed to an orphan branch (`database`), acting as a "CDN" for the plugin.
+
+**Benefits:**
+- ⚡ **Instant Sync:** Plugin downloads a single compressed file instead of making thousands of API calls.
+- 🛡️ **Reliability:** Scraper runs on a server, reducing rate-limiting issues for end-users.
+- 📉 **Low Bandwidth:** Tiny updates compared to full crawls.
+
+**How to Run Manually:**
+1. Go to the [Actions tab](https://github.com/kubi2021/plugin.video.mubi/actions).
+2. Select **"Update Mubi Catalog"**.
+3. Click **"Run workflow"**.
+
+**Where are the files?**
+The generated database files are stored in the **[database branch](https://github.com/kubi2021/plugin.video.mubi/tree/database)** (orphan branch).
+- **Catalogue:** [`v1/films.json.gz`](https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz)
+- **Checksum:** [`v1/films.json.gz.md5`](https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz.md5)
+
 - **Simple incremental**: 1, 2, 3, 4, 5... (no semantic versioning)
 - **Auto-managed**: Version increments automatically on PR merge
 - **Repository stable**: Repository version stays at 2, only add-on versions increment
