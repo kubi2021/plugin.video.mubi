@@ -45,45 +45,80 @@ def enrich_metadata(films_path='films.json'):
         logger.error(f"Failed to load JSON: {e}")
         sys.exit(1)
 
-    logger.info(f"Loaded {len(items)} films. Starting enrichment...")
+    # 3. Identify items needing enrichment
+    items_to_process = []
+    for i, film in enumerate(items):
+        has_imdb = bool(film.get('imdb_id'))
+        has_tmdb = bool(film.get('tmdb_id'))
+        
+        if not (has_imdb and has_tmdb):
+            items_to_process.append((i, film))
+
+    total_films = len(items)
+    to_process_count = len(items_to_process)
+    logger.info(f"Loaded {total_films} films. Found {to_process_count} needing enrichment.")
+    
+    if to_process_count == 0:
+        logger.info("No films need enrichment.")
+        return
 
     updated_count = 0
     start_time = datetime.now()
 
-    # 3. Iterate and Enrich
-    for i, film in enumerate(items):
-        title = film.get('title')
-        original_title = film.get('original_title')
-        year = film.get('year')
-        mubi_id = film.get('mubi_id')
-
-        # Check if we already have the IDs
-        has_imdb = bool(film.get('imdb_id'))
-        has_tmdb = bool(film.get('tmdb_id'))
-
-        if has_imdb and has_tmdb:
-            continue
-
-        logger.info(f"[{i+1}/{len(items)}] Fetching metadata for '{title}' ({year})...")
+    # Helper function for threaded execution
+    def process_film(index, film_data):
+        title = film_data.get('title')
+        original_title = film_data.get('original_title')
+        year = film_data.get('year')
+        
+        # Helper to avoid too much noise but still log
+        # logger.debug(f"Fetching metadata for '{title}'...") # debug level to reduce noise in parallel
         
         result = provider.get_imdb_id(title, original_title=original_title, year=year)
+        return index, result, title
+
+    # Run in parallel
+    # TMDB limits: generous, but let's be safe. 5-10 workers is usually fine.
+    max_workers = 10 
+    
+    import concurrent.futures
+    
+    logger.info(f"Starting enrichment with {max_workers} workers...")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        futures = {executor.submit(process_film, idx, film): idx for idx, film in items_to_process}
         
-        if result.success:
-            changes = False
-            if result.imdb_id and not has_imdb:
-                film['imdb_id'] = result.imdb_id
-                changes = True
-            if result.tmdb_id and not has_tmdb:
-                film['tmdb_id'] = result.tmdb_id
-                changes = True
+        completed_so_far = 0
+        
+        for future in concurrent.futures.as_completed(futures):
+            completed_so_far += 1
+            idx, result, title = future.result()
             
-            if changes:
-                updated_count += 1
-                logger.info(f"  -> Found IDs: IMDB={result.imdb_id}, TMDB={result.tmdb_id}")
+            # Interactive progress log every 10 or so?
+            if completed_so_far % 10 == 0 or completed_so_far == to_process_count:
+                logger.info(f"Progress: {completed_so_far}/{to_process_count} ({completed_so_far/to_process_count*100:.1f}%)")
+
+            if result.success:
+                film = items[idx] # direct reference to mutable dict in list
+                has_imdb = bool(film.get('imdb_id'))
+                has_tmdb = bool(film.get('tmdb_id'))
+                
+                changes = False
+                if result.imdb_id and not has_imdb:
+                    film['imdb_id'] = result.imdb_id
+                    changes = True
+                if result.tmdb_id and not has_tmdb:
+                    film['tmdb_id'] = result.tmdb_id
+                    changes = True
+                
+                if changes:
+                    updated_count += 1
+                    logger.info(f"  [MATCH] '{title}' -> IMDB={result.imdb_id}, TMDB={result.tmdb_id}")
             else:
-                 logger.info("  -> Data found matches existing or incomplete.")
-        else:
-            logger.warning(f"  -> No match found: {result.error_message}")
+                 # Optional: log failures?
+                 # logger.warning(f"  [FAIL] '{title}': {result.error_message}")
+                 pass
 
     # 4. Save
     if updated_count > 0:
