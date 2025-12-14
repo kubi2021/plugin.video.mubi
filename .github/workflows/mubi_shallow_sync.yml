@@ -39,6 +39,12 @@ jobs:
         # Run scraper in SHALLOW mode with input
         python backend/scraper.py --mode shallow --output database/v1/films.json --input backend/previous_films.json
         
+    - name: Enrich Metadata (Add IMDB/TMDB IDs)
+      env:
+        TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      run: |
+        python backend/enrich_metadata.py --path database/v1/films.json
+
     - name: Generate Repo Files (Compress & Hash)
       run: |
         cd database/v1

@@ -35,6 +35,12 @@ jobs:
         # Output films.json only (clusters are no longer used)
         python backend/scraper.py --mode deep --output database/v1/films.json
         
+    - name: Enrich Metadata (Add IMDB/TMDB IDs)
+      env:
+        TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      run: |
+        python backend/enrich_metadata.py --path database/v1/films.json
+        
     - name: Generate Repo Files (Compress & Hash)
       run: |
         cd database/v1
