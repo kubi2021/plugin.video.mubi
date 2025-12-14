@@ -1,8 +1,8 @@
 {
   "meta": {
-    "generated_at": "2025-12-14T18:21:47.990188Z",
+    "generated_at": "2025-12-14T20:51:08.701183Z",
     "version": 1,
-    "total_count": 2022,
+    "total_count": 2023,
     "mode": "shallow"
   },
   "items": [
@@ -12328,7 +12328,6 @@
       "original_title": "Boléro",
       "genres": [
         "Short",
-        "LGBTQ+",
         "Drama"
       ],
       "countries": [
@@ -14981,9 +14980,7 @@
       "mubi_id": 164872,
       "title": "Casa Roshell",
       "original_title": "Casa Roshell",
-      "genres": [
-        "LGBTQ+"
-      ],
+      "genres": [],
       "countries": [
         "AD",
         "AE",
@@ -15752,9 +15749,7 @@
       "mubi_id": 170977,
       "title": "Chained Girls",
       "original_title": "Chained Girls",
-      "genres": [
-        "LGBTQ+"
-      ],
+      "genres": [],
       "countries": [
         "AD",
         "AE",
@@ -18553,8 +18548,7 @@
       "title": "Crossing",
       "original_title": "Crossing",
       "genres": [
-        "Drama",
-        "LGBTQ+"
+        "Drama"
       ],
       "countries": [
         "AG",
@@ -33332,8 +33326,7 @@
       "original_title": "High & Low - John Galliano",
       "genres": [
         "Documentary",
-        "Biography",
-        "LGBTQ+"
+        "Biography"
       ],
       "countries": [
         "AF",
@@ -40965,8 +40958,7 @@
       "title": "Lady",
       "original_title": "Lady",
       "genres": [
-        "Short",
-        "LGBTQ+"
+        "Short"
       ],
       "countries": [
         "AD",
@@ -47410,8 +47402,7 @@
       "original_title": "Maurice's Bar",
       "genres": [
         "Animation",
-        "Short",
-        "LGBTQ+"
+        "Short"
       ],
       "countries": [
         "AE",
@@ -58478,7 +58469,6 @@
       "original_title": "Passages",
       "genres": [
         "Drama",
-        "LGBTQ+",
         "Romance"
       ],
       "countries": [
@@ -64645,8 +64635,7 @@
       "genres": [
         "Comedy",
         "Crime",
-        "Drama",
-        "LGBTQ+"
+        "Drama"
       ],
       "countries": [
         "AD",
@@ -73588,6 +73577,7 @@
         "LR",
         "LS",
         "LT",
+        "LU",
         "LV",
         "LY",
         "MA",
@@ -73608,6 +73598,7 @@
         "NA",
         "NE",
         "NG",
+        "NL",
         "NO",
         "OM",
         "PH",
@@ -75222,8 +75213,7 @@
         "Drama",
         "Fantasy",
         "Romance",
-        "Thriller",
-        "LGBTQ+"
+        "Thriller"
       ],
       "countries": [
         "AF",
@@ -77596,7 +77586,6 @@
       "original_title": "午夜出走 | Wǔyè chūzǒu",
       "genres": [
         "Documentary",
-        "LGBTQ+",
         "Music"
       ],
       "countries": [
@@ -77684,7 +77673,6 @@
       "genres": [
         "Comedy",
         "Drama",
-        "LGBTQ+",
         "Crime",
         "Cult"
       ],
@@ -86910,8 +86898,7 @@
       "genres": [
         "Comedy",
         "Drama",
-        "Romance",
-        "LGBTQ+"
+        "Romance"
       ],
       "countries": [
         "AE",
@@ -92712,8 +92699,7 @@
       "title": "Winter Boy",
       "original_title": "Le lycéen",
       "genres": [
-        "Drama",
-        "LGBTQ+"
+        "Drama"
       ],
       "countries": [
         "AE",
@@ -97225,8 +97211,7 @@
       "title": "Great Freedom",
       "original_title": "Große Freiheit",
       "genres": [
-        "Drama",
-        "LGBTQ+"
+        "Drama"
       ],
       "countries": [
         "AF",
@@ -99007,8 +98992,7 @@
       "original_title": "Les olympiades",
       "genres": [
         "Drama",
-        "Romance",
-        "LGBTQ+"
+        "Romance"
       ],
       "countries": [
         "AF",
@@ -140525,7 +140509,9 @@
       "directors": [
         "Martin Scorsese",
         "Michael Henry Wilson"
-      ]
+      ],
+      "imdb_id": "tt0112120",
+      "tmdb_id": "153293"
     },
     {
       "mubi_id": 1789,
@@ -144934,6 +144920,24 @@
       ],
       "imdb_id": "tt2142055",
       "tmdb_id": "107203"
+    },
+    {
+      "mubi_id": 386478,
+      "title": "The Last Rhododendron",
+      "original_title": "The Last Rhododendron",
+      "genres": [
+        "Short",
+        "Drama"
+      ],
+      "year": 2021,
+      "duration": 37,
+      "directors": [
+        "Yashasvi Juyal"
+      ],
+      "countries": [
+        "IN"
+      ],
+      "tmdb_id": "885590"
     }
   ]
 }
