@@ -209,39 +209,56 @@ class MubiScraper:
         film_countries = {} # id -> set(countries)
         errors = [] # Track errors per country
         
-        target_countries = []
+        # Determine paths
+        # If input_path is not explicitly set, try to use output_path as input (incremental update)
+        load_path = input_path if input_path else output_path
+        
+        # -- 1. LOAD EXISTING DATA --
+        if os.path.exists(load_path):
+            try:
+                with open(load_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    existing_items = data.get('items', [])
+                    
+                logger.info(f"Loaded {len(existing_items)} existing films from {load_path}")
+                
+                for film in existing_items:
+                    fid = film['mubi_id']
+                    all_films[fid] = film
+                    # In Shallow mode, we preserve existing country data.
+                    # In Deep mode, we RESET country data to ensure we have a fresh state of availability.
+                    if mode == 'shallow':
+                         film_countries[fid] = set(film.get('countries', []))
+                    else:
+                         film_countries[fid] = set()
 
-        # -- INITIALIZATION --
+            except Exception as e:
+                logger.error(f"Failed to load existing data from {load_path}: {e}")
+                # If loading fails, in Deep mode we can proceed (fresh start-ish), 
+                # but in Shallow mode we might be missing context. 
+                # For now, we proceed with empty dicts if load fails.
+        else:
+             logger.info(f"No existing data found at {load_path}. Starting fresh.")
+
+        # -- 2. DETERMINE TARGETS --
+        target_countries = []
         if mode == 'deep':
             logger.info("Starting DEEP sync (Full Calibration)...")
             target_countries = self.COUNTRIES
         
         elif mode == 'shallow':
             logger.info("Starting SHALLOW sync (Incremental Update)...")
+            if not all_films:
+                 logger.warning("Shallow sync requested but no existing data found. This will effectively be a partial fresh scrape.")
             
-            if not input_path or not os.path.exists(input_path):
-                logger.error(f"Input file {input_path} not found. Cannot run shallow sync without previous state.")
-                sys.exit(1)
-            
-            # Load previous state
-            with open(input_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                existing_items = data.get('items', [])
-            
-            logger.info(f"Loaded {len(existing_items)} existing films.")
-            
-            # 1. Calculate Targets
-            target_countries = self.calculate_greedy_targets(existing_items)
-            
-            # 2. Pre-populate data structures with existing data (Append-Only / Merge Strategy)
-            for film in existing_items:
-                fid = film['mubi_id']
-                all_films[fid] = film
-                film_countries[fid] = set(film.get('countries', []))
+            # Use the existing data to calculate targets
+            target_countries = self.calculate_greedy_targets(all_films.values())
 
-        # --- SCRAPING LOOP (PARALLEL) ---
+        # --- 3. SCRAPING LOOP (PARALLEL) ---
         logger.info(f"Starting scrape for {len(target_countries)} countries: {target_countries}")
         
+        scraped_fids_this_run = set()
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
             future_to_country = {executor.submit(self.fetch_films_for_country, country): country for country in target_countries}
             
@@ -253,43 +270,71 @@ class MubiScraper:
                     
                     if not films:
                          logger.warning(f"No films found for {country}")
-                         # Only enforce critical country check in DEEP mode
                          if mode == 'deep' and country in self.CRITICAL_COUNTRIES:
                                  errors.append(f"Critical country {country} returned 0 films.")
 
                     # MERGE LOGIC
                     for film in films:
                         fid = film['id']
+                        scraped_fids_this_run.add(fid)
                         
+                        new_data = {
+                            'mubi_id': fid,
+                            'title': film.get('title'),
+                            'original_title': film.get('original_title'),
+                            'genres': film.get('genres'),
+                            'year': film.get('year'),
+                            'duration': film.get('duration'),
+                            'directors': [d['name'] for d in film.get('directors', [])]
+                        }
+
                         # Update or Create Film Object
-                        if fid not in all_films:
-                            all_films[fid] = {
-                                'mubi_id': fid,
-                                'title': film.get('title'),
-                                'original_title': film.get('original_title'),
-                                'genres': film.get('genres'),
-                                'countries': [], 
-                                'year': film.get('year'),
-                                'duration': film.get('duration'),
-                                'directors': [d['name'] for d in film.get('directors', [])]
-                            }
-                            film_countries[fid] = set()
+                        if fid in all_films:
+                            # Update existing fields, preserving others (like imdb_id)
+                            all_films[fid].update(new_data)
+                        else:
+                            # New film
+                            all_films[fid] = new_data
+                            all_films[fid]['countries'] = [] # Init
                         
-                        # ALWAYS Add country (never remove)
+                        # Init country set if not present (key might be in all_films but not film_countries if deep reset)
+                        if fid not in film_countries:
+                            film_countries[fid] = set()
+
+                        # ALWAYS Add country
                         film_countries[fid].add(country)
                     
                     logger.info(f"Finished {country}. Total unique films: {len(all_films)}")
                     
                 except Exception as e:
                     logger.error(f"Failed to process {country}: {e}")
-                    # In shallow mode, individual country failures shouldn't stop the whole process 
-                    # unless it's catastrophic, but we'll track them.
                     errors.append(f"{country}: {str(e)}")
 
-        # --- FINALIZATION ---
+        # --- 4. FINALIZATION & PRUNING ---
+         
+        # In DEEP mode: Remove films that were in the original JSON but NOT found in this scrape.
+        # This acts as our "delete" logic for removed content.
+        if mode == 'deep':
+            initial_count = len(all_films)
+            # Identify films that exist but were not seen in ANY of the scraped countries
+            # Since deep scrape covers ALL countries, if it's not seen, it's gone.
+            
+            # NOTE: We must iterate a copy of keys to modify the dict
+            for fid in list(all_films.keys()):
+                if fid not in scraped_fids_this_run:
+                    del all_films[fid]
+                    if fid in film_countries:
+                        del film_countries[fid]
+            
+            removed_count = initial_count - len(all_films)
+            if removed_count > 0:
+                logger.info(f"DEEP SYNC: Pruned {removed_count} films that are no longer available.")
+
         final_items = []
         for fid, film in all_films.items():
-            film['countries'] = sorted(list(film_countries[fid]))
+            # Sync countries set back to list
+            c_set = film_countries.get(fid, set())
+            film['countries'] = sorted(list(c_set))
             final_items.append(film)
 
         # PANIC CHECK
