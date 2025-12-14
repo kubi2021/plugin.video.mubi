@@ -47,107 +47,112 @@ class TMDBProvider:
     ) -> ExternalMetadataResult:
         """
         Fetch IMDB ID and TMDB ID from TMDB.
-        
-        Returns ExternalMetadataResult with:
-        - imdb_id: IMDB identifier (e.g., "tt0133093")
-        - tmdb_id: TMDB identifier (e.g., "603")
-        - source_provider: "TMDB"
+        Tries Movie search first, then TV search.
         """
 
-        # Generate search candidates (Original Title, Title, Variants)
+        # Generate search candidates
         search_candidates = self.title_normalizer.generate_title_variants(title, original_title)
         
-        # Ensure simple title and original title are at the top of the list if not already
+        # Ensure simple title and original title are at the top
         if title not in search_candidates:
              search_candidates.insert(0, title)
         if original_title and original_title != title and original_title not in search_candidates:
              search_candidates.insert(1, original_title)
 
-        tmdb_id = None
-        
+        # 1. Try Searching as MOVIE
         for candidate in search_candidates:
-            # 1. Try strict search with year
+            # A. Strict search
             tmdb_id = self._search_movie(candidate, year)
             if tmdb_id:
-                break
+                return self._get_movie_details(tmdb_id)
                 
-            # 2. If year provided, try searching WITHOUT year (fuzzy match)
-            # This handles cases where MUBI year is off by ±1 year
+            # B. Fuzzy year search (if year provided)
             if year:
-                logger.debug(f"TMDB: Trying fuzzy year search for '{candidate}'")
+                logger.debug(f"TMDB: Trying fuzzy year movie search for '{candidate}'")
                 tmdb_id = self._search_movie(candidate, year=None, target_year=year)
                 if tmdb_id:
-                    break
-        
-        if not tmdb_id:
-            result = ExternalMetadataResult(
-                success=False,
-                source_provider=self.provider_name,
-                error_message="No match found"
-            )
-            return result
+                    return self._get_movie_details(tmdb_id)
+
+        # 2. Try Searching as TV SHOW (Fallback)
+        # Often MUBI lists miniseries or TV contents as films
+        for candidate in search_candidates:
+            # A. Strict search
+            tmdb_id = self._search_tv(candidate, year)
+            if tmdb_id:
+                return self._get_tv_details(tmdb_id)
             
-        # Get details to find IMDB ID
-        result = self._get_movie_details(tmdb_id)
-        return result
+            # B. Fuzzy year search
+            if year:
+                logger.debug(f"TMDB: Trying fuzzy year TV search for '{candidate}'")
+                tmdb_id = self._search_tv(candidate, year=None, target_year=year)
+                if tmdb_id:
+                    return self._get_tv_details(tmdb_id)
+        
+        return ExternalMetadataResult(
+            success=False,
+            source_provider=self.provider_name,
+            error_message="No match found in Movie or TV results"
+        )
 
     def _search_movie(self, title: str, year: Optional[int], target_year: Optional[int] = None) -> Optional[int]:
+        """Search for a movie."""
+        return self._search_generic("movie", title, year, target_year)
+
+    def _search_tv(self, title: str, year: Optional[int], target_year: Optional[int] = None) -> Optional[int]:
+        """Search for a TV show."""
+        return self._search_generic("tv", title, year, target_year)
+
+    def _search_generic(self, media_type: str, title: str, year: Optional[int], target_year: Optional[int] = None) -> Optional[int]:
         """
-        Search for a movie.
-        
-        :param title: Title to search for
-        :param year: Strict year filter for API
-        :param target_year: Use for fuzzy matching when year is None (±1 year tolerance)
+        Generic search for movie or tv.
+        media_type: 'movie' or 'tv'
         """
+        endpoint = f"search/{media_type}"
         params = {
             "api_key": self.api_key,
             "query": title,
             "include_adult": "false",
             "page": 1
         }
+        
+        # TMDB API params differ slightly
         if year:
-            params["year"] = str(year)
+            if media_type == "movie":
+                params["year"] = str(year) # release_year for movies (or just year)
+            else:
+                params["first_air_date_year"] = str(year) # first_air_date_year for TV
             
         def do_search() -> ExternalMetadataResult:
-            response = requests.get(f"{self.BASE_URL}/search/movie", params=params, timeout=10)
+            response = requests.get(f"{self.BASE_URL}/{endpoint}", params=params, timeout=10)
             response.raise_for_status()
             
             data = response.json()
             results = data.get("results", [])
             
             if not results:
-                return ExternalMetadataResult(
-                    success=False,
-                    source_provider=self.provider_name,
-                    error_message="No match found"
-                )
+                return ExternalMetadataResult(success=False, source_provider=self.provider_name)
                 
             # If target_year is provided (fuzzy search), find best match
             if target_year and not year:
-                for movie in results:
-                    release_date = movie.get("release_date", "")
-                    if release_date:
+                for item in results:
+                    # Get date string (release_date for movie, first_air_date for tv)
+                    date_str = item.get("release_date") if media_type == "movie" else item.get("first_air_date")
+                    
+                    if date_str:
                         try:
-                            # Parse year from "YYYY-MM-DD"
-                            movie_year = int(release_date.split("-")[0])
-                            # Check tolerance ±2 year
-                            if abs(movie_year - target_year) <= 2:
+                            item_year = int(date_str.split("-")[0])
+                            if abs(item_year - target_year) <= 2:
                                 return ExternalMetadataResult(
                                     success=True,
-                                    tmdb_id=str(movie["id"]),
+                                    tmdb_id=str(item["id"]),
                                     source_provider=self.provider_name
                                 )
                         except (ValueError, IndexError):
                             continue
                 
-                # If no match found within tolerance
-                return ExternalMetadataResult(
-                    success=False,
-                    source_provider=self.provider_name,
-                    error_message=f"No match found within 2 years of {target_year}"
-                )
+                return ExternalMetadataResult(success=False, source_provider=self.provider_name)
                 
-            # Return the ID of the first result (default strict behavior)
+            # Default: First result
             return ExternalMetadataResult(
                 success=True,
                 tmdb_id=str(results[0]["id"]),
@@ -155,23 +160,24 @@ class TMDBProvider:
             )
 
         try:
-            # retry_strategy expects a function that returns ExternalMetadataResult
             result = self.retry_strategy.execute(do_search, title)
-            
             if result.success and result.tmdb_id:
                 return int(result.tmdb_id)
             return None
-            
         except Exception as e:
-            logger.warning(f"TMDB: Search failed for '{title}': {e}")
+            logger.warning(f"TMDB: {media_type.upper()} search failed for '{title}': {e}")
             return None
 
     def _get_movie_details(self, tmdb_id: int) -> ExternalMetadataResult:
-        """Get movie details including external IDs."""
+        return self._get_details_generic(tmdb_id, "movie")
+
+    def _get_tv_details(self, tmdb_id: int) -> ExternalMetadataResult:
+        return self._get_details_generic(tmdb_id, "tv")
+
+    def _get_details_generic(self, tmdb_id: int, media_type: str) -> ExternalMetadataResult:
+        """Get details for movie or tv."""
         try:
-            # Check cache or similar if implemented (not here)
-            
-            url = f"{self.BASE_URL}/movie/{tmdb_id}"
+            url = f"{self.BASE_URL}/{media_type}/{tmdb_id}"
             params = {
                 "api_key": self.api_key,
                 "append_to_response": "external_ids"
@@ -187,7 +193,8 @@ class TMDBProvider:
             result_data = {
                 "tmdb_id": str(tmdb_id),
                 "source_provider": self.provider_name,
-                "success": True
+                "success": True,
+                # "media_type": media_type # TODO: Add if supported in Result
             }
             
             if imdb_id:
@@ -197,7 +204,7 @@ class TMDBProvider:
             return ExternalMetadataResult(**result_data)
             
         except Exception as e:
-            logger.error(f"TMDB: Failed to get details for ID {tmdb_id}: {e}")
+            logger.error(f"TMDB: Failed to get {media_type} details for ID {tmdb_id}: {e}")
             return ExternalMetadataResult(
                 success=False,
                 source_provider=self.provider_name,

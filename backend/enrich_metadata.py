@@ -2,7 +2,9 @@ import json
 import os
 import sys
 import logging
+import concurrent.futures
 from datetime import datetime
+from typing import Dict, Any, List, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -65,66 +67,30 @@ def enrich_metadata(films_path='films.json'):
     updated_count = 0
     start_time = datetime.now()
 
-    # Helper function for threaded execution
-    def process_film(index, film_data):
-        title = film_data.get('title')
-        original_title = film_data.get('original_title')
-        year = film_data.get('year')
-        
-        # Helper to avoid too much noise but still log
-        # logger.debug(f"Fetching metadata for '{title}'...") # debug level to reduce noise in parallel
-        
-        result = provider.get_imdb_id(title, original_title=original_title, year=year)
-        return index, result, title
-
-    # Run in parallel
-    # TMDB limits: generous, but let's be safe. 5-10 workers is usually fine.
-    max_workers = 10 
-    
-    import concurrent.futures
-    
+    max_workers = 10
     logger.info(f"Starting enrichment with {max_workers} workers...")
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
-        futures = {executor.submit(process_film, idx, film): idx for idx, film in items_to_process}
+        futures = {executor.submit(process_film, film, provider, idx, total_films): idx for idx, film in items_to_process}
         
         completed_so_far = 0
         
         for future in concurrent.futures.as_completed(futures):
             completed_so_far += 1
-            idx, result, title = future.result()
+            idx = futures[future]
             
-            # Interactive progress log every 10 or so?
-            if completed_so_far % 10 == 0 or completed_so_far == to_process_count:
-                logger.info(f"Progress: {completed_so_far}/{to_process_count} ({completed_so_far/to_process_count*100:.1f}%)")
-
-            if result.success:
-                film = items[idx] # direct reference to mutable dict in list
-                has_imdb = bool(film.get('imdb_id'))
-                has_tmdb = bool(film.get('tmdb_id'))
-                
-                changes = False
-                if result.imdb_id and not has_imdb:
-                    film['imdb_id'] = result.imdb_id
-                    changes = True
-                if result.tmdb_id and not has_tmdb:
-                    film['tmdb_id'] = result.tmdb_id
-                    changes = True
-                
-                if changes:
+            try:
+                result = future.result()
+                if result:
                     updated_count += 1
-                    logger.info(f"  [MATCH] '{title}' -> IMDB={result.imdb_id}, TMDB={result.tmdb_id}")
-            else:
-                 # Optional: log failures?
-                 # logger.warning(f"  [FAIL] '{title}': {result.error_message}")
-                 pass
+            except Exception as e:
+                logger.error(f"Error processing film index {idx}: {e}")
 
+    logger.info(f"Enrichment complete. Updated {updated_count} films.")
     # 4. Save
     if updated_count > 0:
         data['items'] = items
-        # Update meta timestamp if desired, or just save
-        # data['meta']['generated_at'] = ... (Maybe we keep scraper's timestamp?)
         
         with open(films_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -133,6 +99,38 @@ def enrich_metadata(films_path='films.json'):
         logger.info(f"Enrichment complete. Updated {updated_count} films in {duration}.")
     else:
         logger.info("Enrichment complete. No new metadata found.")
+
+    # Validation
+    # ...
+
+def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: int) -> bool:
+    """
+    Process a single film to fetch external metadata.
+    Returns True if updated, False otherwise.
+    """
+    title = film.get('title')
+    original_title = film.get('original_title')
+    year = film.get('year')
+    
+    logger.info(f"[{idx+1}/{total}] Fetching metadata for '{title}' ({year})...")
+    
+    if not title:
+        return False
+
+    result = provider.get_imdb_id(title, original_title=original_title, year=year)
+    
+    if result.success:
+        if result.imdb_id:
+            film['imdb_id'] = result.imdb_id
+        if result.tmdb_id:
+            film['tmdb_id'] = result.tmdb_id
+        logger.info(f"Found match: IMDB={result.imdb_id}, TMDB={result.tmdb_id}")
+        return True
+    else:
+        logger.warning(f"No match found for '{title}' ({year})")
+        return False
+    
+
 
 if __name__ == "__main__":
     import argparse
