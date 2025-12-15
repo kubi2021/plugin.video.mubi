@@ -122,8 +122,16 @@ class TestMubiScraper(unittest.TestCase):
             'duration': 45,
             'directors': [],
             'popularity': 100,
-            'episode': {'id': 5, 'title': 'The Episode'},
-            'series': {'id': 10, 'title': 'The Series'}
+            'episode': {
+                'id': 5, 'title': 'The Episode',
+                'fotd_show_episode': True, # Forbidden
+                'episode_label_color': '#000000', # Forbidden
+            },
+            'series': {
+                'id': 10, 'title': 'The Series',
+                'title_upcase': 'THE SERIES', # Forbidden
+                'slug': 'the-series', # Forbidden
+            }
         }
 
         mock_fetch.return_value = [film_item, series_item]
@@ -191,10 +199,18 @@ class TestMubiScraper(unittest.TestCase):
             self.assertIsNotNone(found_film_in_2)
             self.assertIsNone(found_series_in_2)
 
-        # Verify Series Fields are preserved
+        # Verify Series Fields preservation and PRUNING
         series_result_item = found_series_in_2 if found_series_in_2 else found_series_in_1
-        self.assertEqual(series_result_item['episode'], {'id': 5, 'title': 'The Episode'})
-        self.assertEqual(series_result_item['series'], {'id': 10, 'title': 'The Series'})
+        
+        # Check preserved fields
+        self.assertEqual(series_result_item['episode']['id'], 5)
+        self.assertEqual(series_result_item['series']['id'], 10)
+        
+        # Check cleaned fields (Should be GONE)
+        self.assertNotIn('fotd_show_episode', series_result_item['episode'])
+        self.assertNotIn('episode_label_color', series_result_item['episode'])
+        self.assertNotIn('title_upcase', series_result_item['series'])
+        self.assertNotIn('slug', series_result_item['series'])
 
 
 if __name__ == '__main__':

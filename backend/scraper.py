@@ -204,6 +204,26 @@ class MubiScraper:
         # Sort for consistent execution order
         return sorted(selected_countries)
 
+    def _prune_series_data(self, data):
+        """
+        Removes specific fields from series/episode data to reduce file size.
+        """
+        keys_to_remove = [
+            'fotd_show_episode', 'episode_label_color', 'title_upcase', 'slug', 'web_url',
+            'availability_message', 'short_synopsis_html', 'default_editorial_html',
+            'trailer_url', 'trailer_id', 'industry_events_count', 'cast_members_count',
+            'optimised_trailers', 'artworks'
+        ]
+        
+        # Helper to prune a dict in-place
+        def prune_dict(d):
+            if not d: return
+            for key in keys_to_remove:
+                d.pop(key, None)
+        
+        prune_dict(data.get('episode'))
+        prune_dict(data.get('series'))
+
     def run(self, output_path='films.json', series_path='series.json', mode='deep', input_path=None):
         all_films = {} # id -> film_data
         all_series = {} # id -> series_data
@@ -332,6 +352,10 @@ class MubiScraper:
                             scraped_sids_this_run.add(fid)
                             target_dict = all_series
                             target_countries_dict = series_countries
+                            
+                            # Clean up Series Data
+                            self._prune_series_data(new_data)
+                            
                         else:
                             scraped_fids_this_run.add(fid)
                             target_dict = all_films
@@ -356,6 +380,7 @@ class MubiScraper:
                 except Exception as e:
                     logger.error(f"Failed to process {country}: {e}")
                     errors.append(f"{country}: {str(e)}")
+
 
         # --- 4. FINALIZATION & PRUNING ---
          
