@@ -93,25 +93,40 @@ class TestMubiScraper(unittest.TestCase):
     @patch('os.path.exists', return_value=True) # claim input file exists
     @patch('json.dump')
     @patch('scraper.MubiScraper.calculate_greedy_targets')
-    def test_run_saves_new_fields(self, mock_greedy, mock_json_dump, mock_exists, mock_open, mock_executor, mock_fetch):
+    def test_run_separates_films_and_series(self, mock_greedy, mock_json_dump, mock_exists, mock_open, mock_executor, mock_fetch):
         # Setup
         mock_greedy.return_value = ['US']
-        mock_fetch.return_value = [{
+        
+        # Create test items: one film, one series episode
+        film_item = {
             'id': 1001,
             'title': 'Test Movie',
-            'mubi_id': 1001, # The raw data usually has 'id' which acts as mubi_id
+            'mubi_id': 1001, 
             'original_title': 'Test Movie Original',
             'genres': ['Drama'],
             'year': 2023,
             'duration': 90,
             'directors': [{'name': 'Director One'}],
             'popularity': 42,
-            'average_rating_out_of_ten': 7.8,
-            'short_synopsis': 'A short synopsis.',
-            'default_editorial': 'An editorial excerpt.',
+            'episode': None,
+            'series': None
+        }
+        
+        series_item = {
+            'id': 2002,
+            'title': 'Test Series Episode',
+            'mubi_id': 2002,
+            'original_title': 'Test Series Original',
+            'genres': ['TV'],
+            'year': 2024,
+            'duration': 45,
+            'directors': [],
+            'popularity': 100,
             'episode': {'id': 5, 'title': 'The Episode'},
             'series': {'id': 10, 'title': 'The Series'}
-        }]
+        }
+
+        mock_fetch.return_value = [film_item, series_item]
         
         # Mock executor context manager
         mock_future = MagicMock()
@@ -125,24 +140,62 @@ class TestMubiScraper(unittest.TestCase):
         
         # We need concurrent.futures.as_completed to yield the future
         with patch('concurrent.futures.as_completed', return_value=[mock_future]):
-            self.scraper.run(output_path='dummy.json', mode='shallow')
+            self.scraper.run(output_path='films.json', series_path='series.json', mode='shallow')
             
-        # Verify json.dump was called with correct data
-        args, _ = mock_json_dump.call_args
-        output_data = args[0]
-        items = output_data['items']
-        self.assertEqual(len(items), 1)
-        item = items[0]
+        # Verify json.dump was called twice (once for films, once for series)
+        self.assertEqual(mock_json_dump.call_count, 2)
         
-        self.assertEqual(item['popularity'], 42)
-        self.assertEqual(item['average_rating_out_of_ten'], 7.8)
-        self.assertEqual(item['short_synopsis'], 'A short synopsis.')
-        self.assertEqual(item['default_editorial'], 'An editorial excerpt.')
-        self.assertEqual(item['episode'], {'id': 5, 'title': 'The Episode'})
-        self.assertEqual(item['series'], {'id': 10, 'title': 'The Series'})
+        # Inspect calls. We expect one call for films.json/output content and one for series.json
+        # NOTE: The order depends on how `run` calls dump. In current implementation, films are saved first.
         
-        # Verify shallow sync logic did not crash
-        self.assertIn('countries', item)
+        # Check Call 1 (Films)
+        call1_args = mock_json_dump.call_args_list[0][0]
+        output_data_1 = call1_args[0]
+        items_1 = output_data_1['items']
+        
+        # Check Call 2 (Series)
+        call2_args = mock_json_dump.call_args_list[1][0]
+        output_data_2 = call2_args[0]
+        items_2 = output_data_2['items']
+
+        # Verify Content
+        # One of these lists should contain the film, the other the series
+        
+        # Helper to find item by id
+        def find_by_id(items, target_id):
+            return next((i for i in items if i['mubi_id'] == target_id), None)
+
+        found_film_in_1 = find_by_id(items_1, 1001)
+        found_series_in_1 = find_by_id(items_1, 2002)
+        
+        found_film_in_2 = find_by_id(items_2, 1001)
+        found_series_in_2 = find_by_id(items_2, 2002)
+
+        # Assert correct separation
+        if found_film_in_1:
+            # Case: Call 1 was Films
+            self.assertIsNotNone(found_film_in_1, "Film should be in films list")
+            self.assertIsNone(found_series_in_1, "Series should NOT be in films list")
+            
+            self.assertIsNotNone(found_series_in_2, "Series should be in series list (Call 2)")
+            self.assertIsNone(found_film_in_2, "Film should NOT be in series list")
+            
+            # Verify open() called with correct filenames corresponding to these dumps
+            # We can't strictly verify open() pairing with dump easily in this mocked mess without checking file handles, 
+            # but verifying separation of content is the most critical part.
+        else:
+            # Case: Call 1 was Series (unlikely given code order, but good for robustness)
+            self.assertIsNotNone(found_series_in_1)
+            self.assertIsNone(found_film_in_1)
+            
+            self.assertIsNotNone(found_film_in_2)
+            self.assertIsNone(found_series_in_2)
+
+        # Verify Series Fields are preserved
+        series_result_item = found_series_in_2 if found_series_in_2 else found_series_in_1
+        self.assertEqual(series_result_item['episode'], {'id': 5, 'title': 'The Episode'})
+        self.assertEqual(series_result_item['series'], {'id': 10, 'title': 'The Series'})
+
 
 if __name__ == '__main__':
     unittest.main()

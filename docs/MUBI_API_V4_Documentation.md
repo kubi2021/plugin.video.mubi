@@ -145,6 +145,7 @@ plotoutline = short_synopsis  # Always use synopsis for outline
 - **Recommended sort options**: "popularity", "release_date", "title", "rating" all return the same total count
 - **Use web headers** (`hea_gen()`) rather than Android TV headers for best results
 
+
 **Returns**:
 ```json
 {
@@ -248,7 +249,8 @@ plotoutline = short_synopsis  # Always use synopsis for outline
       "press_quote": "string|null",
       "star_rating": "object|null",
       "award": "object|null",
-      "series": "object|null",
+      "series": "object|null - (See Distinguishing Films vs. Series below)",
+      "episode": "object|null - (See Distinguishing Films vs. Series below)",
       "content_warnings": ["string"],
       "artworks": [
         {
@@ -321,6 +323,31 @@ GET /v4/browse/films?sort=title&playable=true&page=1
 - `content_warnings`: Array of specific content warnings
 - `hd`: HD availability flag
 - `mubi_release`: Whether it's a MUBI original/exclusive
+
+### Distinguishing Films vs. Series
+The `/browse/films` and `/films/{id}` endpoints return both distinct films and series episodes. To determine the type, check the `episode` and `series` fields:
+
+**It is a FILM if**:
+- `episode` is `null`
+- `series` is `null`
+
+**It is a SERIES (Episode) if**:
+- `episode` is **not** `null` and contains details like:
+    - `label`: Full usage label (e.g., "Self-Portrait as a Coffee-Pot - Episode 1")
+    - `number`: Episode number (e.g., `1`)
+    - `season_number`: Season number (e.g., `1`)
+    - `episode_label`: Short label (e.g., "E1")
+    - `series_title`: Title of the series (e.g., "Self-Portrait as a Coffee-Pot")
+    - `series_id`: ID of the parent series
+- `series` is **not** `null` and contains:
+    - `id`: Series ID
+    - `title`: Series title
+    - `episode_count`: Total episodes in series
+    - `season_count`: Total seasons in series
+    - `content_rating`: Series-level content rating
+
+**Note**: The returned object for a series episode is effectively a "Film" object that represents that specific episode, but enriched with parent series metadata.
+
 
 ### Browse Collections
 **Endpoint**: `GET /browse/film_groups`  
@@ -428,6 +455,19 @@ GET /v4/browse/films?sort=title&playable=true&page=1
 ```
 
 ## Content Details
+
+### Get Film/Episode Details
+**Endpoint**: `GET /films/{id}`  
+**Headers**: Standard web headers  
+**Parameters**: None
+
+**Returns**:
+Returns a single film or episode object. The structure is identical to items in `/browse/films`.
+
+**Example**:
+```bash
+GET /v4/films/419520
+```
 
 ### Collection Items
 **Endpoint**: `GET /film_groups/{id}/film_group_items`  
