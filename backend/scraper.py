@@ -285,7 +285,13 @@ class MubiScraper:
                             'genres': film.get('genres'),
                             'year': film.get('year'),
                             'duration': film.get('duration'),
-                            'directors': [d['name'] for d in film.get('directors', [])]
+                            'directors': [d['name'] for d in film.get('directors', [])],
+                            'popularity': film.get('popularity'),
+                            'average_rating_out_of_ten': film.get('average_rating_out_of_ten'),
+                            'short_synopsis': film.get('short_synopsis'),
+                            'default_editorial': film.get('default_editorial'),
+                            'episode': film.get('episode'),
+                            'series': film.get('series')
                         }
 
                         # Update or Create Film Object
