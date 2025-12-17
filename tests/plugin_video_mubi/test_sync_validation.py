@@ -122,6 +122,6 @@ class TestSyncValidation:
         mock_provider.test_connection.assert_called_once()
         
         # Verify we proceeded to log start
-        assert any("Starting film sync" in str(call) for call in mock_log.call_args_list)
+        assert any("Starting sync" in str(call) for call in mock_log.call_args_list)
         
         assert NavigationHandler._sync_in_progress is False

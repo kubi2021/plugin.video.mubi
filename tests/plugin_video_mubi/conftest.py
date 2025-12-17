@@ -18,26 +18,28 @@ from pathlib import Path
 repo_path = Path(__file__).parent.parent.parent / "repo"
 sys.path.insert(0, str(repo_path))
 
-# Mock external dependencies before any imports
+
+
+# -----------------------------------------------------------------------------
+# GLOBAL MOCKS (Import-Time)
+# Required for test collection because these modules are imported at top-level
+# by the plugin code, but don't exist in the test environment.
+# -----------------------------------------------------------------------------
+
+# Mock requests globally by default for SPEED and SAFETY
+# We will opt-out in integration tests.
 requests_mock = MagicMock()
 
-# Create proper exception classes that inherit from BaseException
-class MockHTTPError(Exception):
+# Create proper exception classes
+class MockRequestException(Exception): pass
+class MockConnectionError(MockRequestException): pass
+class MockTimeout(MockRequestException): pass
+class MockHTTPError(MockRequestException):
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
         self.response = Mock()
         self.response.status_code = kwargs.get('status_code', 500)
 
-class MockRequestException(Exception):
-    pass
-
-class MockConnectionError(MockRequestException):
-    pass
-
-class MockTimeout(MockRequestException):
-    pass
-
-# Set up the exceptions module
 requests_mock.exceptions = MagicMock()
 requests_mock.exceptions.HTTPError = MockHTTPError
 requests_mock.exceptions.RequestException = MockRequestException
@@ -50,6 +52,7 @@ requests_mock.packages.urllib3 = MagicMock()
 requests_mock.packages.urllib3.util = MagicMock()
 requests_mock.packages.urllib3.util.retry = MagicMock()
 
+# Apply to sys.modules immediately
 sys.modules['requests'] = requests_mock
 sys.modules['requests.exceptions'] = requests_mock.exceptions
 sys.modules['requests.adapters'] = requests_mock.adapters
@@ -58,46 +61,39 @@ sys.modules['requests.packages.urllib3'] = requests_mock.packages.urllib3
 sys.modules['requests.packages.urllib3.util'] = requests_mock.packages.urllib3.util
 sys.modules['requests.packages.urllib3.util.retry'] = requests_mock.packages.urllib3.util.retry
 
+# Mock dateutil/webbrowser/time
 sys.modules['dateutil'] = MagicMock()
 sys.modules['dateutil.parser'] = MagicMock()
 sys.modules['webbrowser'] = MagicMock()
 sys.modules['time'] = MagicMock()
 
-# Mock xbmc and other related modules before any imports
+# Mock xbmc and related modules
 sys.modules['xbmc'] = MagicMock()
 sys.modules['xbmcaddon'] = MagicMock()
-# Configure default return values to prevent MagicMock folders
 sys.modules['xbmcaddon'].Addon.return_value.getAddonInfo.return_value = "/tmp/mock_addon_path"
 sys.modules['xbmcaddon'].Addon.return_value.getSetting.return_value = ""
 sys.modules['xbmcgui'] = MagicMock()
 sys.modules['xbmcplugin'] = MagicMock()
 
-# Create a proper mock for xbmcvfs.File that supports context manager
+# Mock xbmcvfs
 class MockFile:
     def __init__(self, path, mode):
         self.path = path
         self.mode = mode
         self.content = ""
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return None
-
-    def read(self):
-        return self.content
-
-    def write(self, content):
-        self.content = content
+    def __enter__(self): return self
+    def __exit__(self, exc_type, exc_val, exc_tb): return None
+    def read(self): return self.content
+    def write(self, content): self.content = content
 
 xbmcvfs_mock = MagicMock()
 xbmcvfs_mock.File = MockFile
 sys.modules['xbmcvfs'] = xbmcvfs_mock
 
+# Mock inputstreamhelper
 sys.modules['inputstreamhelper'] = MagicMock()
 
-# Configure xbmc module constants
+# Configure xbmc constants
 xbmc_mock = sys.modules['xbmc']
 xbmc_mock.LOGDEBUG = 0
 xbmc_mock.LOGINFO = 1
@@ -110,6 +106,53 @@ xbmc_mock.NOTIFICATION_ERROR = 'error'
 # Configure xbmcplugin constants
 xbmcplugin_mock = sys.modules['xbmcplugin']
 xbmcplugin_mock.SORT_METHOD_NONE = 0
+
+
+# -----------------------------------------------------------------------------
+# REQUESTS MOCKS (Fixture-Based)
+# Mocking requests safely during tests without polluting global state
+# for integration tests that need real requests.
+# -----------------------------------------------------------------------------
+
+@pytest.fixture(scope="package", autouse=True)
+def mock_requests_patching():
+    """
+    Forcefully RELOAD modules to ensure they pick up the mocked requests.
+    Attribute patching is flaky with 'from X import Y'.
+    """
+    import sys
+    import importlib
+    
+    # List of modules to reload
+    # We must reload them if they are already in sys.modules
+    target_modules = [
+        'resources.lib.mubi',
+        'resources.lib.data_source',
+        'plugin_video_mubi.resources.lib.mubi',
+        'plugin_video_mubi.resources.lib.data_source'
+    ]
+    
+    reloaded_modules = []
+    
+    for tm in target_modules:
+        if tm in sys.modules:
+            try:
+                # Reloading ensures that 'import requests' inside the module
+                # picks up the MagicMock we installed in sys.modules['requests']
+                # in the previous fixture.
+                importlib.reload(sys.modules[tm])
+                reloaded_modules.append(tm)
+            except Exception as e:
+                # If reload fails (e.g. partial initialization), just ignore
+                print(f"Failed to reload {tm}: {e}")
+            
+    yield
+    
+    # Not strictly necessary to restore for unit tests, 
+    # as we want them isolated. 
+    # Integration tests will do their own environment setup/teardown.
+
+
 
 @pytest.fixture
 def mock_addon():

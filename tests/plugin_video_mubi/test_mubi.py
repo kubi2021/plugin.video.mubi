@@ -1397,7 +1397,7 @@ class TestMubi:
         assert mubi_instance.apiURL == "https://api.mubi.com/"
 
     # Additional tests for better coverage
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_rate_limiting_429(self, mock_session, mubi_instance):
         """Test API call handles 429 rate limiting with Retry-After header."""
         # First response: 429 with Retry-After header
@@ -1423,7 +1423,7 @@ class TestMubi:
             # Should have retried and succeeded
             assert result == mock_response_200
 
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_http_error(self, mock_session, mubi_instance):
         """Test API call with HTTP error."""
         mock_response = Mock()
@@ -1440,7 +1440,7 @@ class TestMubi:
 
         assert result is None
 
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_request_exception(self, mock_session, mubi_instance):
         """Test API call with request exception."""
         mock_session_instance = Mock()
@@ -1451,7 +1451,7 @@ class TestMubi:
 
         assert result is None
 
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_unexpected_exception(self, mock_session, mubi_instance):
         """Test API call with unexpected exception."""
         mock_session_instance = Mock()
@@ -1462,7 +1462,7 @@ class TestMubi:
 
         assert result is None
 
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_with_full_url(self, mock_session, mubi_instance):
         """Test API call with full URL."""
         mock_response = Mock()
@@ -1481,7 +1481,7 @@ class TestMubi:
         call_args = mock_session_instance.request.call_args
         assert call_args[0][1] == "https://example.com/api"
 
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_with_all_parameters(self, mock_session, mubi_instance):
         """Test API call with all parameters."""
         mock_response = Mock()
@@ -1717,7 +1717,7 @@ class TestMubi:
         assert headers['Client'] == 'web'
 
     @patch('time.time')
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_success(self, mock_session_class, mock_time, mubi_instance):
         """Test successful API call with proper rate limiting."""
         # Mock time to avoid rate limiting issues
@@ -1740,7 +1740,7 @@ class TestMubi:
         mock_session.close.assert_called_once()
 
     @patch('time.time')
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_http_error_handling(self, mock_session_class, mock_time, mubi_instance):
         """Test API call HTTP error handling."""
         mock_time.return_value = 1000.0
@@ -1762,7 +1762,7 @@ class TestMubi:
         mock_session.close.assert_called_once()
 
     @patch('time.time')
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_network_error(self, mock_session_class, mock_time, mubi_instance):
         """Test API call network error handling."""
         mock_time.return_value = 1000.0
@@ -1924,7 +1924,7 @@ class TestMubi:
     @patch('time.time')
     @patch('xbmc.executebuiltin')
     @patch('xbmcgui.Dialog')
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_detects_invalid_token_401(
         self, mock_session_class, mock_dialog, mock_executebuiltin, mock_time, mubi_instance
     ):
@@ -1972,7 +1972,7 @@ class TestMubi:
     @patch('time.time')
     @patch('xbmc.executebuiltin')
     @patch('xbmcgui.Dialog')
-    @patch('requests.Session')
+    @patch('plugin_video_mubi.resources.lib.mubi.requests.Session')
     def test_make_api_call_detects_invalid_token_422(
         self, mock_session_class, mock_dialog, mock_executebuiltin, mock_time, mubi_instance
     ):
@@ -2161,6 +2161,10 @@ class TestMubi:
             result = mubi_instance._make_api_call('GET', endpoint='test')
 
             # Should have used exponential backoff: 10*2^0=10, 10*2^1=20
+            # Note: The retry loop runs for attempts 0 to 5.
+            # Attempt 0: 429 -> wait 10s
+            # Attempt 1: 429 -> wait 20s
+            # Attempt 2: 200 -> return
             assert mock_sleep.call_count == 2
             mock_sleep.assert_any_call(10)  # First retry: 10 * 2^0 = 10 seconds
             mock_sleep.assert_any_call(20)  # Second retry: 10 * 2^1 = 20 seconds
