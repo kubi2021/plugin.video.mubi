@@ -719,65 +719,13 @@ def test_film_equality():
     assert film1 == film2, "Films with the same mubi_id should be equal."
     assert film1 != film3, "Films with different mubi_id should not be equal."
 
-@patch("xbmcaddon.Addon")
-@patch("xbmcgui.DialogProgress")
-@patch.object(Library, "prepare_files_for_film")
-@patch.object(Library, "remove_obsolete_files")
-def test_sync_locally_with_genre_filtering(
-    mock_remove_obsolete, mock_prepare_files, mock_dialog_progress, mock_addon
-):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        plugin_userdata_path = Path(tmpdirname)
-        library = Library()
+def test_sync_locally_with_genre_filtering_OBSOLETE():
+    """
+    OBSOLETE: Genre filtering logic has been moved to FilmFilter class.
+    This test is removed.
+    """
+    pass
 
-        # Mock the settings to have 'skip_genre_horror' enabled
-        addon_instance = mock_addon.return_value
-        addon_instance.getSettingBool.side_effect = lambda key: key == 'skip_genre_horror'
-
-        # Create a Film object with genre 'Horror'
-        metadata_horror = MockMetadata(year=2023)
-        metadata_horror.genre = ['Horror']
-        film_horror = Film(
-            mubi_id="999",
-            title="Scary Movie",
-            artwork="http://example.com/art.jpg",
-            web_url="http://example.com",
-            metadata=metadata_horror
-        )
-        library.add_film(film_horror)
-
-        # Create a Film object with genre 'Drama'
-        metadata_drama = MockMetadata(year=2023)
-        metadata_drama.genre = ['Drama']
-        film_drama = Film(
-            mubi_id="1000",
-            title="Dramatic Movie",
-            artwork="http://example.com/art2.jpg",
-            web_url="http://example.com",
-            metadata=metadata_drama
-        )
-        library.add_film(film_drama)
-
-        # Mock dialog behavior to not cancel
-        mock_dialog = mock_dialog_progress.return_value
-        mock_dialog.iscanceled.return_value = False
-
-        # Run sync_locally
-        base_url = "plugin://plugin.video.mubi/"
-        omdb_api_key = "fake_api_key"
-        library.sync_locally(base_url, plugin_userdata_path)
-
-        # After sync_locally, the film with genre 'Horror' should have been filtered out
-        assert len(library.films) == 1, "Library should have one film after filtering out horror films."
-        assert film_drama in library.films, "Drama film should remain in the library."
-
-        # Assert that prepare_files_for_film was called only for the 'Drama' film
-        mock_prepare_files.assert_called_once_with(
-            film_drama, base_url, plugin_userdata_path
-        )
-
-        # Assert that remove_obsolete_files was called
-        mock_remove_obsolete.assert_called_once_with(plugin_userdata_path)
 
 
 class TestLibrarySyncEdgeCases:

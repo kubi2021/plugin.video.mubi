@@ -2707,10 +2707,15 @@ class TestMultiCountrySync:
 
             mock_api.side_effect = side_effect_api
 
-            library = mubi_instance.get_all_films(countries=['CH', 'DE'])
+            # Patch FilmFilter to pass through everything
+            with patch('plugin_video_mubi.resources.lib.filters.FilmFilter') as mock_filter_cls:
+                mock_filter_instance = mock_filter_cls.return_value
+                mock_filter_instance.filter_films.side_effect = lambda films: films
 
-            # Should have only 1 film despite appearing in 2 countries
-            assert len(library.films) == 1, f"Expected 1 film, got {len(library.films)}"
+                library = mubi_instance.get_all_films(countries=['CH', 'DE'])
+
+                # Should have only 1 film despite appearing in 2 countries
+                assert len(library.films) == 1, f"Expected 1 film, got {len(library.films)}"
 
     def test_get_all_films_country_aggregation(self, mubi_instance):
         """Test that get_film_metadata is called with correct aggregated countries."""
@@ -2747,7 +2752,12 @@ class TestMultiCountrySync:
 
         with patch.object(mubi_instance, '_make_api_call') as mock_api, \
              patch.object(mubi_instance, 'get_cli_language', return_value='en'), \
-             patch.object(mubi_instance, 'get_film_metadata', side_effect=create_mock_film):
+             patch.object(mubi_instance, 'get_film_metadata', side_effect=create_mock_film), \
+             patch('plugin_video_mubi.resources.lib.filters.FilmFilter') as mock_filter_cls:
+            
+            mock_filter_instance = mock_filter_cls.return_value
+            mock_filter_instance.filter_films.side_effect = lambda films: films
+            
             mock_resp = Mock()
             mock_resp.json.return_value = response
             mock_api.return_value = mock_resp

@@ -30,14 +30,7 @@ class Library:
         :param base_url: The base URL for creating STRM files.
         :param plugin_userdata_path: The path where film folders are stored.
         """
-        # Store initial count before filtering
-        initial_film_count = len(self.films)
-
-        # Filter film by genre
-        self.filter_films_by_genre()
-
-        # Calculate how many were filtered
-        genre_filtered_count = initial_film_count - len(self.films)
+        # Films are expected to be already filtered by the time they are added to Library
 
         # Log films that contain problematic characters for debugging
         for film in self.films:
@@ -54,23 +47,15 @@ class Library:
         availability_updated = 0
         films_to_process = len(self.films)
 
-        # Initialize progress dialog with filter info
+        # Initialize progress dialog
         pDialog = xbmcgui.DialogProgress()
-        if genre_filtered_count > 0:
-            pDialog.create(
-                "Syncing with MUBI 2/2",
-                f"Processing {films_to_process} films ({genre_filtered_count} filtered out by genre)..."
-            )
-        else:
-            pDialog.create("Syncing with MUBI 2/2", f"Processing {films_to_process} films...")
+        pDialog.create("Syncing with MUBI 2/2", f"Processing {films_to_process} films...")
 
         import concurrent.futures
 
         # Get concurrency setting (default to 5 for safety on low-end devices)
         # 1 = Serial, 5 = Standard, 10+ = High Performance
         try:
-             # Need to import xbmcaddon if not available in scope, but it is imported inside filter_films_by_genre
-             # Safer to import again or just use xbmcaddon.Addon()
              import xbmcaddon
              max_workers = xbmcaddon.Addon().getSettingInt("sync_concurrency")
              
@@ -115,10 +100,7 @@ class Library:
                     
                     # Update progress
                     percent = int((processed_count / films_to_process) * 100)
-                    if genre_filtered_count > 0:
-                        progress_msg = f"Processing movie {processed_count} of {films_to_process} ({genre_filtered_count} skipped):\n{film.title}"
-                    else:
-                        progress_msg = f"Processing movie {processed_count} of {films_to_process}:\n{film.title}"
+                    progress_msg = f"Processing movie {processed_count} of {films_to_process}:\n{film.title}"
                     pDialog.update(percent, progress_msg)
 
                     try:
@@ -156,60 +138,6 @@ class Library:
         finally:
             # Ensure the dialog is closed in the end
             pDialog.close()
-
-    def filter_films_by_genre(self):
-        """
-        Remove films from the library based on genres specified in the settings to skip.
-        """
-        import xbmcaddon
-
-        # Retrieve settings
-        addon = xbmcaddon.Addon()
-
-        # Build list of genres to skip based on toggle settings
-        # Map setting IDs to genre names (lowercase for comparison)
-        genre_settings = {
-            'skip_genre_action': 'action',
-            'skip_genre_adventure': 'adventure',
-            'skip_genre_animation': 'animation',
-            'skip_genre_avant_garde': 'avant-garde',
-            'skip_genre_comedy': 'comedy',
-            'skip_genre_commercial': 'commercial',
-            'skip_genre_crime': 'crime',
-            'skip_genre_cult': 'cult',
-            'skip_genre_documentary': 'documentary',
-            'skip_genre_drama': 'drama',
-            'skip_genre_erotica': 'erotica',
-            'skip_genre_fantasy': 'fantasy',
-            'skip_genre_horror': 'horror',
-            'skip_genre_lgbtq': 'lgbtq+',
-            'skip_genre_mystery': 'mystery',
-            'skip_genre_romance': 'romance',
-            'skip_genre_sci_fi': 'sci-fi',
-            'skip_genre_short': 'short',
-            'skip_genre_thriller': 'thriller',
-            'skip_genre_tv_movie': 'tv movie',
-        }
-
-        skip_genres = []
-        for setting_id, genre_name in genre_settings.items():
-            if addon.getSettingBool(setting_id):
-                skip_genres.append(genre_name)
-
-        xbmc.log(f"Genres to skip: {skip_genres}", xbmc.LOGDEBUG)
-
-        if not skip_genres:
-            xbmc.log("No genres to skip, keeping all films.", xbmc.LOGDEBUG)
-            return
-
-        # Filter films
-        initial_count = len(self.films)
-        self.films = [
-            film for film in self.films
-            if not any(genre.lower() in skip_genres for genre in (film.metadata.genre or []))
-        ]
-        removed_count = initial_count - len(self.films)
-        xbmc.log(f"Removed {removed_count} films based on genre filtering.", xbmc.LOGDEBUG)
 
 
 

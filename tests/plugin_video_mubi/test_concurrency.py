@@ -30,8 +30,7 @@ class TestConcurrency:
             mock_addon_instance.getSettingBool.return_value = False 
             
             library = Library()
-            with patch.object(Library, 'filter_films_by_genre'), \
-                 patch.object(Library, 'remove_obsolete_files'):
+            with patch.object(Library, 'remove_obsolete_files'):
                 library.films = [MagicMock()] 
                 with patch.object(Library, 'is_film_valid', return_value=True):
                      library.sync_locally("plugin://url", Path("/tmp"))
@@ -57,8 +56,7 @@ class TestConcurrency:
             mock_addon_instance.getSettingBool.return_value = False
             
             library = Library()
-            with patch.object(Library, 'filter_films_by_genre'), \
-                 patch.object(Library, 'remove_obsolete_files'):
+            with patch.object(Library, 'remove_obsolete_files'):
                 library.films = [MagicMock()]
                 with patch.object(Library, 'is_film_valid', return_value=True):
                     library.sync_locally("plugin://url", Path("/tmp"))
@@ -81,8 +79,7 @@ class TestConcurrency:
             mock_addon_instance.getSettingBool.return_value = False
             
             library = Library()
-            with patch.object(Library, 'filter_films_by_genre'), \
-                 patch.object(Library, 'remove_obsolete_files'):
+            with patch.object(Library, 'remove_obsolete_files'):
                 library.films = [MagicMock()]
                 with patch.object(Library, 'is_film_valid', return_value=True):
                      library.sync_locally("plugin://url", Path("/tmp"))

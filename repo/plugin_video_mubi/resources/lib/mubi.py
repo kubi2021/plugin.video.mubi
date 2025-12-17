@@ -701,200 +701,77 @@ class Mubi:
         xbmc.log(f"[{country_code}] Completed: {len(film_ids)} unique films from {pages_fetched} pages", xbmc.LOGINFO)
         return film_ids, film_data_map, total_count, pages_fetched
 
+    def process_film_data(self, film_data: dict) -> Optional[Film]:
+        """
+        Hydrates raw film data into a Film object.
+        Replaces previous loop logic.
+        """
+        # The data source injects keys into the raw dict.
+        # But here 'film_data' is just the dict from the API (plus __available_countries__)
+        
+        fid = film_data.get('id')
+        
+        # Check if country availability was injected by DataSource
+        available_countries = film_data.get('__available_countries__', [])
+        
+        # We need to wrap it because get_film_metadata expects {'film': ...} structure
+        # This is a legacy artifact of the Mubi API V3/V4 structure where sometimes it sends wrapper
+        film_wrapper = {'film': film_data}
+        
+        return self.get_film_metadata(film_wrapper, available_countries=list(available_countries))
+
     def get_all_films(self, playable_only=True, progress_callback=None, countries=None):
         """
         Retrieves all films from MUBI API by syncing across specified countries.
-        Different countries have different film availability.
+        Uses the new pipeline: DataSource -> Filter -> Hydrate -> Library.
 
-        :param playable_only: If True, only fetch currently playable films. If False, fetch entire catalog.
+        :param playable_only: If True, only fetch currently playable films.
         :param progress_callback: Optional callback function to report progress.
-                                Called with (current_films, total_films, current_country, total_countries, country_code)
         :param countries: List of ISO 3166-1 alpha-2 country codes to sync from.
-                         If None, defaults to the client's configured country from settings.
         :return: Library instance with all films.
-        :rtype: Library
         """
-        try:
-            all_films_library = Library()
-            # Default to client country from settings if no countries specified
-            if countries is None:
-                client_country = xbmcaddon.Addon().getSetting("client_country")
-                if client_country:
-                    countries = [client_country.upper()]
-                    xbmc.log(f"Using client country from settings: {client_country}", xbmc.LOGINFO)
-                else:
-                    # Fallback if no client country configured
-                    countries = self.SYNC_COUNTRIES
-                    xbmc.log("No client country configured, using all SYNC_COUNTRIES", xbmc.LOGWARNING)
+        from .data_source import MubiApiDataSource
+        from .filters import FilmFilter
 
-            # Statistics tracking
-            country_stats = {}  # {country: {'total': n, 'unique_ids': set}}
-            all_film_ids = set()  # All unique film IDs across all countries
-            all_film_data = {}  # {film_id: film_data} - merged data from all countries
-            film_country_map = {}  # {film_id: set of countries where available}
-            total_pages_fetched = 0
-            total_api_requests = 0
+        # 1. Fetch (DataSource)
+        data_source = MubiApiDataSource(self)
+        # progress_callback is handled inside data source for the fetching phase
+        raw_films = data_source.get_films(playable_only, progress_callback, countries)
+        
+        xbmc.log(f"Pipeline: Fetched {len(raw_films)} raw films.", xbmc.LOGINFO)
 
-            xbmc.log(f"=" * 60, xbmc.LOGINFO)
-            xbmc.log(f"MULTI-COUNTRY CATALOGUE SYNC", xbmc.LOGINFO)
-            xbmc.log(f"Countries to sync: {', '.join(countries)} ({len(countries)} total)", xbmc.LOGINFO)
-            xbmc.log(f"=" * 60, xbmc.LOGINFO)
+        # 2. Filter (FilmFilter)
+        film_filter = FilmFilter()
+        filtered_films = film_filter.filter_films(raw_films)
+        
+        xbmc.log(f"Pipeline: Filtering retained {len(filtered_films)} films.", xbmc.LOGINFO)
 
-            # Fetch films from each country
-            for country_idx, country in enumerate(countries, 1):
-                xbmc.log("", xbmc.LOGINFO)
-                xbmc.log(f"--- Country {country_idx}/{len(countries)}: {country} ---", xbmc.LOGINFO)
+        # 3. Hydrate & 4. Add to Library
+        all_films_library = Library()
+        
+        if progress_callback:
+             try:
+                 progress_callback(
+                     current_films=len(raw_films), # Total known
+                     total_films=len(filtered_films), # Films to process
+                     current_country=len(self.SYNC_COUNTRIES), # Done
+                     total_countries=len(self.SYNC_COUNTRIES),
+                     country_code='PROCESSING'
+                 )
+             except Exception:
+                 pass
+        
+        xbmc.log(f"Processing {len(filtered_films)} films into library...", xbmc.LOGINFO)
+        total_films_added = 0
+        
+        for film_data in filtered_films:
+            film = self.process_film_data(film_data)
+            if film:
+                all_films_library.add_film(film)
+                total_films_added += 1
 
-                # Track if user cancelled and running film count for this country
-                user_cancelled = False
-                running_new_films = [0]  # Use list to allow modification in closure
-
-                # Create a page callback that updates progress after each page
-                def create_page_callback(c_idx, c_code, c_total, base_count, new_count_ref):
-                    def page_callback(new_films_this_page):
-                        nonlocal user_cancelled
-                        new_count_ref[0] += new_films_this_page
-                        if progress_callback and not user_cancelled:
-                            try:
-                                progress_callback(
-                                    current_films=base_count + new_count_ref[0],
-                                    total_films=0,
-                                    current_country=c_idx,
-                                    total_countries=c_total,
-                                    country_code=c_code
-                                )
-                            except Exception as e:
-                                xbmc.log(f"Progress callback exception (user cancel): {e}", xbmc.LOGINFO)
-                                user_cancelled = True
-                                return False  # Signal to stop fetching
-                        return True  # Continue
-                    return page_callback
-
-                base_film_count = len(all_film_ids)
-                page_cb = create_page_callback(
-                    country_idx, country, len(countries), base_film_count, running_new_films
-                )
-
-                # Initial progress update before fetching
-                if progress_callback:
-                    try:
-                        progress_callback(
-                            current_films=len(all_film_ids),
-                            total_films=0,
-                            current_country=country_idx,
-                            total_countries=len(countries),
-                            country_code=country
-                        )
-                    except Exception as e:
-                        xbmc.log(f"Progress callback exception (user cancel): {e}", xbmc.LOGINFO)
-                        return all_films_library
-
-                film_ids, film_data, total_count, pages = self._fetch_films_for_country(
-                    country_code=country,
-                    playable_only=playable_only,
-                    page_callback=page_cb,
-                    global_film_ids=all_film_ids  # Pass global set for accurate progress
-                )
-
-                # Check if user cancelled during fetch
-                if user_cancelled:
-                    return all_films_library
-
-                # Track statistics
-                country_stats[country] = {
-                    'total_reported': total_count,
-                    'unique_fetched': len(film_ids),
-                    'pages': pages,
-                    'film_ids': film_ids
-                }
-                total_pages_fetched += pages
-
-                # Track which films are in which countries
-                for film_id in film_ids:
-                    if film_id not in film_country_map:
-                        film_country_map[film_id] = set()
-                    film_country_map[film_id].add(country)
-
-                # Merge new films into all_film_data
-                new_films_count = 0
-                for film_id, data in film_data.items():
-                    if film_id not in all_film_data:
-                        all_film_data[film_id] = data
-                        all_film_ids.add(film_id)
-                        new_films_count += 1
-
-                xbmc.log(f"[{country}] Added {new_films_count} new unique films to merged catalogue", xbmc.LOGINFO)
-
-            # Log comprehensive statistics
-            xbmc.log(f"", xbmc.LOGINFO)
-            xbmc.log(f"=" * 60, xbmc.LOGINFO)
-            xbmc.log(f"MULTI-COUNTRY SYNC STATISTICS", xbmc.LOGINFO)
-            xbmc.log(f"=" * 60, xbmc.LOGINFO)
-            xbmc.log(f"Countries synced: {len(countries)}", xbmc.LOGINFO)
-            xbmc.log(f"Total pages fetched: {total_pages_fetched}", xbmc.LOGINFO)
-            xbmc.log(f"Total unique films: {len(all_film_ids)}", xbmc.LOGINFO)
-            xbmc.log(f"", xbmc.LOGINFO)
-
-            # Per-country stats
-            xbmc.log(f"--- Per-Country Breakdown ---", xbmc.LOGINFO)
-            for country, stats in country_stats.items():
-                xbmc.log(f"  {country}: {stats['unique_fetched']} films ({stats['pages']} pages)", xbmc.LOGINFO)
-
-            # Films available in all countries vs country-specific
-            films_in_all = set()
-            films_country_exclusive = {}  # {country: set of exclusive film IDs}
-
-            for film_id, available_countries in film_country_map.items():
-                if len(available_countries) == len(countries):
-                    films_in_all.add(film_id)
-                elif len(available_countries) == 1:
-                    country = list(available_countries)[0]
-                    if country not in films_country_exclusive:
-                        films_country_exclusive[country] = set()
-                    films_country_exclusive[country].add(film_id)
-
-            xbmc.log(f"", xbmc.LOGINFO)
-            xbmc.log(f"--- Availability Analysis ---", xbmc.LOGINFO)
-            xbmc.log(f"Films available in ALL {len(countries)} countries: {len(films_in_all)}", xbmc.LOGINFO)
-
-            for country in countries:
-                exclusive = films_country_exclusive.get(country, set())
-                xbmc.log(f"Films EXCLUSIVE to {country}: {len(exclusive)}", xbmc.LOGINFO)
-
-            xbmc.log(f"=" * 60, xbmc.LOGINFO)
-
-            # Now process all merged films into the library
-            xbmc.log(f"Processing {len(all_film_data)} films into library...", xbmc.LOGINFO)
-            total_films_added = 0
-
-            # Final progress update - processing phase
-            if progress_callback:
-                try:
-                    progress_callback(
-                        current_films=len(all_film_ids),
-                        total_films=len(all_film_data),
-                        current_country=len(countries),
-                        total_countries=len(countries),
-                        country_code='DONE'  # Signal that country fetching is complete
-                    )
-                except Exception as e:
-                    xbmc.log(f"Progress callback exception: {e}", xbmc.LOGINFO)
-
-            for film_id, film_data in all_film_data.items():
-                film_wrapper = {'film': film_data}
-                # Get the list of countries where this film is available
-                countries_for_film = list(film_country_map.get(film_id, set()))
-                film = self.get_film_metadata(film_wrapper, available_countries=countries_for_film)
-                if film:
-                    all_films_library.add_film(film)
-                    total_films_added += 1
-
-            xbmc.log(f"Successfully added {total_films_added} films to library", xbmc.LOGINFO)
-            return all_films_library
-
-        except Exception as e:
-            xbmc.log(f"Error retrieving all films directly: {e}", xbmc.LOGERROR)
-            return Library()  # Return empty library on error
+        xbmc.log(f"Successfully added {total_films_added} films to library", xbmc.LOGINFO)
+        return all_films_library
 
 
     def get_watch_list(self):
