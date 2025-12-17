@@ -204,3 +204,78 @@ class MubiApiDataSource(FilmDataSource):
             xbmc.log(f"Films EXCLUSIVE to {country}: {len(exclusive)}", xbmc.LOGINFO)
 
         xbmc.log(f"=" * 60, xbmc.LOGINFO)
+
+
+class GithubDataSource(FilmDataSource):
+    """
+    Fetches film data from a pre-computed JSON file hosted on GitHub.
+    URL: https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz
+    """
+
+    GITHUB_URL = "https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz"
+
+    def get_films(self, *args, **kwargs) -> List[Dict[str, Any]]:
+        """
+        Downloads, decompresses, and parses films.json.gz from GitHub.
+        """
+        import requests
+        import gzip
+        import json
+        import io
+        import hashlib
+
+        xbmc.log(f"Starting GitHub Sync from {self.GITHUB_URL}", xbmc.LOGINFO)
+        
+        try:
+            # 1. Download MD5 checksum
+            md5_url = self.GITHUB_URL + ".md5"
+            xbmc.log(f"Downloading MD5 checksum from {md5_url}", xbmc.LOGINFO)
+            md5_response = requests.get(md5_url, timeout=10)
+            md5_response.raise_for_status()
+            expected_md5 = md5_response.text.strip().split()[0] # Handle potentially "hash filename" format
+            
+            # 2. Download the file content
+            xbmc.log(f"Downloading database from {self.GITHUB_URL}", xbmc.LOGINFO)
+            response = requests.get(self.GITHUB_URL, stream=True, timeout=30)
+            response.raise_for_status()
+            content = response.content
+
+            # 3. Verify MD5
+            calculated_md5 = hashlib.md5(content).hexdigest()
+            if calculated_md5 != expected_md5:
+                xbmc.log(f"MD5 Mismatch! Expected: {expected_md5}, Calculated: {calculated_md5}", xbmc.LOGERROR)
+                raise ValueError(f"MD5 verification failed. Integrity check failed for {self.GITHUB_URL}")
+            
+            xbmc.log("MD5 verification successful", xbmc.LOGINFO)
+
+            # 4. Decompress and parse
+            with gzip.GzipFile(fileobj=io.BytesIO(content)) as gz:
+                data = json.load(gz)
+                
+            films_list = data.get("items", [])
+            
+            # Normalization: Map 'mubi_id' to 'id' if 'id' is missing
+            # The plugin expects 'id'
+            for film in films_list:
+                if 'id' not in film and 'mubi_id' in film:
+                    film['id'] = film['mubi_id']
+                
+                # Normalize 'directors' from list of strings to list of dicts
+                # API returns [{'name': 'Director Name'}], GitHub JSON has ['Director Name']
+                if 'directors' in film and isinstance(film['directors'], list):
+                    if film['directors'] and isinstance(film['directors'][0], str):
+                        film['directors'] = [{'name': d} for d in film['directors']]
+
+            xbmc.log(f"Successfully downloaded and parsed {len(films_list)} films from GitHub", xbmc.LOGINFO)
+            return films_list
+
+        except requests.exceptions.RequestException as e:
+            xbmc.log(f"Error downloading file from GitHub: {e}", xbmc.LOGERROR)
+            raise
+        except (gzip.BadGzipFile, json.JSONDecodeError) as e:
+            xbmc.log(f"Error parsing GitHub data: {e}", xbmc.LOGERROR)
+            raise
+        except Exception as e:
+            xbmc.log(f"Unexpected error in GithubDataSource: {e}", xbmc.LOGERROR)
+            raise
+

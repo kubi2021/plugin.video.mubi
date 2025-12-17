@@ -148,6 +148,14 @@ if __name__ == "__main__":
         except Exception as e:
             xbmc.log(f"Error in sync_worldwide action: {e}", xbmc.LOGERROR)
             xbmc.executebuiltin('Container.Refresh')
+    elif action == "sync_github":
+        xbmc.log(f"Calling sync_from_github with handle: {handle}", xbmc.LOGDEBUG)
+        try:
+            navigation.sync_from_github()
+            xbmc.executebuiltin('Container.Refresh')
+        except Exception as e:
+            xbmc.log(f"Error in sync_github action: {e}", xbmc.LOGERROR)
+            xbmc.executebuiltin('Container.Refresh')
     elif action == "play_mubi_video":
         xbmc.log(f"Calling play_mubi_video with handle: {handle}", xbmc.LOGDEBUG)
         film_id = params.get('film_id')

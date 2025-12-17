@@ -720,7 +720,7 @@ class Mubi:
         
         return self.get_film_metadata(film_wrapper, available_countries=list(available_countries))
 
-    def get_all_films(self, playable_only=True, progress_callback=None, countries=None):
+    def get_all_films(self, playable_only=True, progress_callback=None, countries=None, data_source=None):
         """
         Retrieves all films from MUBI API by syncing across specified countries.
         Uses the new pipeline: DataSource -> Filter -> Hydrate -> Library.
@@ -728,15 +728,18 @@ class Mubi:
         :param playable_only: If True, only fetch currently playable films.
         :param progress_callback: Optional callback function to report progress.
         :param countries: List of ISO 3166-1 alpha-2 country codes to sync from.
+        :param data_source: Optional FilmDataSource instance to use.
         :return: Library instance with all films.
         """
         from .data_source import MubiApiDataSource
         from .filters import FilmFilter
 
         # 1. Fetch (DataSource)
-        data_source = MubiApiDataSource(self)
+        # Use provided data source or default to MubiApiDataSource
+        source = data_source if data_source else MubiApiDataSource(self)
+        
         # progress_callback is handled inside data source for the fetching phase
-        raw_films = data_source.get_films(playable_only, progress_callback, countries)
+        raw_films = source.get_films(playable_only=playable_only, progress_callback=progress_callback, countries=countries)
         
         xbmc.log(f"Pipeline: Fetched {len(raw_films)} raw films.", xbmc.LOGINFO)
 

@@ -94,6 +94,7 @@ class NavigationHandler:
                 {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
                 {"label": sync_label, "description": sync_description, "action": "sync_locally", "is_folder": False},
                 {"label": worldwide_label, "description": worldwide_description, "action": "sync_worldwide", "is_folder": False},
+                {"label": "Sync from GitHub", "description": "Fast sync using pre-computed database from GitHub (database/v1/films.json.gz).", "action": "sync_github", "is_folder": False},
                 {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
             ]
         else:
@@ -766,13 +767,38 @@ class NavigationHandler:
     def sync_films(self, countries: list, dialog_title: Optional[str] = None):
         """
         Sync MUBI films locally by fetching films from specified countries.
-        Creates STRM and NFO files for each film to import into Kodi's library.
-
-        :param countries: List of ISO 3166-1 alpha-2 country codes (uppercase) to sync from.
-        :param dialog_title: Optional title for the progress dialog.
-
-        Level 2 Bug Fix: Added concurrency protection to prevent multiple sync operations.
         """
+        # Validate countries list
+        if not countries:
+            xbmcgui.Dialog().notification("MUBI", "No countries specified for sync.", xbmcgui.NOTIFICATION_ERROR)
+            return
+
+        from .countries import COUNTRIES
+        # Determine dialog title
+        if dialog_title is None:
+            num_countries = len(countries)
+            if num_countries == 1:
+                country_data = COUNTRIES.get(countries[0].lower(), {})
+                country_name = country_data.get("name", countries[0])
+                dialog_title = f"Syncing MUBI from {country_name}"
+            else:
+                dialog_title = f"Syncing MUBI from {num_countries} countries"
+
+        self._perform_sync(dialog_title=dialog_title, countries=countries)
+
+    def sync_from_github(self):
+        """
+        Sync MUBI films locally by downloading a pre-computed database from GitHub.
+        """
+        from .data_source import GithubDataSource
+        github_source = GithubDataSource()
+        self._perform_sync(dialog_title="Syncing from GitHub...", data_source=github_source)
+
+    def _perform_sync(self, dialog_title: str, countries: list = None, data_source=None):
+        """
+        Helper method to execute the common sync logic (locking, provider check, fetching, library update).
+        """
+        from .external_metadata import MetadataProviderFactory
         from .countries import COUNTRIES
 
         # BUG #7 FIX: Check if sync is already in progress
@@ -785,20 +811,16 @@ class NavigationHandler:
                     5000
                 )
                 xbmc.log("Sync operation blocked - another sync already in progress", xbmc.LOGINFO)
-                return None
+                return
 
             NavigationHandler._sync_in_progress = True
 
         try:
             # Check if metadata providers are configured
-            from .external_metadata import MetadataProviderFactory
-
-            # Check if configuration is valid and provider is reachable
             provider = MetadataProviderFactory.get_provider()
             
             if not provider:
                 dialog = xbmcgui.Dialog()
-                # Show a message with options to either go to settings or cancel
                 ret = dialog.yesno(
                     "Metadata Provider Required",
                     "To provide rich metadata (posters, ratings, etc.) in your Kodi library, "
@@ -810,14 +832,10 @@ class NavigationHandler:
 
                 if ret:
                     MetadataProviderFactory.open_settings()
-                    # Re-validate after user closes settings
                     provider = MetadataProviderFactory.get_provider()
-                    if not provider:
-                         return
+                    if not provider: return
                 else:
                     return
-
-            # Test connection for the selected provider
 
             if not provider.test_connection():
                 xbmcgui.Dialog().notification(
@@ -827,33 +845,9 @@ class NavigationHandler:
                     5000
                 )
                 xbmc.log(f"Sync aborted: Invalid API key for {provider.provider_name}", xbmc.LOGERROR)
-                
-                # Release lock before return since we are inside the 'with lock' logically (handled by caller logic if we used 'with', but here we set boolean)
-                # ERROR: The original code sets `_sync_in_progress = True` BEFORE this check (line 790).
-                # We simply return, so we MUST reset the lock flag.
-                with NavigationHandler._sync_lock:
-                    NavigationHandler._sync_in_progress = False
                 return
 
-            # Validate countries list
-            if not countries:
-                xbmcgui.Dialog().notification(
-                    "MUBI", "No countries specified for sync.",
-                    xbmcgui.NOTIFICATION_ERROR
-                )
-                return
-
-            # Determine dialog title
-            num_countries = len(countries)
-            if dialog_title is None:
-                if num_countries == 1:
-                    country_data = COUNTRIES.get(countries[0].lower(), {})
-                    country_name = country_data.get("name", countries[0])
-                    dialog_title = f"Syncing MUBI from {country_name}"
-                else:
-                    dialog_title = f"Syncing MUBI from {num_countries} countries"
-
-            xbmc.log(f"Starting film sync from {num_countries} countries: {countries}", xbmc.LOGINFO)
+            xbmc.log(f"Starting sync: {dialog_title}", xbmc.LOGINFO)
 
             # Proceed with the sync process
             pDialog = xbmcgui.DialogProgress()
@@ -864,26 +858,30 @@ class NavigationHandler:
                 if pDialog.iscanceled():
                     raise Exception("User canceled sync operation")
 
-                # Calculate percentage based on country progress for multi-country,
-                # or film count for single country
-                # Use full 0-100% range since file creation has its own dialog
+                # Calculate percentage
                 if total_countries > 1:
                     percent = min(int((current_country / total_countries) * 100), 99)
                     country_name = COUNTRIES.get(country_code.lower(), {}).get("name", country_code)
                     message = f"Fetching from {country_name} ({current_country}/{total_countries})...\n{current_films} films found"
-                else:
+                elif total_countries == 1:
+                    # Single country sync
                     percent = min(int((current_films / 1000) * 100), 99) if current_films > 0 else 0
                     country_name = COUNTRIES.get(country_code.lower(), {}).get("name", country_code)
                     message = f"Fetching films from {country_name}...\n{current_films} films found"
+                else:
+                    # GitHub sync (no total countries usually, or treated differently)
+                    percent = 50 # Indeterminate or based on generic progress
+                    message = f"Fetching database..."
 
                 pDialog.update(percent, message)
 
-            # Sync from specified countries
+            # Sync films
             try:
                 all_films_library = self.mubi.get_all_films(
                     playable_only=True,
                     progress_callback=update_fetch_progress,
-                    countries=countries
+                    countries=countries,
+                    data_source=data_source
                 )
             except Exception as e:
                 if "canceled" in str(e).lower():
@@ -895,10 +893,7 @@ class NavigationHandler:
 
             # Update progress dialog for file creation phase
             filtered_films_count = len(all_films_library.films)
-            if num_countries > 1:
-                pDialog.update(100, f"Fetched {filtered_films_count} films from {num_countries} countries, creating local files...")
-            else:
-                pDialog.update(100, f"Fetched {filtered_films_count} films, creating local files...")
+            pDialog.update(100, f"Fetched {filtered_films_count} films, creating local files...")
             xbmc.log(f"Successfully fetched {filtered_films_count} films", xbmc.LOGINFO)
 
             if pDialog.iscanceled():
@@ -907,11 +902,9 @@ class NavigationHandler:
                 return None
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
-
-            # Close the progress dialog before starting file creation
             pDialog.close()
-
-            # Small delay to ensure dialog is fully closed before next phase
+            
+            # Small delay
             import time
             time.sleep(0.1)
 
@@ -930,6 +923,9 @@ class NavigationHandler:
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
+            import traceback
+            xbmc.log(traceback.format_exc(), xbmc.LOGERROR)
+            xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred during sync.", xbmcgui.NOTIFICATION_ERROR)
         finally:
             with NavigationHandler._sync_lock:
                 NavigationHandler._sync_in_progress = False
