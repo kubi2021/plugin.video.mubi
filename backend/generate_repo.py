@@ -38,4 +38,9 @@ def generate_repo(input_file='films.json'):
     logger.info(f"Generated {md5_file}: {md5_digest}")
 
 if __name__ == "__main__":
-    generate_repo()
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate GZIP and MD5 for repository files")
+    parser.add_argument('--file', default='films.json', help="Input JSON file to process")
+    
+    args = parser.parse_args()
+    generate_repo(args.file)

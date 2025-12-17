@@ -32,19 +32,21 @@ jobs:
         mkdir -p database/v1
         
         # Run scraper in DEEP mode
-        # Output films.json only (clusters are no longer used)
-        python backend/scraper.py --mode deep --output database/v1/films.json
+        # Output films.json and series.json
+        python backend/scraper.py --mode deep --output database/v1/films.json --series-output database/v1/series.json
         
     - name: Enrich Metadata (Add IMDB/TMDB IDs)
       env:
         TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
       run: |
         python backend/enrich_metadata.py --path database/v1/films.json
+        python backend/enrich_metadata.py --path database/v1/series.json
         
     - name: Generate Repo Files (Compress & Hash)
       run: |
         cd database/v1
-        python ../../backend/generate_repo.py
+        python ../../backend/generate_repo.py --file films.json
+        python ../../backend/generate_repo.py --file series.json
         
         # Verify output
         ls -la

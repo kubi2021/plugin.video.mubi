@@ -36,19 +36,25 @@ jobs:
         wget https://raw.githubusercontent.com/${{ github.repository }}/database/v1/films.json.gz -O backend/previous_films.json.gz
         gzip -d backend/previous_films.json.gz
         
+        wget https://raw.githubusercontent.com/${{ github.repository }}/database/v1/series.json.gz -O database/v1/series.json.gz
+        gzip -d database/v1/series.json.gz
+
         # Run scraper in SHALLOW mode with input
-        python backend/scraper.py --mode shallow --output database/v1/films.json --input backend/previous_films.json
+        # Note: series input is inferred from --series-output existence
+        python backend/scraper.py --mode shallow --output database/v1/films.json --series-output database/v1/series.json --input backend/previous_films.json
         
     - name: Enrich Metadata (Add IMDB/TMDB IDs)
       env:
         TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
       run: |
         python backend/enrich_metadata.py --path database/v1/films.json
+        python backend/enrich_metadata.py --path database/v1/series.json
 
     - name: Generate Repo Files (Compress & Hash)
       run: |
         cd database/v1
-        python ../../backend/generate_repo.py
+        python ../../backend/generate_repo.py --file films.json
+        python ../../backend/generate_repo.py --file series.json
         
         # Verify output
         ls -la
