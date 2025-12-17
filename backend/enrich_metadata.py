@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.tmdb_provider import TMDBProvider
 
-def enrich_metadata(films_path='films.json'):
+def enrich_metadata(films_path='films.json', content_type='movie'):
     # 1. Load Environment & Config
     api_key = os.environ.get('TMDB_API_KEY')
     if not api_key:
@@ -72,7 +72,7 @@ def enrich_metadata(films_path='films.json'):
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
-        futures = {executor.submit(process_film, film, provider, idx, total_films): idx for idx, film in items_to_process}
+        futures = {executor.submit(process_film, film, provider, idx, total_films, content_type): idx for idx, film in items_to_process}
         
         completed_so_far = 0
         
@@ -103,7 +103,7 @@ def enrich_metadata(films_path='films.json'):
     # Validation
     # ...
 
-def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: int) -> bool:
+def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: int, media_type: str = "movie") -> bool:
     """
     Process a single film to fetch external metadata.
     Returns True if updated, False otherwise.
@@ -117,7 +117,7 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: 
     if not title:
         return False
 
-    result = provider.get_imdb_id(title, original_title=original_title, year=year)
+    result = provider.get_imdb_id(title, original_title=original_title, year=year, media_type=media_type)
     
     if result.success:
         if result.imdb_id:
@@ -136,6 +136,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Enrich Mubi Catalog with TMDB/IMDB IDs")
     parser.add_argument('--path', default='films.json', help="Path to films.json")
+    parser.add_argument('--type', choices=['movie', 'series'], default='movie', help="Content type (movie or series)")
     
     args = parser.parse_args()
-    enrich_metadata(args.path)
+    enrich_metadata(args.path, args.type)

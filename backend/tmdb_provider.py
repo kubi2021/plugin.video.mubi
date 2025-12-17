@@ -59,34 +59,34 @@ class TMDBProvider:
         if original_title and original_title != title and original_title not in search_candidates:
              search_candidates.insert(1, original_title)
 
-        # 1. Try Searching as MOVIE
-        for candidate in search_candidates:
-            # A. Strict search
-            tmdb_id = self._search_movie(candidate, year)
-            if tmdb_id:
-                return self._get_movie_details(tmdb_id)
-                
-            # B. Fuzzy year search (if year provided)
-            if year:
-                logger.debug(f"TMDB: Trying fuzzy year movie search for '{candidate}'")
-                tmdb_id = self._search_movie(candidate, year=None, target_year=year)
-                if tmdb_id:
-                    return self._get_movie_details(tmdb_id)
+        # ... (candidates generation)
 
-        # 2. Try Searching as TV SHOW (Fallback)
-        # Often MUBI lists miniseries or TV contents as films
-        for candidate in search_candidates:
-            # A. Strict search
-            tmdb_id = self._search_tv(candidate, year)
-            if tmdb_id:
-                return self._get_tv_details(tmdb_id)
-            
-            # B. Fuzzy year search
-            if year:
-                logger.debug(f"TMDB: Trying fuzzy year TV search for '{candidate}'")
-                tmdb_id = self._search_tv(candidate, year=None, target_year=year)
-                if tmdb_id:
-                    return self._get_tv_details(tmdb_id)
+        search_order = []
+        if media_type == "movie":
+            search_order = ["movie", "tv"]
+        elif media_type == "tv" or media_type == "series":
+            search_order = ["tv", "movie"]
+        else:
+            search_order = ["movie", "tv"] # Default
+
+        for m_type in search_order:
+            for candidate in search_candidates:
+                # A. Strict search
+                if m_type == "movie":
+                    tmdb_id = self._search_movie(candidate, year)
+                    if tmdb_id: return self._get_movie_details(tmdb_id)
+                else:
+                    tmdb_id = self._search_tv(candidate, year)
+                    if tmdb_id: return self._get_tv_details(tmdb_id)
+                
+                # B. Fuzzy year search (if year provided)
+                if year:
+                    if m_type == "movie":
+                        tmdb_id = self._search_movie(candidate, year=None, target_year=year)
+                        if tmdb_id: return self._get_movie_details(tmdb_id)
+                    else:
+                        tmdb_id = self._search_tv(candidate, year=None, target_year=year)
+                        if tmdb_id: return self._get_tv_details(tmdb_id)
         
         return ExternalMetadataResult(
             success=False,
