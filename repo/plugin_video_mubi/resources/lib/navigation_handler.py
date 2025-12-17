@@ -883,13 +883,37 @@ class NavigationHandler:
                     countries=countries,
                     data_source=data_source
                 )
-            except Exception as e:
-                if "canceled" in str(e).lower():
+            except (ValueError, Exception) as e:
+                # Handle specific known errors (ValueError might be MD5 or validation)
+                msg = str(e)
+                
+                # Check for cancellation first (raised as general Exception sometimes)
+                if "canceled" in msg.lower():
                     pDialog.close()
                     xbmc.log("User canceled the sync process during film fetching.", xbmc.LOGDEBUG)
                     return None
+                
+                # Identify error type for cleaner notification
+                error_title = "Sync Failed"
+                if "MD5" in msg:
+                    error_body = "Download integrity check failed."
+                elif "JSON" in msg or "parsing" in msg.lower():
+                    error_body = "Data format error from server."
+                elif "HTTP" in msg or "Connection" in msg or "Max retries" in msg:
+                     error_body = "Network error or server unavailable."
                 else:
-                    raise
+                     error_body = f"Error: {msg}"
+
+                xbmc.log(f"Sync failed with error: {e}", xbmc.LOGERROR)
+                pDialog.close()
+                
+                xbmcgui.Dialog().notification(
+                    "MUBI", 
+                    error_body,
+                    xbmcgui.NOTIFICATION_ERROR,
+                    5000
+                )
+                return None
 
             # Update progress dialog for file creation phase
             filtered_films_count = len(all_films_library.films)

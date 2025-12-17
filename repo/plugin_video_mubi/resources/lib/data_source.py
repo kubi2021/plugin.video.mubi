@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-import time
 import xbmc
-from typing import List, Dict, Set, Tuple, Optional, Any
+import time
+from typing import List, Dict, Any, Callable
+from abc import ABC, abstractmethod
 
 class FilmDataSource:
     """
@@ -219,30 +220,45 @@ class GithubDataSource(FilmDataSource):
         Downloads, decompresses, and parses films.json.gz from GitHub.
         """
         import requests
+        from requests.adapters import HTTPAdapter
+        from requests.packages.urllib3.util.retry import Retry
+        import hashlib
         import gzip
         import json
         import io
-        import hashlib
-
+        
         xbmc.log(f"Starting GitHub Sync from {self.GITHUB_URL}", xbmc.LOGINFO)
+        
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session = requests.Session()
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
         
         try:
             # 1. Download MD5 checksum
             md5_url = self.GITHUB_URL + ".md5"
             xbmc.log(f"Downloading MD5 checksum from {md5_url}", xbmc.LOGINFO)
-            md5_response = requests.get(md5_url, timeout=10)
+            md5_response = session.get(md5_url, timeout=10)
             md5_response.raise_for_status()
             expected_md5 = md5_response.text.strip().split()[0] # Handle potentially "hash filename" format
             
             # 2. Download the file content
             xbmc.log(f"Downloading database from {self.GITHUB_URL}", xbmc.LOGINFO)
-            response = requests.get(self.GITHUB_URL, stream=True, timeout=30)
+            response = session.get(self.GITHUB_URL, stream=True, timeout=30)
             response.raise_for_status()
             content = response.content
 
             # 3. Verify MD5
             calculated_md5 = hashlib.md5(content).hexdigest()
             if calculated_md5 != expected_md5:
+                # Log detailed error for debugging
                 xbmc.log(f"MD5 Mismatch! Expected: {expected_md5}, Calculated: {calculated_md5}", xbmc.LOGERROR)
                 raise ValueError(f"MD5 verification failed. Integrity check failed for {self.GITHUB_URL}")
             
@@ -278,4 +294,6 @@ class GithubDataSource(FilmDataSource):
         except Exception as e:
             xbmc.log(f"Unexpected error in GithubDataSource: {e}", xbmc.LOGERROR)
             raise
+        finally:
+            session.close()
 

@@ -29,7 +29,7 @@ class TestLiveGitHubData:
     Verifies infrastructure integrity: Download -> MD5 -> Schema -> Plugin Integration.
     """
     
-    @pytest.fixture(scope="class", autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def ensure_real_requests_context(self):
         """
         Ensure real requests library is used for this test class.
@@ -41,7 +41,7 @@ class TestLiveGitHubData:
 
         # Store the mocked modules to restore them later
         mocked_modules = {}
-        # Unmock requests and standard libraries that might be used by real requests
+        # Unmock requests and standard libraries (only those globally mocked in conftest.py)
         target_prefixes = ['requests', 'dateutil', 'webbrowser', 'time']
         
         # Also need to reload plugin modules that consume requests
@@ -60,12 +60,28 @@ class TestLiveGitHubData:
                 mocked_modules[name] = sys.modules[name]
                 del sys.modules[name]
         
-        # 2. Import real modules
+        # 2. Import real modules and place them in sys.modules
         import requests
         import time
         import webbrowser
-        # dateutil might not be installed in the env if it's only a test dep or shadowed?
-        # But we deleted the mock, so import should try to find real one.
+        
+        # Explicitly ensure they're in sys.modules with the real versions
+        sys.modules['requests'] = requests
+        sys.modules['time'] = time
+        sys.modules['webbrowser'] = webbrowser
+        
+        # CRITICAL: Also ensure hashlib/gzip/json/io are NOT mocked
+        # These were never globally mocked in conftest.py, but unit tests might have set them
+        # Force real imports to ensure data_source.py gets real modules
+        import hashlib as real_hashlib
+        import gzip as real_gzip
+        import json as real_json
+        import io as real_io
+        
+        sys.modules['hashlib'] = real_hashlib
+        sys.modules['gzip'] = real_gzip
+        sys.modules['json'] = real_json
+        sys.modules['io'] = real_io
         
         # 3. Reload plugin modules so they bind to the real modules
         reloaded_plugin_modules = []
@@ -80,10 +96,12 @@ class TestLiveGitHubData:
         yield
 
         # 4. Teardown: Restore mocks
-        # First clear the real ones we loaded
+        # Clear real modules that were imported
         for name in list(sys.modules.keys()):
-            if any(name == t or name.startswith(t + ".") for t in target_prefixes):
-                del sys.modules[name]
+            # Only delete modules that we saved as mocks
+            if name in mocked_modules:
+                if name in sys.modules:
+                    del sys.modules[name]
                 
         # Restore saved mocks
         sys.modules.update(mocked_modules)
