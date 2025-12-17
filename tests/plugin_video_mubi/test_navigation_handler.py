@@ -90,22 +90,33 @@ class TestNavigationHandler:
     def test_main_navigation_logged_in(self, mock_end_dir, mock_sort, mock_content, 
                                      mock_category, navigation_handler, mock_addon):
         """Test main navigation when user is logged in."""
-        mock_addon.getSettingBool.return_value = True
+        # Mock enable_fast_sync as False (default behavior) by patching navigation_handler.plugin
+        navigation_handler.plugin = Mock()
+        
+        # Mock getSettingBool to return True for 'logged' but False for 'enable_fast_sync'
+        def mock_get_setting_bool(key):
+            if key == 'logged':
+                return True
+            elif key == 'enable_fast_sync':
+                return False
+            return False
+        
+        navigation_handler.plugin.getSettingBool.side_effect = mock_get_setting_bool
+        navigation_handler.plugin.getSetting.return_value = "CH"  # Mock client country
         navigation_handler.session.token = "valid-token"
         
         with patch.object(navigation_handler, '_add_menu_item') as mock_add_item:
             navigation_handler.main_navigation()
         
         # Verify Kodi plugin setup
-        # Verify Kodi plugin setup
-        # Relax strict argument checks to debug "expected call not found"
         assert mock_category.called
         assert mock_content.called
         assert mock_sort.called
         assert mock_end_dir.called
         
-        # Verify menu items were added (logged in menu)
-        assert mock_add_item.call_count == 5  # 5 menu items: watchlist, sync github, sync local, sync worldwide, logout
+        # Verify menu items were added (logged in menu, fast_sync disabled by default)
+        # Items: watchlist, sync_local, sync_worldwide, logout (no GitHub sync when fast_sync=False)
+        assert mock_add_item.call_count == 4
 
     @patch('xbmcplugin.setPluginCategory')
     @patch('xbmcplugin.setContent')
@@ -132,18 +143,24 @@ class TestNavigationHandler:
         
         mock_log.assert_called()
 
-    def test_get_main_menu_items_logged_in(self, navigation_handler):
-        """Test main menu items for logged in users."""
+    def test_get_main_menu_items_logged_in(self, navigation_handler, mock_addon):
+        """Test main menu items for logged in users (fast_sync disabled by default)."""
         navigation_handler.session.is_logged_in = True
+        # Mock enable_fast_sync as False (default behavior) by patching navigation_handler.plugin  
+        navigation_handler.plugin = Mock()
+        navigation_handler.plugin.getSettingBool.return_value = False
+        navigation_handler.plugin.getSetting.return_value = "CH"  # Mock client country
 
         items = navigation_handler._get_main_menu_items()
 
-        assert len(items) == 5  # 5 menu items: watchlist, sync github, sync local, sync worldwide, logout
+        # With fast_sync=False, expect: watchlist, sync_local, sync_worldwide, logout (4 items)
+        assert len(items) == 4
         assert any("Browse your Mubi watchlist" in item["label"] for item in items)
-        assert any("Sync from GitHub" in item["label"] for item in items)
         assert any("Sync MUBI catalogue" in item["label"] for item in items)
         assert any("worldwide" in item["label"].lower() for item in items)
         assert any("Log Out" in item["label"] for item in items)
+        # GitHub sync should NOT be present when fast_sync is disabled
+        assert not any("Sync from GitHub" in item["label"] for item in items)
 
         # Verify sync actions are NOT folders to prevent infinite loop bug
         sync_items = [item for item in items if "sync" in item["action"]]

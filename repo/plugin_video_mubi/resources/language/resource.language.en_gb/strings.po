@@ -1222,6 +1222,20 @@ msgid "10 Threads"
 msgstr ""
 
 
+# Sync Category
+msgctxt "#30800"
+msgid "Sync"
+msgstr ""
+
+msgctxt "#30801"
+msgid "Enable Fast Sync (Beta)"
+msgstr ""
+
+msgctxt "#30802"
+msgid "Use GitHub-hosted pre-computed database for instant syncing. When disabled, traditional country-based MUBI API sync is used."
+msgstr ""
+
+
 msgctxt "#30423"
 msgid "Skip TV Movie"
 msgstr ""

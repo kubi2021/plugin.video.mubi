@@ -87,16 +87,37 @@ class NavigationHandler:
     def _get_main_menu_items(self) -> list:
         """ Helper method to retrieve main menu items based on login status. """
         if self.session.is_logged_in:
+            # Check fast sync setting
+            enable_fast_sync = self.plugin.getSettingBool('enable_fast_sync')
+            
             # Get client country for sync menu label
             sync_label, sync_description = self._get_sync_menu_label()
             worldwide_label, worldwide_description = self._get_sync_worldwide_menu_label()
-            return [
-                {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True},
-                {"label": sync_label, "description": sync_description, "action": "sync_locally", "is_folder": False},
-                {"label": worldwide_label, "description": worldwide_description, "action": "sync_worldwide", "is_folder": False},
-                {"label": "Sync from GitHub", "description": "Fast sync using pre-computed database from GitHub (database/v1/films.json.gz).", "action": "sync_github", "is_folder": False},
-                {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
+            
+            # Base menu items
+            menu_items = [
+                {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True}
             ]
+            
+            # Conditionally add sync options based on fast sync setting
+            if enable_fast_sync:
+                # Fast sync enabled: only show GitHub sync
+                menu_items.append(
+                    {"label": "Sync worldwide catalogue", "description": "Fast sync using pre-computed database from GitHub (database/v1/films.json.gz).", "action": "sync_github", "is_folder": False}
+                )
+            else:
+                # Fast sync disabled: show traditional MUBI sync options
+                menu_items.extend([
+                    {"label": sync_label, "description": sync_description, "action": "sync_locally", "is_folder": False},
+                    {"label": worldwide_label, "description": worldwide_description, "action": "sync_worldwide", "is_folder": False}
+                ])
+            
+            # Add logout option
+            menu_items.append(
+                {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
+            )
+            
+            return menu_items
         else:
             return [
                 {"label": "Log In", "description": "Log in to your Mubi account", "action": "log_in", "is_folder": False}

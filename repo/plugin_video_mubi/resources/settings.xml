@@ -464,5 +464,15 @@
                 </setting>
             </group>
         </category>
+        
+        <category id="sync" label="30800" help="">
+            <group id="1">
+                <setting id="enable_fast_sync" label="30801" type="boolean" help="30802">
+                    <level>2</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
+        </category>
     </section>
 </settings>
