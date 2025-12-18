@@ -813,9 +813,10 @@ class NavigationHandler:
         """
         from .data_source import GithubDataSource
         github_source = GithubDataSource()
-        self._perform_sync(dialog_title="Syncing from GitHub...", data_source=github_source)
+        # Skip external metadata checks/fetches for GitHub sync as the JSON is already enriched
+        self._perform_sync(dialog_title="Syncing from GitHub...", data_source=github_source, skip_external_metadata=True)
 
-    def _perform_sync(self, dialog_title: str, countries: list = None, data_source=None):
+    def _perform_sync(self, dialog_title: str, countries: list = None, data_source=None, skip_external_metadata: bool = False):
         """
         Helper method to execute the common sync logic (locking, provider check, fetching, library update).
         """
@@ -837,36 +838,37 @@ class NavigationHandler:
             NavigationHandler._sync_in_progress = True
 
         try:
-            # Check if metadata providers are configured
-            provider = MetadataProviderFactory.get_provider()
-            
-            if not provider:
-                dialog = xbmcgui.Dialog()
-                ret = dialog.yesno(
-                    "Metadata Provider Required",
-                    "To provide rich metadata (posters, ratings, etc.) in your Kodi library, "
-                    "you need to configure an external metadata provider.\n\n"
-                    "Please execute the Settings to configure TMDB (free) or OMDb API key.",
-                    yeslabel="Go to Settings",
-                    nolabel="Cancel"
-                )
+            # Check if metadata providers are configured, unless skipping
+            if not skip_external_metadata:
+                provider = MetadataProviderFactory.get_provider()
+                
+                if not provider:
+                    dialog = xbmcgui.Dialog()
+                    ret = dialog.yesno(
+                        "Metadata Provider Required",
+                        "To provide rich metadata (posters, ratings, etc.) in your Kodi library, "
+                        "you need to configure an external metadata provider.\n\n"
+                        "Please execute the Settings to configure TMDB (free) or OMDb API key.",
+                        yeslabel="Go to Settings",
+                        nolabel="Cancel"
+                    )
 
-                if ret:
-                    MetadataProviderFactory.open_settings()
-                    provider = MetadataProviderFactory.get_provider()
-                    if not provider: return
-                else:
+                    if ret:
+                        MetadataProviderFactory.open_settings()
+                        provider = MetadataProviderFactory.get_provider()
+                        if not provider: return
+                    else:
+                        return
+
+                if not provider.test_connection():
+                    xbmcgui.Dialog().notification(
+                        "MUBI", 
+                        f"Invalid API Key for {provider.provider_name}. Sync aborted.", 
+                        xbmcgui.NOTIFICATION_ERROR,
+                        5000
+                    )
+                    xbmc.log(f"Sync aborted: Invalid API key for {provider.provider_name}", xbmc.LOGERROR)
                     return
-
-            if not provider.test_connection():
-                xbmcgui.Dialog().notification(
-                    "MUBI", 
-                    f"Invalid API Key for {provider.provider_name}. Sync aborted.", 
-                    xbmcgui.NOTIFICATION_ERROR,
-                    5000
-                )
-                xbmc.log(f"Sync aborted: Invalid API key for {provider.provider_name}", xbmc.LOGERROR)
-                return
 
             xbmc.log(f"Starting sync: {dialog_title}", xbmc.LOGINFO)
 
@@ -921,9 +923,9 @@ class NavigationHandler:
                 elif "JSON" in msg or "parsing" in msg.lower():
                     error_body = "Data format error from server."
                 elif "HTTP" in msg or "Connection" in msg or "Max retries" in msg:
-                     error_body = "Network error or server unavailable."
+                        error_body = "Network error or server unavailable."
                 else:
-                     error_body = f"Error: {msg}"
+                        error_body = f"Error: {msg}"
 
                 xbmc.log(f"Sync failed with error: {e}", xbmc.LOGERROR)
                 pDialog.close()
@@ -955,7 +957,7 @@ class NavigationHandler:
 
             # Sync files locally
             all_films_library.sync_locally(
-                self.base_url, plugin_userdata_path
+                self.base_url, plugin_userdata_path, skip_external_metadata=skip_external_metadata
             )
 
             # Trigger library operations
@@ -963,7 +965,7 @@ class NavigationHandler:
             if self.plugin.getSettingBool("auto_clean_library"):
                 self.clean_kodi_library(monitor)
             else:
-                 xbmc.log("Library cleaning disabled by setting", xbmc.LOGDEBUG)
+                    xbmc.log("Library cleaning disabled by setting", xbmc.LOGDEBUG)
             self.update_kodi_library()
 
         except Exception as e:

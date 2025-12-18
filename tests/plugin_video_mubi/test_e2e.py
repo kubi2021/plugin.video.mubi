@@ -339,7 +339,7 @@ class TestCompleteUserJourneys:
             with patch.object(film, 'create_nfo_file') as mock_nfo, \
                  patch.object(film, 'create_strm_file') as mock_strm:
 
-                def create_files(film_path, *args):
+                def create_files(film_path, *args, **kwargs):
                     film_path.mkdir(parents=True, exist_ok=True)
                     (film_path / f"{film.get_sanitized_folder_name()}.nfo").touch()
                     (film_path / f"{film.get_sanitized_folder_name()}.strm").touch()

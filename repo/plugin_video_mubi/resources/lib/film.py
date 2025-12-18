@@ -240,7 +240,7 @@ class Film:
             # BUG #9 FIX: Re-raise the exception so caller knows the operation failed
             raise
 
-    def create_nfo_file(self, film_path: Path, base_url: str):
+    def create_nfo_file(self, film_path: Path, base_url: str, skip_external_metadata: bool = False):
         """Create the .nfo file for the film."""
         # Use sanitized folder name for consistent file naming
         film_folder_name = self.get_sanitized_folder_name()
@@ -257,37 +257,41 @@ class Film:
             
             # Try to fetch external metadata using the factory's automatic selection
             # Factory now handles configuration internally
-            provider = MetadataProviderFactory.get_provider()
-            
-            if provider:
-                time.sleep(1) # Small delay to be nice to APIs
-                result = provider.get_imdb_id(
-                    title=self.title,
-                    original_title=self.metadata.originaltitle,
-                    year=self.metadata.year,
-                    media_type="movie"
-                )
+            # Skip if explicitly requested (e.g. GitHub sync)
+            if not skip_external_metadata:
+                provider = MetadataProviderFactory.get_provider()
+                
+                if provider:
+                    time.sleep(1) # Small delay to be nice to APIs
+                    result = provider.get_imdb_id(
+                        title=self.title,
+                        original_title=self.metadata.originaltitle,
+                        year=self.metadata.year,
+                        media_type="movie"
+                    )
 
-                if result.success:
-                    if result.imdb_id:
-                        imdb_id = result.imdb_id
+                    if result.success:
+                        if result.imdb_id:
+                            imdb_id = result.imdb_id
+                            xbmc.log(
+                                f"Retrieved IMDB ID for '{self.title}' from {result.source_provider}: {imdb_id}",
+                                xbmc.LOGINFO
+                            )
+                        if result.tmdb_id:
+                            tmdb_id = result.tmdb_id
+                            xbmc.log(
+                                f"Retrieved TMDB ID for '{self.title}': {tmdb_id}",
+                                xbmc.LOGINFO
+                            )
+                    else:
                         xbmc.log(
-                            f"Retrieved IMDB ID for '{self.title}' from {result.source_provider}: {imdb_id}",
-                            xbmc.LOGINFO
-                        )
-                    if result.tmdb_id:
-                        tmdb_id = result.tmdb_id
-                        xbmc.log(
-                            f"Retrieved TMDB ID for '{self.title}': {tmdb_id}",
-                            xbmc.LOGINFO
+                            f"Could not retrieve external metadata for '{self.title}': {result.error_message}",
+                            xbmc.LOGWARNING
                         )
                 else:
-                    xbmc.log(
-                        f"Could not retrieve external metadata for '{self.title}': {result.error_message}",
-                        xbmc.LOGWARNING
-                    )
+                    xbmc.log("Skipping external metadata - no API keys configured", xbmc.LOGINFO)
             else:
-                xbmc.log("Skipping external metadata - no API keys configured", xbmc.LOGINFO)
+                xbmc.log("Skipping external metadata - check disabled (e.g. GitHub sync)", xbmc.LOGINFO)
 
             nfo_tree = self._get_nfo_tree(self.metadata, kodi_trailer_url, imdb_id, tmdb_id, artwork_paths)
             with open(nfo_file, "wb") as f:

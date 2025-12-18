@@ -23,12 +23,13 @@ class Library:
     def __len__(self):
         return len(self.films)
 
-    def sync_locally(self, base_url: str, plugin_userdata_path: Path):
+    def sync_locally(self, base_url: str, plugin_userdata_path: Path, skip_external_metadata: bool = False):
         """
         Synchronize the local library with fetched film data from MUBI.
 
         :param base_url: The base URL for creating STRM files.
         :param plugin_userdata_path: The path where film folders are stored.
+        :param skip_external_metadata: If True, skip attempting to fetch external metadata (IMDB/TMDB) for new films.
         """
         # Films are expected to be already filtered by the time they are added to Library
 
@@ -78,7 +79,7 @@ class Library:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all tasks
                 future_to_film = {
-                    executor.submit(self.prepare_files_for_film, film, base_url, plugin_userdata_path): film
+                    executor.submit(self.prepare_files_for_film, film, base_url, plugin_userdata_path, skip_external_metadata): film
                     for film in self.films
                     if self.is_film_valid(film)
                 }
@@ -146,7 +147,7 @@ class Library:
         return film.mubi_id and film.title and film.metadata
 
     def prepare_files_for_film(
-        self, film: Film, base_url: str, plugin_userdata_path: Path
+        self, film: Film, base_url: str, plugin_userdata_path: Path, skip_external_metadata: bool = False
     ) -> Optional[bool]:
         """
         Prepare the necessary files for a given film. Creates NFO and STRM files.
@@ -156,6 +157,7 @@ class Library:
         :param film: The Film object to process.
         :param base_url: The base URL for the STRM file.
         :param plugin_userdata_path: The path where film folders are stored.
+        :param skip_external_metadata: If True, do not attempt to fetch external metadata.
         :return:
             - True if files were created/updated successfully.
             - False if file creation failed.
@@ -187,7 +189,7 @@ class Library:
 
             # Attempt to create the NFO file first
             xbmc.log(f"Creating NFO file for film '{film.title}'.", xbmc.LOGDEBUG)
-            film.create_nfo_file(film_path, base_url)
+            film.create_nfo_file(film_path, base_url, skip_external_metadata=skip_external_metadata)
 
             # Verify if the NFO file was created successfully
             if not nfo_file.exists():

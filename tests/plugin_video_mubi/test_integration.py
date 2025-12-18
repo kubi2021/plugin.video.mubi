@@ -158,7 +158,7 @@ class TestRealComponentIntegration:
             with patch.object(sample_film, 'create_nfo_file') as mock_nfo, \
                  patch.object(sample_film, 'create_strm_file') as mock_strm:
                 
-                def create_nfo_side_effect(film_path, base_url):
+                def create_nfo_side_effect(film_path, base_url, **kwargs):
                     film_path.mkdir(parents=True, exist_ok=True)
                     nfo_file = film_path / f"{sample_film.get_sanitized_folder_name()}.nfo"
                     nfo_file.touch()
