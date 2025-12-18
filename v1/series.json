@@ -1,9 +1,9 @@
 {
   "meta": {
-    "generated_at": "2025-12-17T16:48:15.296589Z",
+    "generated_at": "2025-12-18T12:22:54.642771Z",
     "version": 1,
     "total_count": 11,
-    "mode": "deep"
+    "mode": "shallow"
   },
   "items": [
     {
@@ -19,7 +19,7 @@
       "directors": [
         "Rodrigo Sorogoyen"
       ],
-      "popularity": 913,
+      "popularity": 965,
       "average_rating_out_of_ten": 9.0,
       "short_synopsis": "It’s the early morning of January 1st, 2016. Óscar is feeling down: he’s gone to a nightclub with his ex-girlfriend, Vero, thinking he still has a chance with her. But he’s wrong. It’s the same nightclub where Ana works as a waitress. When the club closes, Ana and Óscar meet at a bar.",
       "default_editorial": "",
@@ -58,7 +58,7 @@
         ],
         "average_rating": 4.5,
         "average_rating_out_of_ten": 9.0,
-        "number_of_ratings": 2456,
+        "number_of_ratings": 2590,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Madrid, New Year’s Eve. Ana and Óscar meet for the first time on the night they both turn thirty. That night, their worlds collide in an unexpected romance that will unfold over an entire decade of New Year’s Eves.",
@@ -759,7 +759,7 @@
         "Isabella Rossellini",
         "Jody Shapiro"
       ],
-      "popularity": 1573,
+      "popularity": 1576,
       "average_rating_out_of_ten": 8.8,
       "short_synopsis": "Isabella Rossellini explores the deadly mating habits of bees. As the huge queen bee lays about all day producing eggs, a horny yet doomed drone bee awaits his new female lover.",
       "default_editorial": "Internecine squabbling, regal indolence, lecherous appetites—the queen bee runs a royal household like any other. Expounding on the division of sexual labor within the imperial headquarters, this sanguineous short weighs the pound of flesh taken as payment for the privilege of servicing the boss.",
@@ -800,7 +800,7 @@
         ],
         "average_rating": 4.4,
         "average_rating_out_of_ten": 8.8,
-        "number_of_ratings": 3215,
+        "number_of_ratings": 3217,
         "info_label": "SERIES",
         "availability": "live",
         "short_synopsis": "Isabella Rossellini slips into the roles of various animals to act out their mating rituals, reproductive habits, and parenting behaviors. Shapeshifting from a vengeful female spider to a wiggly worm, Rossellini reveals some of the stranger truths of the animal kingdom.",
@@ -1419,7 +1419,7 @@
       "directors": [
         "Joe Wright"
       ],
-      "popularity": 3142,
+      "popularity": 3156,
       "average_rating_out_of_ten": 9.3,
       "short_synopsis": "Mussolini has just founded the Fasces of Combat when D’Annunzio takes Fiume. Mussolini hopes to exploit the feat of his poet on the field.",
       "default_editorial": "",
@@ -1459,7 +1459,7 @@
         ],
         "average_rating": 4.6,
         "average_rating_out_of_ten": 9.3,
-        "number_of_ratings": 8105,
+        "number_of_ratings": 8147,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Spanning the political chaos of 1920s Italy, Benito Mussolini transforms from socialist journalist to Italy’s brutal dictator, starting with his Blackshirts militia to the establishment of an authoritarian rule that would go on to set Europe aflame.",
@@ -1682,7 +1682,7 @@
       "directors": [
         "Lars von Trier"
       ],
-      "popularity": 1422,
+      "popularity": 1425,
       "average_rating_out_of_ten": 8.3,
       "short_synopsis": "Spiritualist Mrs. Drusse tricks the doctors into admitting her into the neurosurgery ward of the Kingdom hospital, where she discovers the sounds of a weeping child in the elevator shaft. Swedish consultant Dr. Helmer is confronted by the results of his sloppy work treating a brain-damaged patient.",
       "default_editorial": "Strange things are happening in the underbelly of a Danish hospital in Lars von Trier’s long unavailable cult TV phenomenon. Stunningly restored in never-before-seen versions, The Kingdom I is a wickedly funny supernatural mystery. Let the battle between good and evil commence!",
@@ -1722,7 +1722,7 @@
         ],
         "average_rating": 4.2,
         "average_rating_out_of_ten": 8.3,
-        "number_of_ratings": 3941,
+        "number_of_ratings": 3948,
         "info_label": "SERIES",
         "availability": "live",
         "short_synopsis": "Filmmaker Lars von Trier’s internationally acclaimed, cult classic series tells the story of a hospital built on top of the old bleaching ponds in Copenhagen, where evil has taken root and medical science faces a daily struggle with itself; where the Swedes curse the Danes, and the mysterious and inexplicable blend together in a mixture of horror and humor.",
@@ -2251,7 +2251,7 @@
       "directors": [
         "David Lynch"
       ],
-      "popularity": 9898,
+      "popularity": 9916,
       "average_rating_out_of_ten": 9.5,
       "short_synopsis": "The small northwest town of Twin Peaks, Washington, is shaken up when the body of the Homecoming Queen, Laura Palmer, is discovered washed up on a riverbank, wrapped in plastic.",
       "default_editorial": "",
@@ -2294,7 +2294,7 @@
         ],
         "average_rating": 4.7,
         "average_rating_out_of_ten": 9.5,
-        "number_of_ratings": 18305,
+        "number_of_ratings": 18345,
         "info_label": "SERIES",
         "availability": "live",
         "short_synopsis": "F.B.I. Agent Dale Cooper comes to the logging town of Twin Peaks to investigate the murder of Laura Palmer, a popular high school student. While investigating, Agent Cooper comes to know the town’s inhabitants, their odd behaviors, and slowly learns that strange things are happening.",
@@ -2643,7 +2643,7 @@
       "directors": [
         "David Lynch"
       ],
-      "popularity": 5022,
+      "popularity": 5034,
       "average_rating_out_of_ten": 9.4,
       "short_synopsis": "My log has a message for you.",
       "default_editorial": "",
@@ -2686,7 +2686,7 @@
         ],
         "average_rating": 4.7,
         "average_rating_out_of_ten": 9.4,
-        "number_of_ratings": 8500,
+        "number_of_ratings": 8525,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "One of the most groundbreaking and influential broadcast series of all time, Twin Peaks followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues…",
@@ -2906,7 +2906,7 @@
       "directors": [
         "Cooper Raiff"
       ],
-      "popularity": 1545,
+      "popularity": 1563,
       "average_rating_out_of_ten": 9.3,
       "short_synopsis": "Hal and Harper’s childhood house is on the market, and Dad’s got even bigger news that’s about to send all three on a journey through time.",
       "default_editorial": "",
@@ -2946,7 +2946,7 @@
         ],
         "average_rating": 4.6,
         "average_rating_out_of_ten": 9.3,
-        "number_of_ratings": 3866,
+        "number_of_ratings": 3908,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Hal and Harper have built their adult lives side by side in Los Angeles, bound by a lifetime of inside jokes and shared pain. When Dad announces he’s having a baby with his girlfriend, the siblings must reexamine their past and reckon with the versions of themselves they’ve carried into adulthood.",
@@ -2960,8 +2960,8 @@
             "release_year": 2025,
             "slug": "season-1",
             "web_url": "https://mubi.com/series/hal-harper/season/season-1",
-            "trailer_url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
-            "trailer_id": 135064,
+            "trailer_url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_en_us_1760968900.mp4",
+            "trailer_id": 135824,
             "critic_review_rating": 4.1818,
             "short_synopsis": "",
             "short_synopsis_html": "",
@@ -2973,11 +2973,11 @@
             "default_editorial_html": "<p>Multi-hyphenate wunderkind Cooper Raiff (<em>Cha Cha Real Smooth</em>) writes, directs, and stars in this conceptually ambitious comic drama. With knockout performances from Lili Reinhart and Mark Ruffalo, <em>Hal &amp; Harper</em> is a beautifully modulated examination of love, identity, and arrested development.</p>",
             "optimised_trailers": [
               {
-                "url": "https://trailers.mubicdn.net/seasons/22/optimised/240p-t-22_fr_fr_1759508323.mp4",
+                "url": "https://trailers.mubicdn.net/seasons/22/optimised/240p-t-22_en_us_1760968900.mp4",
                 "profile": "240p"
               },
               {
-                "url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
+                "url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_en_us_1760968900.mp4",
                 "profile": "720p"
               }
             ],
@@ -3563,7 +3563,7 @@
       "directors": [
         "Bruno Dumont"
       ],
-      "popularity": 199,
+      "popularity": 201,
       "average_rating_out_of_ten": 8.3,
       "short_synopsis": "It is the start of the summer holidays for Quinquin, and it is also the start of a local killing spree after a woman is chopped up and fed to a cow found dead in an old bunker.",
       "default_editorial": "Presented in its original serialized form, this epitome of the arthouse TV series (is there such a thing?) is a first-class surreal whodunit which has already earned its place next to Twin Peaks. Who would have thought Bruno Dumont could make us laugh out loud? Enjoy: this is just the beginning.",
@@ -3604,7 +3604,7 @@
         ],
         "average_rating": 4.1,
         "average_rating_out_of_ten": 8.3,
-        "number_of_ratings": 566,
+        "number_of_ratings": 569,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "After a corpse is discovered inside a cow, a wild police investigation unfolds in a bizarre French village that has fallen prey to evil. Meanwhile, a band of young, mischievous scoundrels watches from the sides.",
