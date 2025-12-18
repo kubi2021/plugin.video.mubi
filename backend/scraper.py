@@ -224,6 +224,23 @@ class MubiScraper:
         prune_dict(data.get('episode'))
         prune_dict(data.get('series'))
 
+    def _prune_film_data(self, data):
+        """
+        Removes unnecessary fields from film data to reduce file size.
+        Removes: label_hex_color from content_rating, focal_point from artworks.
+        """
+        # Prune content_rating
+        content_rating = data.get('content_rating')
+        if content_rating and isinstance(content_rating, dict):
+            content_rating.pop('label_hex_color', None)
+        
+        # Prune artworks
+        artworks = data.get('artworks', [])
+        if artworks:
+            for artwork in artworks:
+                if isinstance(artwork, dict):
+                    artwork.pop('focal_point', None)
+
     def run(self, output_path='films.json', series_path='series.json', mode='deep', input_path=None):
         all_films = {} # id -> film_data
         all_series = {} # id -> series_data
@@ -326,22 +343,58 @@ class MubiScraper:
                     for item in items:
                         fid = item['id']
                         
-                        # Data Mapping
+                        # Data Mapping - Extended schema
                         new_data = {
+                            # Core identifiers
                             'mubi_id': fid,
+                            
+                            # Basic metadata
                             'title': item.get('title'),
                             'original_title': item.get('original_title'),
-                            'genres': item.get('genres'),
                             'year': item.get('year'),
                             'duration': item.get('duration'),
+                            'genres': item.get('genres', []),
                             'directors': [d['name'] for d in item.get('directors', [])],
-                            'popularity': item.get('popularity'),
-                            'average_rating_out_of_ten': item.get('average_rating_out_of_ten'),
                             'short_synopsis': item.get('short_synopsis'),
                             'default_editorial': item.get('default_editorial'),
+                            'historic_countries': item.get('historic_countries', []),
+                            
+                            # Mubi-specific ratings
+                            'popularity': item.get('popularity'),
+                            'average_rating_out_of_ten': item.get('average_rating_out_of_ten'),
+                            'number_of_ratings': item.get('number_of_ratings'),
+                            'hd': item.get('hd'),
+                            'critic_review_rating': item.get('critic_review_rating'),
+                            
+                            # Content rating & warnings
+                            'content_rating': item.get('content_rating'),
+                            'content_warnings': item.get('content_warnings', []),
+                            
+                            # Imagery & artwork
+                            'stills': item.get('stills'),
+                            'still_url': item.get('still_url'),
+                            'portrait_image': item.get('portrait_image'),
+                            'artworks': item.get('artworks', []),
+                            
+                            # Trailers
+                            'trailer_url': item.get('trailer_url'),
+                            'trailer_id': item.get('trailer_id'),
+                            'optimised_trailers': item.get('optimised_trailers'),
+                            
+                            # Availability & playback
+                            'consumable': item.get('consumable'),
+                            
+                            # Awards & press
+                            'award': item.get('award'),
+                            'press_quote': item.get('press_quote'),
+                            
+                            # Series/episode info
                             'episode': item.get('episode'),
                             'series': item.get('series')
                         }
+                        
+                        # Prune unnecessary fields from film data
+                        self._prune_film_data(new_data)
 
                         # --- DISTINGUISH SERIES VS FILM ---
                         is_series = False

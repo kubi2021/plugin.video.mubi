@@ -943,6 +943,29 @@ class Mubi:
             # Extract playback language information
             audio_languages, subtitle_languages, media_features = self._get_playback_languages(film_info)
 
+            # Extract press_quote as tagline
+            press_quote = film_info.get('press_quote', '')
+
+            # Extract premiered date from consumable.available_at
+            premiered = ''
+            consumable = film_info.get('consumable', {})
+            if isinstance(consumable, dict):
+                available_at = consumable.get('available_at', '')
+                if available_at:
+                    # Convert ISO format "2025-04-15T07:00:00Z" to "2025-04-15"
+                    try:
+                        premiered = available_at.split('T')[0] if 'T' in available_at else available_at
+                    except Exception:
+                        premiered = ''
+
+            # Extract content warnings as list of names
+            content_warnings_raw = film_info.get('content_warnings', [])
+            content_warnings = []
+            if isinstance(content_warnings_raw, list):
+                for warning in content_warnings_raw:
+                    if isinstance(warning, dict) and warning.get('name'):
+                        content_warnings.append(warning['name'])
+
             metadata = Metadata(
                 title=film_info.get('title', ''),
                 director=[d['name'] for d in film_info.get('directors', [])],
@@ -962,7 +985,10 @@ class Mubi:
                 artwork_urls=artwork_urls,  # Add all artwork URLs
                 audio_languages=audio_languages,  # Available audio languages
                 subtitle_languages=subtitle_languages,  # Available subtitle languages
-                media_features=media_features  # Media features (4K, stereo, 5.1, etc.)
+                media_features=media_features,  # Media features (4K, stereo, 5.1, etc.)
+                premiered=premiered,  # MUBI premiere date
+                content_warnings=content_warnings,  # Content warnings as library tags
+                tagline=press_quote  # Press quote as tagline
             )
 
             return Film(
