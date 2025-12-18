@@ -223,6 +223,11 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
+### Dec 18th, 2025 - Fast Sync (Beta) ⚡
+- **GitHub-Hosted Backend Scraper**: Built a backend scraper that runs on GitHub Actions, pre-computing the MUBI catalogue so the plugin doesn't need to crawl the API directly.
+- **Fast Sync Mode**: Enable in **Settings > Advanced > Fast Sync (Beta)** to use the new sync method.
+- **Dramatically Faster**: Syncs the entire MUBI catalogue in seconds instead of ~15 minutes with the older method.
+
 ### Dec 12th, 2025 - TMDB & Speed Boost 🚀
 - **TMDB Integration**: Added The Movie Database (TMDB) as the primary metadata provider for richer and more reliable movie details (ratings, cast, posters).
 - **10x Faster Sync**: Dramatically improved synchronization speed by optimizing API calls and implementing parallel processing.
