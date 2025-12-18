@@ -57,7 +57,7 @@ class PlaybackLanguages(BaseModel):
 class Offered(BaseModel):
     """Offering type information."""
     type: Optional[str] = None
-    download_availability: Optional[str] = None
+    download_availability: Optional[Any] = None  # Can be str or int (seconds)
 
 
 class Consumable(BaseModel):
@@ -67,7 +67,7 @@ class Consumable(BaseModel):
     availability: Optional[str] = None
     availability_ends_at: Optional[str] = None
     expires_at: Optional[str] = None
-    film_date_message: Optional[str] = None
+    film_date_message: Optional[Any] = None  # Can be str or dict
     exclusive: Optional[bool] = None
     permit_download: Optional[bool] = None
     offered: List[Offered] = []
@@ -118,7 +118,7 @@ class Film(BaseModel):
     average_rating_out_of_ten: Optional[float] = None
     number_of_ratings: Optional[int] = None
     hd: Optional[bool] = None
-    critic_review_rating: Optional[int] = None
+    critic_review_rating: Optional[float] = None
     
     # Content rating & warnings
     content_rating: Optional[ContentRating] = None
@@ -133,14 +133,14 @@ class Film(BaseModel):
     # Trailers
     trailer_url: Optional[str] = None
     trailer_id: Optional[int] = None
-    optimised_trailers: Optional[Dict[str, Any]] = None
+    optimised_trailers: Optional[List[Dict[str, Any]]] = None
     
     # Availability & playback
     consumable: Optional[Consumable] = None
     
     # Awards & press
     award: Optional[Award] = None
-    press_quote: Optional[str] = None
+    press_quote: Optional[Any] = None  # Can be str or dict
     
     # Series/episode info (null for regular films)
     episode: Optional[Dict[str, Any]] = None

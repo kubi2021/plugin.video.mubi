@@ -88,6 +88,9 @@ class MockFile:
 
 xbmcvfs_mock = MagicMock()
 xbmcvfs_mock.File = MockFile
+xbmcvfs_mock.translatePath.return_value = "/tmp/mock_kodi"
+xbmcvfs_mock.exists.return_value = True
+xbmcvfs_mock.mkdirs.return_value = True
 sys.modules['xbmcvfs'] = xbmcvfs_mock
 
 # Mock inputstreamhelper
