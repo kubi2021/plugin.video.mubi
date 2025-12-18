@@ -24,6 +24,7 @@ class TestScraperLogic(unittest.TestCase):
         # Create a temp directory for file operations
         self.test_dir = tempfile.mkdtemp()
         self.films_json_path = os.path.join(self.test_dir, 'films.json')
+        self.series_json_path = os.path.join(self.test_dir, 'series.json')
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
@@ -67,7 +68,7 @@ class TestScraperLogic(unittest.TestCase):
         # 3. Run shallow sync (updates existing)
         # We enforce US so it hits the mock for the right country
         with patch('backend.scraper.MubiScraper.COUNTRIES', ['US']):
-            self.scraper.run(output_path=self.films_json_path, mode='shallow', input_path=self.films_json_path)
+            self.scraper.run(output_path=self.films_json_path, series_path=self.series_json_path, mode='shallow', input_path=self.films_json_path)
             
         # 4. Assertions
         with open(self.films_json_path, 'r') as f:
@@ -105,7 +106,7 @@ class TestScraperLogic(unittest.TestCase):
         
         # 3. Run DEEP sync
         with patch('backend.scraper.MubiScraper.COUNTRIES', ['US']):
-            self.scraper.run(output_path=self.films_json_path, mode='deep')
+            self.scraper.run(output_path=self.films_json_path, series_path=self.series_json_path, mode='deep')
             
         # 4. Assertions
         with open(self.films_json_path, 'r') as f:
@@ -146,7 +147,7 @@ class TestScraperLogic(unittest.TestCase):
         with patch('backend.scraper.MubiScraper.COUNTRIES', ['US']):
             # We must make sure calculate_greedy_targets only picks US, or we interpret it as such
             with patch.object(self.scraper, 'calculate_greedy_targets', return_value=['US']):
-                 self.scraper.run(output_path=self.films_json_path, mode='shallow', input_path=self.films_json_path)
+                 self.scraper.run(output_path=self.films_json_path, series_path=self.series_json_path, mode='shallow', input_path=self.films_json_path)
             
         # 4. Assertions
         with open(self.films_json_path, 'r') as f:
@@ -191,7 +192,7 @@ class TestScraperLogic(unittest.TestCase):
             
             # 3. Run DEEP sync on US and GB
             with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB']):
-                self.scraper.run(output_path=self.films_json_path, mode='deep')
+                self.scraper.run(output_path=self.films_json_path, series_path=self.series_json_path, mode='deep')
 
         # 4. Assertions
         with open(self.films_json_path, 'r') as f:
@@ -222,7 +223,7 @@ class TestScraperLogic(unittest.TestCase):
             # 3. Run SHALLOW sync on GB
             # Force target to GB
             with patch.object(self.scraper, 'calculate_greedy_targets', return_value=['GB']):
-                self.scraper.run(output_path=self.films_json_path, mode='shallow', input_path=self.films_json_path)
+                self.scraper.run(output_path=self.films_json_path, series_path=self.series_json_path, mode='shallow', input_path=self.films_json_path)
 
         # 4. Assertions
         with open(self.films_json_path, 'r') as f:

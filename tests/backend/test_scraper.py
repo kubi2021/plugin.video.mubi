@@ -62,9 +62,11 @@ class TestMubiScraper(unittest.TestCase):
         # Override countries to just 2 for speed
         self.scraper.COUNTRIES = ['US', 'GB']
         
-        output_file = 'test_films.json'
+        test_dir = tempfile.mkdtemp()
         try:
-            self.scraper.run(output_path=output_file)
+            output_file = os.path.join(test_dir, 'test_films.json')
+            series_file = os.path.join(test_dir, 'test_series.json')
+            self.scraper.run(output_path=output_file, series_path=series_file)
             
             self.assertTrue(os.path.exists(output_file))
             
@@ -84,10 +86,8 @@ class TestMubiScraper(unittest.TestCase):
 
             # Should NOT exit
             mock_exit.assert_not_called()
-
         finally:
-            if os.path.exists(output_file):
-                os.remove(output_file)
+            shutil.rmtree(test_dir)
 
     @patch('sys.exit')
     def test_run_panic_if_no_films(self, mock_exit):
@@ -97,11 +97,17 @@ class TestMubiScraper(unittest.TestCase):
         mock_resp.json.return_value = {'films': [], 'meta': {'next_page': None}}
         self.scraper.session.get.return_value = mock_resp
         
-        self.scraper.COUNTRIES = ['US']
-        self.scraper.run(output_path='test_panic.json')
-        
-        # Verify sys.exit(1) was called
-        mock_exit.assert_called_with(1)
+        test_dir = tempfile.mkdtemp()
+        try:
+            output_file = os.path.join(test_dir, 'test_panic.json')
+            series_file = os.path.join(test_dir, 'test_series.json')
+            self.scraper.COUNTRIES = ['US']
+            self.scraper.run(output_path=output_file, series_path=series_file)
+            
+            # Verify sys.exit(1) was called
+            mock_exit.assert_called_with(1)
+        finally:
+            shutil.rmtree(test_dir)
 
     @patch('sys.exit')
     def test_run_partial_error(self, mock_exit):
@@ -127,15 +133,17 @@ class TestMubiScraper(unittest.TestCase):
         
         self.scraper.COUNTRIES = ['US', 'GB']
         
+        test_dir = tempfile.mkdtemp()
         try:
-            self.scraper.run(output_path='test_partial.json')
+            output_file = os.path.join(test_dir, 'test_partial.json')
+            series_file = os.path.join(test_dir, 'test_series.json')
+            self.scraper.run(output_path=output_file, series_path=series_file)
             # Verify sys.exit(1) was called because of the error
             mock_exit.assert_called_with(1)
             # Verify file WAS created despite error (partial success)
-            self.assertTrue(os.path.exists('test_partial.json'))
+            self.assertTrue(os.path.exists(output_file))
         finally:
-            if os.path.exists('test_partial.json'):
-                os.remove('test_partial.json')
+            shutil.rmtree(test_dir)
 
     @patch('sys.exit')
     def test_run_min_threshold_failure(self, mock_exit):
@@ -151,11 +159,15 @@ class TestMubiScraper(unittest.TestCase):
         self.scraper.session.get.return_value = mock_resp
         self.scraper.COUNTRIES = ['US']
         
-        self.scraper.run(output_path='test_threshold.json')
-        # Should exit(1) because 1 < 5
-        mock_exit.assert_called_with(1)
-        if os.path.exists('test_threshold.json'):
-            os.remove('test_threshold.json')
+        test_dir = tempfile.mkdtemp()
+        try:
+            output_file = os.path.join(test_dir, 'test_threshold.json')
+            series_file = os.path.join(test_dir, 'test_series.json')
+            self.scraper.run(output_path=output_file, series_path=series_file)
+            # Should exit(1) because 1 < 5
+            mock_exit.assert_called_with(1)
+        finally:
+            shutil.rmtree(test_dir)
 
     @patch('sys.exit')
     def test_run_critical_country_failure(self, mock_exit):
@@ -174,11 +186,15 @@ class TestMubiScraper(unittest.TestCase):
         
         self.scraper.session.get.side_effect = side_effect
         
-        self.scraper.run(output_path='test_critical.json')
-        # Should exit(1) because US is critical and had 0 films
-        mock_exit.assert_called_with(1)
-        if os.path.exists('test_critical.json'):
-            os.remove('test_critical.json')
+        test_dir = tempfile.mkdtemp()
+        try:
+            output_file = os.path.join(test_dir, 'test_critical.json')
+            series_file = os.path.join(test_dir, 'test_series.json')
+            self.scraper.run(output_path=output_file, series_path=series_file)
+            # Should exit(1) because US is critical and had 0 films
+            mock_exit.assert_called_with(1)
+        finally:
+            shutil.rmtree(test_dir)
 
     @patch('sys.exit')
     def test_validate_data_integrity(self, mock_exit):
@@ -248,7 +264,8 @@ class TestMubiScraper(unittest.TestCase):
                  # Force target to GB to simulate finding the film there
                  with patch.object(self.scraper, 'calculate_greedy_targets', return_value=['GB']):
                      output_file = os.path.join(test_dir, "output.json")
-                     self.scraper.run(output_path=output_file, mode='shallow', input_path=input_file)
+                     series_file = os.path.join(test_dir, "series.json")
+                     self.scraper.run(output_path=output_file, series_path=series_file, mode='shallow', input_path=input_file)
                      
                      # 3. Verify Output
                      with open(output_file, 'r') as f:
@@ -288,7 +305,8 @@ class TestMubiScraper(unittest.TestCase):
             
             with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB']):
                  output_file = os.path.join(test_dir, "output.json")
-                 self.scraper.run(output_path=output_file, mode='shallow', input_path=input_file)
+                 series_file = os.path.join(test_dir, "series.json")
+                 self.scraper.run(output_path=output_file, series_path=series_file, mode='shallow', input_path=input_file)
                  
                  # Check output
                  with open(output_file, 'r') as f:
@@ -345,7 +363,8 @@ class TestMubiScraper(unittest.TestCase):
             
             with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB']):
                  output_file = os.path.join(test_dir, "output.json")
-                 self.scraper.run(output_path=output_file, mode='shallow', input_path=input_file)
+                 series_file = os.path.join(test_dir, "series.json")
+                 self.scraper.run(output_path=output_file, series_path=series_file, mode='shallow', input_path=input_file)
                  
                  # Check output
                  with open(output_file, 'r') as f:
