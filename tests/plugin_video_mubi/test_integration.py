@@ -71,7 +71,8 @@ class TestRealComponentIntegration:
             title="Integration Test Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=sample_film_metadata
+            metadata=sample_film_metadata,
+            available_countries={"US": {}}
         )
 
     def test_session_manager_device_id_persistence(self, real_session_manager):
@@ -631,7 +632,8 @@ class TestEndToEndWorkflows:
             title="Current Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=current_metadata
+            metadata=current_metadata,
+            available_countries={"US": {}}
         )
 
         library.add_film(current_film)
@@ -708,7 +710,8 @@ class TestEndToEndWorkflows:
             title=problematic_title,
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=sample_metadata
+            metadata=sample_metadata,
+            available_countries={"US": {}}
         )
 
         library.add_film(problematic_film)
@@ -790,7 +793,8 @@ class TestEndToEndWorkflows:
             title="Comprehensive Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=comprehensive_metadata
+            metadata=comprehensive_metadata,
+            available_countries={"US": {}}
         )
 
         library.add_film(comprehensive_film)
@@ -895,7 +899,8 @@ class TestEndToEndWorkflows:
             title="Network Test Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
-            metadata=sample_metadata
+            metadata=sample_metadata,
+            available_countries={"US": {}}
         )
 
         library.add_film(network_test_film)
