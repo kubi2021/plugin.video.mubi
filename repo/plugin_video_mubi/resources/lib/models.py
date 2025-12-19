@@ -71,9 +71,9 @@ class Consumable(BaseModel):
     exclusive: Optional[bool] = None
     permit_download: Optional[bool] = None
     offered: List[Offered] = []
-    playback_languages: Optional[PlaybackLanguages] = None
-
-
+    # Playback languages moved to global Film scope
+    
+    
 class Award(BaseModel):
     """Award information."""
     name: Optional[str] = None
@@ -136,8 +136,9 @@ class Film(BaseModel):
     optimised_trailers: Optional[List[Dict[str, Any]]] = None
     
     # Availability & playback
-    consumable: Optional[Consumable] = None
-    
+    # Consumable info is now per-country in available_countries
+    playback_languages: Optional[PlaybackLanguages] = None
+
     # Awards & press
     award: Optional[Award] = None
     press_quote: Optional[Any] = None  # Can be str or dict
@@ -147,7 +148,7 @@ class Film(BaseModel):
     series: Optional[Dict[str, Any]] = None
     
     # Scraper-added metadata
-    countries: List[str] = []
+    available_countries: Dict[str, Consumable] = {}
     
     # Multi-source ratings (enriched)
     ratings: List[Rating] = []

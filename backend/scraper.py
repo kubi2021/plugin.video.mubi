@@ -163,7 +163,10 @@ class MubiScraper:
         for film in existing_films:
             fid = film['mubi_id']
             universe.add(fid)
-            for c in film.get('countries', []):
+            
+            # Use available_countries keys
+            available_countries = film.get('available_countries', {})
+            for c in available_countries.keys():
                 if c in country_coverage:
                     country_coverage[c].add(fid)
         
@@ -244,8 +247,8 @@ class MubiScraper:
     def run(self, output_path='films.json', series_path='series.json', mode='deep', input_path=None):
         all_films = {} # id -> film_data
         all_series = {} # id -> series_data
-        film_countries = {} # id -> set(countries)
-        series_countries = {} # id -> set(countries)
+        film_countries = {} # id -> dict(country -> consumable)
+        series_countries = {} # id -> dict(country -> consumable)
         errors = [] # Track errors per country
         
         # Determine paths
@@ -271,9 +274,13 @@ class MubiScraper:
                     fid = film['mubi_id']
                     all_films[fid] = film
                     if mode == 'shallow':
-                         film_countries[fid] = set(film.get('countries', []))
+                         # Load existing available_countries
+                         if 'available_countries' in film:
+                             film_countries[fid] = film['available_countries']
+                         else:
+                             film_countries[fid] = {}
                     else:
-                         film_countries[fid] = set()
+                         film_countries[fid] = {}
 
             except Exception as e:
                 logger.error(f"Failed to load existing data from {load_path}: {e}")
@@ -293,9 +300,12 @@ class MubiScraper:
                     fid = item['mubi_id']
                     all_series[fid] = item
                     if mode == 'shallow':
-                         series_countries[fid] = set(item.get('countries', []))
+                         if 'available_countries' in item:
+                             series_countries[fid] = item['available_countries']
+                         else:
+                             series_countries[fid] = {}
                     else:
-                         series_countries[fid] = set()
+                         series_countries[fid] = {}
 
             except Exception as e:
                 logger.error(f"Failed to load existing series data: {e}")
@@ -317,6 +327,17 @@ class MubiScraper:
             # Use the existing data (films AND series) to calculate targets
             # Combine values for coverage calculation
             combined_items = list(all_films.values()) + list(all_series.values())
+            # Note: calculate_greedy_targets might need adaptation if it relies solely on 'countries' list
+            # We will patch 'countries' list temporarily onto items for the greedy calc if needed, 
+            # or update calculate_greedy_targets.
+            # For this refactor, let's assume keys of available_countries are sufficient.
+            
+            # Temporary adapter for greedy algo: ensure items have 'countries' list derived from 'available_countries' keys
+            for item in combined_items:
+                if 'available_countries' in item and isinstance(item['available_countries'], dict):
+                    item['countries'] = list(item['available_countries'].keys())
+                # If old schema 'countries' exists, it stays.
+
             target_countries = self.calculate_greedy_targets(combined_items)
 
         # --- 3. SCRAPING LOOP (PARALLEL) ---
@@ -382,7 +403,7 @@ class MubiScraper:
                             'optimised_trailers': item.get('optimised_trailers'),
                             
                             # Availability & playback
-                            'consumable': item.get('consumable'),
+                            'playback_languages': item.get('consumable', {}).get('playback_languages'),
                             
                             # Awards & press
                             'award': item.get('award'),
@@ -419,14 +440,24 @@ class MubiScraper:
                             target_dict[fid].update(new_data)
                         else:
                             target_dict[fid] = new_data
-                            target_dict[fid]['countries'] = [] 
+                            # CLEANUP: Remove legacy 'countries' if it exists when creating new
+                            target_dict[fid].pop('countries', None)
                         
-                        # Init country set
+                        # Init country dict
                         if fid not in target_countries_dict:
-                            target_countries_dict[fid] = set()
+                            target_countries_dict[fid] = {}
 
-                        # Add country
-                        target_countries_dict[fid].add(country)
+                        # Add availability data for this country
+                        # We store the 'consumable' object which contains dates and status
+                        consumable = item.get('consumable', {})
+                        if consumable:
+                            # Move playback_languages to top level (already done above), remove from here to save space
+                            # But wait, we modified the logical 'new_data' above, we didn't modify 'item'
+                            # Should we modify the consumable dict that goes into film_countries?
+                            # Yes, to match the schema request "outside availability country".
+                            consumable_copy = consumable.copy()
+                            consumable_copy.pop('playback_languages', None)
+                            target_countries_dict[fid][country] = consumable_copy
                     
                     logger.info(f"Finished {country}. Total films: {len(all_films)}, Total series: {len(all_series)}")
                     
@@ -466,12 +497,18 @@ class MubiScraper:
         # --- PREPARE FINAL LISTS ---
         final_films = []
         for fid, film in all_films.items():
-            film['countries'] = sorted(list(film_countries.get(fid, set())))
+            # Assign aggregated availability data
+            film['available_countries'] = film_countries.get(fid, {})
+            # Remove legacy list if present to ensure schema cleanliness
+            film.pop('countries', None)
             final_films.append(film)
 
         final_series = []
         for sid, item in all_series.items():
-            item['countries'] = sorted(list(series_countries.get(sid, set())))
+            # Assign aggregated availability data
+            item['available_countries'] = series_countries.get(sid, {})
+            # Remove legacy list if present
+            item.pop('countries', None)
             final_series.append(item)
 
         # PANIC CHECK

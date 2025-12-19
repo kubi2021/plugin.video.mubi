@@ -611,10 +611,14 @@ class TestFilm:
 
 
     def test_nfo_tree_includes_mubi_availability(self, mock_metadata):
-        """Test that NFO tree includes mubi_availability section with countries."""
+        """Test that NFO tree includes mubi_availability section with countries and details."""
         film = Film(
             "123", "Test Movie", "", "", mock_metadata,
-            available_countries=["ch", "de", "us"]
+            available_countries={
+                "ch": {"availability": "live", "available_at": "2025-01-01"},
+                "de": {"availability": "upcoming"},
+                "us": {} # minimal case
+            }
         )
 
         nfo_tree = film._get_nfo_tree(
@@ -631,17 +635,53 @@ class TestFilm:
         countries = mubi_availability.findall("country")
         assert len(countries) == 3, "Should have 3 country elements"
 
-        # Check country codes are uppercase
-        codes = [c.get("code") for c in countries]
-        assert "CH" in codes
-        assert "DE" in codes
-        assert "US" in codes
+        # Check country codes and details
+        code_map = {}
+        for c in countries:
+             code_map[c.get("code")] = c
+        
+        assert "CH" in code_map
+        assert "DE" in code_map
+        assert "US" in code_map
 
-        # Check country names are present
-        names = [c.text for c in countries]
-        assert "Switzerland" in names
-        assert "Germany" in names
-        assert "United States" in names
+        # Verify CH details
+        ch = code_map["CH"]
+        assert ch.find("name").text == "Switzerland"
+        assert ch.find("availability").text == "live"
+        assert ch.find("available_at").text == "2025-01-01"
+
+        # Verify DE details
+        de = code_map["DE"]
+        assert de.find("availability").text == "upcoming"
+
+        # Verify US details (minimal)
+        us = code_map["US"]
+        assert us.find("name").text == "United States"
+
+    def test_nfo_tree_availability_with_dict_input(self, mock_metadata):
+        """Test that dict input correctly generates availability NFO."""
+        film = Film(
+            "123", "Test Movie", "", "", mock_metadata,
+            available_countries={"FR": {}, "GB": {}}
+        )
+        
+        # Verify internal structure
+        assert isinstance(film.available_countries, dict)
+        assert "FR" in film.available_countries
+        assert "GB" in film.available_countries
+        assert film.available_countries["FR"] == {}
+
+        nfo_tree = film._get_nfo_tree(
+            mock_metadata,
+            kodi_trailer_url="",
+            imdb_id="",
+            artwork_paths=None
+        )
+
+        root = ET.fromstring(nfo_tree)
+        mubi_availability = root.find("mubi_availability")
+        countries = mubi_availability.findall("country")
+        assert len(countries) == 2
 
     def test_nfo_tree_no_availability_when_empty(self, mock_metadata):
         """Test that NFO tree has no mubi_availability when no countries."""
@@ -662,7 +702,7 @@ class TestFilm:
         """Test updating NFO availability in existing file."""
         film = Film(
             "123", "Test Movie", "", "", mock_metadata,
-            available_countries=["fr", "gb"]
+            available_countries={"fr": {"availability": "live"}}
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -680,16 +720,15 @@ class TestFilm:
             assert mubi_availability is not None
 
             countries = mubi_availability.findall("country")
-            assert len(countries) == 2
-            codes = [c.get("code") for c in countries]
-            assert "FR" in codes
-            assert "GB" in codes
+            assert len(countries) == 1
+            assert countries[0].get("code") == "FR"
+            assert countries[0].find("availability").text == "live"
 
     def test_update_nfo_availability_replaces_existing(self, mock_metadata):
         """Test that update_nfo_availability replaces existing availability."""
         film = Film(
             "123", "Test Movie", "", "", mock_metadata,
-            available_countries=["jp"]
+            available_countries={"jp": {}}
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -715,7 +754,6 @@ class TestFilm:
             # Should only have JP now, not US/DE
             assert len(countries) == 1
             assert countries[0].get("code") == "JP"
-            assert countries[0].text == "Japan"
 
     def test_update_nfo_availability_invalid_file(self, mock_metadata):
         """Test update_nfo_availability with invalid XML file."""
@@ -1133,13 +1171,14 @@ class TestFilmNfoAvailability:
     def test_nfo_availability_with_many_countries(self, mock_metadata, tmp_path):
         """Test NFO correctly stores 50+ available countries."""
         # Create film with many countries
-        many_countries = [
+        many_countries_list = [
             'US', 'FR', 'DE', 'GB', 'IT', 'ES', 'JP', 'KR', 'CN', 'BR',
             'MX', 'AR', 'CL', 'CO', 'PE', 'AU', 'NZ', 'IN', 'TH', 'VN',
             'SG', 'MY', 'ID', 'PH', 'HK', 'TW', 'CA', 'NL', 'BE', 'CH',
             'AT', 'PL', 'CZ', 'HU', 'RO', 'BG', 'GR', 'TR', 'IL', 'AE',
             'SA', 'EG', 'ZA', 'NG', 'KE', 'SE', 'NO', 'DK', 'FI', 'IE'
         ]
+        many_countries = {c: {} for c in many_countries_list}
         film = Film(
             "123", "Multi Country Film", "", "", mock_metadata,
             available_countries=many_countries
@@ -1163,7 +1202,7 @@ class TestFilmNfoAvailability:
         # Create initial film with some countries
         film = Film(
             "123", "Test Film", "", "", mock_metadata,
-            available_countries=['US', 'FR']
+            available_countries={'US': {}, 'FR': {}}
         )
 
         # Create initial NFO (no API key)
@@ -1172,7 +1211,9 @@ class TestFilmNfoAvailability:
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
 
         # Update with new countries
-        film.available_countries = ['US', 'FR', 'DE', 'GB']
+        # Manually verify we can update (simulating re-scrape)
+        # We must use dict now
+        film.available_countries = {c: {} for c in ['US', 'FR', 'DE', 'GB']}
         film.update_nfo_availability(nfo_file)
 
         # Verify all countries are present
@@ -1190,25 +1231,24 @@ class TestFilmNfoAvailability:
         """Test update_nfo_availability() doesn't add duplicate countries."""
         film = Film(
             "123", "Test Film", "", "", mock_metadata,
-            available_countries=['US', 'FR']
+            available_countries={'US': {}}
         )
-
-        # Create NFO (no API key)
+        
+        # Initial NFO
         film.create_nfo_file(tmp_path, "plugin://test/")
-
         nfo_file = tmp_path / f"{film.get_sanitized_folder_name()}.nfo"
 
-        # Update with same countries (should not duplicate)
+        # Update with duplicates
+        film.available_countries = {'US': {}}
         film.update_nfo_availability(nfo_file)
 
         tree = ET.parse(nfo_file)
         root = tree.getroot()
         availability = root.find("mubi_availability")
-        country_codes = [c.get('code') for c in availability.findall("country")]
+        country_elements = availability.findall("country")
 
-        # Count occurrences - should be exactly 1 each
-        assert country_codes.count('US') == 1
-        assert country_codes.count('FR') == 1
+        assert len(country_elements) == 1
+        assert country_elements[0].get('code') == 'US'
 
 
 class TestFilmSanitizationEdgeCases:

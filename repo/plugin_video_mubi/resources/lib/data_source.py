@@ -58,7 +58,7 @@ class MubiApiDataSource(FilmDataSource):
         country_stats = {}  # {country: {'total': n, 'unique_ids': set}}
         all_film_ids = set()  # All unique film IDs across all countries
         all_film_data = {}  # {film_id: film_data} - merged data from all countries
-        film_country_map = {}  # {film_id: set of countries where available}
+        film_country_map = {}  # {film_id: {country: consumable_data}}
         total_pages_fetched = 0
 
         xbmc.log(f"=" * 60, xbmc.LOGINFO)
@@ -139,17 +139,39 @@ class MubiApiDataSource(FilmDataSource):
             }
             total_pages_fetched += pages
 
-            # Track which films are in which countries
+            # Track which films are in which countries and their consumable data
             for film_id in film_ids:
                 if film_id not in film_country_map:
-                    film_country_map[film_id] = set()
-                film_country_map[film_id].add(country)
+                    film_country_map[film_id] = {}
+                
+                # Extract consumable data for this film in this country
+                this_film_data = film_data.get(film_id, {})
+                consumable = this_film_data.get('consumable', {})
+                
+                # Prune playback_languages from country-specific data (now global)
+                if 'playback_languages' in consumable:
+                    consumable = consumable.copy()
+                    consumable.pop('playback_languages', None)
+                
+                film_country_map[film_id][country] = consumable
 
             # Merge new films into all_film_data
             new_films_count = 0
             for film_id, data in film_data.items():
                 if film_id not in all_film_data:
-                    all_film_data[film_id] = data
+                    # Clean the data - remove global 'consumable' if it exists to avoid confusion
+                    # We store country-specific consumable data in film_country_map
+                    clean_data = data.copy()
+                    
+                    # EXTRACT PLAYBACK LANGUAGES (Schema Update)
+                    # We promote playback_languages to top-level if present in consumable
+                    consumable = clean_data.get('consumable', {})
+                    if 'playback_languages' in consumable:
+                        clean_data['playback_languages'] = consumable['playback_languages']
+                    
+                    clean_data.pop('consumable', None) # Remove core consumable
+                    
+                    all_film_data[film_id] = clean_data
                     all_film_ids.add(film_id)
                     new_films_count += 1
             
@@ -163,7 +185,7 @@ class MubiApiDataSource(FilmDataSource):
         for film_id, data in all_film_data.items():
             # We inject the available countries into the raw data dictionary
             # This avoids changing the API structure but allows passing this info along
-            data['__available_countries__'] = list(film_country_map.get(film_id, set()))
+            data['available_countries'] = film_country_map.get(film_id, {})
             output_list.append(data)
             
         return output_list

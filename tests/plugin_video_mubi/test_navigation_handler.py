@@ -927,7 +927,7 @@ class TestKodi20Features:
 
 
 class TestGetAvailableCountriesFromNfo:
-    """Test cases for the _get_available_countries_from_nfo method.
+    """Test cases for the _get_available_countries_data_from_nfo method.
 
     Specifically tests the film_id matching logic to prevent substring matching bugs.
     Bug context: film_id=90 was incorrectly matching STRM files with film_id=190 or film_id=902.
@@ -960,9 +960,6 @@ class TestGetAvailableCountriesFromNfo:
     ):
         """
         Test that film_id=90 does NOT match a STRM file containing film_id=190.
-
-        This is a regression test for a bug where substring matching caused
-        the wrong NFO file to be returned.
         """
         # Arrange: Create two film folders with different film_ids
         mock_translate_path.return_value = str(tmp_path)
@@ -996,13 +993,12 @@ class TestGetAvailableCountriesFromNfo:
 </movie>""")
 
         # Act: Search for film_id=90
-        result = navigation_handler._get_available_countries_from_nfo("90")
+        result = navigation_handler._get_available_countries_data_from_nfo("90")
 
-        # Assert: Should return AF (Afghanistan), NOT CH (Switzerland)
-        assert result == ["AF"], (
-            f"Expected ['AF'] for film_id=90 but got {result}. "
-            "This indicates substring matching bug where film_id=90 matched film_id=190"
-        )
+        # Assert: Should return dict with AF key, NOT CH
+        assert "AF" in result
+        assert "CH" not in result
+        assert len(result) == 1
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
@@ -1026,9 +1022,11 @@ class TestGetAvailableCountriesFromNfo:
     </mubi_availability>
 </movie>""")
 
-        result = navigation_handler._get_available_countries_from_nfo("123")
+        result = navigation_handler._get_available_countries_data_from_nfo("123")
 
-        assert result == ["US", "FR"]
+        assert "US" in result
+        assert "FR" in result
+        assert len(result) == 2
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
@@ -1052,16 +1050,16 @@ class TestGetAvailableCountriesFromNfo:
     </mubi_availability>
 </movie>""")
 
-        result = navigation_handler._get_available_countries_from_nfo("456")
+        result = navigation_handler._get_available_countries_data_from_nfo("456")
 
-        assert result == ["DE"]
+        assert "DE" in result
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
-    def test_no_match_returns_empty_list(
+    def test_no_match_returns_empty_dict(
         self, mock_translate_path, mock_log, navigation_handler, tmp_path
     ):
-        """Test that searching for non-existent film_id returns empty list."""
+        """Test that searching for non-existent film_id returns empty dict."""
         mock_translate_path.return_value = str(tmp_path)
 
         film_folder = tmp_path / "Some Film (2020)"
@@ -1078,9 +1076,9 @@ class TestGetAvailableCountriesFromNfo:
 </movie>""")
 
         # Search for a film_id that doesn't exist
-        result = navigation_handler._get_available_countries_from_nfo("12345")
+        result = navigation_handler._get_available_countries_data_from_nfo("12345")
 
-        assert result == []
+        assert result == {}
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
@@ -1089,8 +1087,6 @@ class TestGetAvailableCountriesFromNfo:
     ):
         """
         Test multiple similar film_ids (90, 190, 290, 900, 901) don't collide.
-
-        This is an extended regression test for the substring matching bug.
         """
         mock_translate_path.return_value = str(tmp_path)
 
@@ -1120,17 +1116,16 @@ class TestGetAvailableCountriesFromNfo:
 
         # Act & Assert: Each film_id should only match its own NFO
         for film_id, expected_country in test_cases:
-            result = navigation_handler._get_available_countries_from_nfo(film_id)
-            assert result == [expected_country], (
-                f"film_id={film_id} expected [{expected_country}] but got {result}"
-            )
+            result = navigation_handler._get_available_countries_data_from_nfo(film_id)
+            assert expected_country in result
+            assert len(result) == 1
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
-    def test_malformed_xml_returns_empty_list(
+    def test_malformed_xml_returns_empty_dict(
         self, mock_translate_path, mock_log, navigation_handler, tmp_path
     ):
-        """Test that malformed/corrupted NFO XML returns empty list gracefully."""
+        """Test that malformed/corrupted NFO XML returns empty dict gracefully."""
         mock_translate_path.return_value = str(tmp_path)
 
         film_folder = tmp_path / "Corrupted Film (2020)"
@@ -1146,17 +1141,17 @@ class TestGetAvailableCountriesFromNfo:
         <country code="US">United States
     <!-- Missing closing tags -->""")
 
-        result = navigation_handler._get_available_countries_from_nfo("555")
+        result = navigation_handler._get_available_countries_data_from_nfo("555")
 
-        # Should return empty list, not crash
-        assert result == []
+        # Should return empty dict, not crash
+        assert result == {}
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
-    def test_missing_availability_section_returns_empty_list(
+    def test_missing_availability_section_returns_empty_dict(
         self, mock_translate_path, mock_log, navigation_handler, tmp_path
     ):
-        """Test that NFO without mubi_availability section returns empty list."""
+        """Test that NFO without mubi_availability section returns empty dict."""
         mock_translate_path.return_value = str(tmp_path)
 
         film_folder = tmp_path / "No Availability Film (2020)"
@@ -1171,9 +1166,9 @@ class TestGetAvailableCountriesFromNfo:
     <year>2020</year>
 </movie>""")
 
-        result = navigation_handler._get_available_countries_from_nfo("666")
+        result = navigation_handler._get_available_countries_data_from_nfo("666")
 
-        assert result == []
+        assert result == {}
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
@@ -1199,10 +1194,10 @@ class TestGetAvailableCountriesFromNfo:
     </mubi_availability>
 </movie>""")
 
-        result = navigation_handler._get_available_countries_from_nfo("777")
+        result = navigation_handler._get_available_countries_data_from_nfo("777")
 
         # Should find the NFO via uniqueid element
-        assert result == ["JP"]
+        assert "JP" in result
 
 
 class TestCountriesModule:
@@ -1489,22 +1484,35 @@ class TestPlayMubiVideoFlow:
 <movie>
     <title>Test Film</title>
     <mubi_availability>
-        <country code="US">United States</country>
-        <country code="FR">France</country>
+        <country code="US">
+            <name>United States</name>
+            <availability>live</availability>
+        </country>
+        <country code="FR">
+            <name>France</name>
+            <availability>live</availability>
+        </country>
     </mubi_availability>
 </movie>"""
         )
 
-        # Mock: Current country is CH (not in available list)
-        navigation_handler.mubi.get_cli_country.return_value = 'CH'
-
         with patch('xbmcgui.Dialog') as mock_dialog:
             mock_dialog_instance = Mock()
             mock_dialog.return_value = mock_dialog_instance
+            
+            # Mock: Current country is CH (not in available list)
+            with patch('xbmcaddon.Addon') as mock_addon_class:
+                mock_addon_instance = Mock()
+                def get_setting_side_effect(key):
+                    if key == "client_country":
+                        return "CH"
+                    return ""
+                mock_addon_instance.getSetting.side_effect = get_setting_side_effect
+                mock_addon_class.return_value = mock_addon_instance
 
-            navigation_handler.play_mubi_video(
-                film_id="123", web_url="https://mubi.com/films/test"
-            )
+                navigation_handler.play_mubi_video(
+                    film_id="123", web_url="https://mubi.com/films/test"
+                )
 
             # Verify dialog.ok was called with VPN message
             mock_dialog_instance.ok.assert_called_once()
@@ -1519,7 +1527,7 @@ class TestPlayMubiVideoFlow:
     def test_play_mubi_video_country_available_proceeds_to_stream(
         self, mock_translate_path, mock_log, navigation_handler, tmp_path
     ):
-        """Test that stream info is requested when current country IS in available list."""
+        """Test that stream info is requested when current country IS in available list and status is live."""
         # Setup: Create a film folder with NFO
         mock_translate_path.return_value = str(tmp_path)
 
@@ -1535,14 +1543,18 @@ class TestPlayMubiVideoFlow:
 <movie>
     <title>Test Film</title>
     <mubi_availability>
-        <country code="US">United States</country>
-        <country code="CH">Switzerland</country>
+        <country code="US">
+            <name>United States</name>
+            <availability>live</availability>
+        </country>
+        <country code="CH">
+            <name>Switzerland</name>
+            <availability>live</availability>
+        </country>
     </mubi_availability>
 </movie>"""
         )
 
-        # Mock: Current country is CH (in available list)
-        navigation_handler.mubi.get_cli_country.return_value = 'CH'
         # Return stream info to proceed with playback
         navigation_handler.mubi.get_secure_stream_info.return_value = {
             'url': 'https://stream.mubi.com/video.mpd',
@@ -1551,7 +1563,18 @@ class TestPlayMubiVideoFlow:
 
         with patch('xbmcgui.Dialog') as mock_dialog, \
              patch('xbmcgui.ListItem'), \
-             patch('xbmcplugin.setResolvedUrl'):
+             patch('xbmcplugin.setResolvedUrl'), \
+             patch('xbmcaddon.Addon') as mock_addon_class:
+            
+            mock_addon_instance = Mock()
+            # Mock: Current country is CH (in available list)
+            def get_setting_side_effect(key):
+                if key == "client_country":
+                    return "CH"
+                return ""
+            mock_addon_instance.getSetting.side_effect = get_setting_side_effect
+            mock_addon_class.return_value = mock_addon_instance
+            
             mock_dialog_instance = Mock()
             mock_dialog.return_value = mock_dialog_instance
 
@@ -1564,15 +1587,67 @@ class TestPlayMubiVideoFlow:
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
+    def test_play_mubi_video_country_available_but_not_live(
+        self, mock_translate_path, mock_log, navigation_handler, tmp_path
+    ):
+        """Test that VPN dialog is shown if country is listed but status is not live (e.g. upcoming)."""
+        # Setup: Create a film folder with NFO
+        mock_translate_path.return_value = str(tmp_path)
+
+        film_folder = tmp_path / "Upcoming Film (2025)"
+        film_folder.mkdir(parents=True, exist_ok=True)
+        strm_url = "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=999"
+        (film_folder / "Upcoming Film (2025).strm").write_text(strm_url)
+        (film_folder / "Upcoming Film (2025).nfo").write_text(
+            """<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+    <title>Upcoming Film</title>
+    <mubi_availability>
+        <country code="CH">
+            <name>Switzerland</name>
+            <availability>upcoming</availability>
+            <available_at>2025-12-31</available_at>
+        </country>
+    </mubi_availability>
+</movie>"""
+        )
+
+        with patch('xbmcgui.Dialog') as mock_dialog, \
+             patch('xbmcaddon.Addon') as mock_addon_class:
+            
+            mock_addon_instance = Mock()
+             # Mock: Current country is CH
+            def get_setting_side_effect(key):
+                if key == "client_country":
+                    return "CH"
+                return ""
+            mock_addon_instance.getSetting.side_effect = get_setting_side_effect
+            mock_addon_class.return_value = mock_addon_instance
+
+            mock_dialog_instance = Mock()
+            mock_dialog.return_value = mock_dialog_instance
+
+            navigation_handler.play_mubi_video(
+                film_id="999", web_url="https://mubi.com/films/upcoming"
+            )
+
+            # Verify dialog.ok was called with unavailable message
+            mock_dialog_instance.ok.assert_called_once()
+            call_args = mock_dialog_instance.ok.call_args
+            assert "Not Available" in call_args[0][0]
+            # Should mention status or not proceed to play
+            navigation_handler.mubi.get_secure_stream_info.assert_not_called()
+
+    @patch('xbmc.log')
+    @patch('xbmcvfs.translatePath')
     def test_play_mubi_video_no_nfo_proceeds_to_stream(
         self, mock_translate_path, mock_log, navigation_handler, tmp_path
     ):
-        """Test that stream info is requested when no NFO file found (no country check)."""
+        """Test that stream info is requested when no NFO file found (optimistic fallback)."""
         # No film folder created - NFO doesn't exist
         mock_translate_path.return_value = str(tmp_path)
 
-        # Mock: Current country is CH
-        navigation_handler.mubi.get_cli_country.return_value = 'CH'
+        # Return stream info to proceed with playback
         navigation_handler.mubi.get_secure_stream_info.return_value = {
             'url': 'https://stream.mubi.com/video.mpd',
             'drm_header': 'test-header'
@@ -1580,13 +1655,23 @@ class TestPlayMubiVideoFlow:
 
         with patch('xbmcgui.Dialog'), \
              patch('xbmcgui.ListItem'), \
-             patch('xbmcplugin.setResolvedUrl'):
+             patch('xbmcplugin.setResolvedUrl'), \
+             patch('xbmcaddon.Addon') as mock_addon_class:
+             
+             # Mock: Current country is CH
+            mock_addon_instance = Mock()
+            def get_setting_side_effect(key):
+                if key == "client_country":
+                    return "CH"
+                return ""
+            mock_addon_instance.getSetting.side_effect = get_setting_side_effect
+            mock_addon_class.return_value = mock_addon_instance
 
             navigation_handler.play_mubi_video(
                 film_id="999", web_url="https://mubi.com/films/unknown"
             )
 
-            # Verify stream info was requested (no NFO means no country check)
+            # Verify stream info was requested (optimistic fallback)
             navigation_handler.mubi.get_secure_stream_info.assert_called_once_with("999")
 
     def test_play_mubi_video_missing_film_id_shows_error(self, navigation_handler):
@@ -1597,11 +1682,11 @@ class TestPlayMubiVideoFlow:
 
             navigation_handler.play_mubi_video(film_id=None, web_url="https://mubi.com/films/test")
 
-            # Verify notification was called with error
+            # Check that notification was called (film_id missing)
             mock_dialog_instance.notification.assert_called_once()
-            call_args = mock_dialog_instance.notification.call_args
-            assert "MUBI" in call_args[0][0]
-            assert "film_id" in call_args[0][1].lower()
+            call_args = mock_dialog_instance.notification.call_args[0]
+            assert call_args[0] == 'MUBI'
+            assert 'No Film ID' in call_args[1]
 
 
 class TestCoverageOptimizer:

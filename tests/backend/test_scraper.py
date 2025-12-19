@@ -51,8 +51,8 @@ class TestMubiScraper(unittest.TestCase):
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             'films': [
-                {'id': 1, 'title': 'Global Film', 'year': 2020},
-                {'id': 2, 'title': 'Local Film', 'year': 2021}
+                {'id': 1, 'title': 'Global Film', 'year': 2020, 'consumable': {'status': 'live'}},
+                {'id': 2, 'title': 'Local Film', 'year': 2021, 'consumable': {'status': 'live'}}
             ],
             'meta': {'next_page': None}
         }
@@ -77,7 +77,8 @@ class TestMubiScraper(unittest.TestCase):
             
             # Check Film 1
             film1 = next(f for f in data['items'] if f['mubi_id'] == 1)
-            self.assertEqual(sorted(film1['countries']), ['GB', 'US'])
+            # Should have available_countries instead of countries list
+            self.assertEqual(sorted(film1['available_countries'].keys()), ['GB', 'US'])
             
             # Verify removed fields are not present
             self.assertNotIn('tmdb_id', film1)
@@ -122,7 +123,7 @@ class TestMubiScraper(unittest.TestCase):
         mock_resp_success = MagicMock()
         mock_resp_success.status_code = 200
         mock_resp_success.json.return_value = {
-            'films': [{'id': 1, 'title': 'OK'}], 'meta': {'next_page': None}
+            'films': [{'id': 1, 'title': 'OK', 'consumable': {'status': 'live'}}], 'meta': {'next_page': None}
         }
         
         # Requests raises exception
@@ -246,7 +247,7 @@ class TestMubiScraper(unittest.TestCase):
             # 1. Setup Input: Film 1 known in US
             previous_data = {
                 'items': [
-                    {'mubi_id': 1, 'countries': ['US'], 'title': 'Film 1'}
+                    {'mubi_id': 1, 'available_countries': {'US': {'status': 'live'}}, 'title': 'Film 1'}
                 ]
             }
             input_file = os.path.join(test_dir, "previous.json")
@@ -256,7 +257,7 @@ class TestMubiScraper(unittest.TestCase):
             # 2. Setup Scrape Result: Film 1 found in GB (New country)
             self.scraper.session.get.return_value.status_code = 200
             self.scraper.session.get.return_value.json.return_value = {
-                 'films': [{'id': 1, 'title': 'Film 1', 'directors': []}], 
+                 'films': [{'id': 1, 'title': 'Film 1', 'consumable': {'status': 'live'}, 'directors': []}], 
                  'meta': {'next_page': None}
             }
             
@@ -277,8 +278,8 @@ class TestMubiScraper(unittest.TestCase):
                          film = items[0]
                          self.assertEqual(film['mubi_id'], 1)
                          # Should have BOTH countries merged
-                         self.assertIn('US', film['countries'])
-                         self.assertIn('GB', film['countries'])
+                         self.assertIn('US', film['available_countries'])
+                         self.assertIn('GB', film['available_countries'])
         finally:
             shutil.rmtree(test_dir)
 
@@ -289,8 +290,8 @@ class TestMubiScraper(unittest.TestCase):
             # Create dummy input file
             previous_data = {
                 'items': [
-                    {'mubi_id': 1, 'countries': ['US'], 'title': 'Test 1', 'year': 2020},
-                    {'mubi_id': 2, 'countries': ['GB'], 'title': 'Test 2', 'year': 2020}
+                    {'mubi_id': 1, 'available_countries': {'US': {'status': 'live'}}, 'title': 'Test 1', 'year': 2020},
+                    {'mubi_id': 2, 'available_countries': {'GB': {'status': 'live'}}, 'title': 'Test 2', 'year': 2020}
                 ]
             }
             input_file = os.path.join(test_dir, "previous.json")
@@ -327,10 +328,10 @@ class TestMubiScraper(unittest.TestCase):
         # Optimal Set: US (covers 1, 2) + DE (covers 3, 4) -> 2 countries
         
         sample_data = [
-            {'mubi_id': 1, 'countries': ['US', 'GB']},
-            {'mubi_id': 2, 'countries': ['US']},
-            {'mubi_id': 3, 'countries': ['DE']},
-            {'mubi_id': 4, 'countries': ['FR', 'DE']}
+            {'mubi_id': 1, 'available_countries': {'US': {}, 'GB': {}}},
+            {'mubi_id': 2, 'available_countries': {'US': {}}},
+            {'mubi_id': 3, 'available_countries': {'DE': {}}},
+            {'mubi_id': 4, 'available_countries': {'FR': {}, 'DE': {}}}
         ]
         
         with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB', 'DE', 'FR']):
@@ -340,41 +341,53 @@ class TestMubiScraper(unittest.TestCase):
              self.assertIn('US', targets)
              self.assertIn('DE', targets)
 
-    def test_run_shallow_mode(self):
-        """Test shallow mode uses input file and greedy strategy."""
+    @patch('sys.exit')
+    def test_run_removes_playback_languages_from_countries(self, mock_exit):
+        """Test that playback_languages are moved to top level and removed from country specific consumable data."""
+        self.scraper.MIN_TOTAL_FILMS = 0
+
+        # Mock responses with nested playback_languages
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            'films': [
+                {
+                    'id': 1, 
+                    'title': 'Lang Film', 
+                    'consumable': {
+                        'status': 'live',
+                        'playback_languages': {'audio_options': ['English']}
+                    }
+                }
+            ],
+            'meta': {'next_page': None}
+        }
+        
+        self.scraper.session.get.return_value = mock_resp
+        
         test_dir = tempfile.mkdtemp()
         try:
-            # Create dummy input file
-            previous_data = {
-                'items': [
-                    {'mubi_id': 1, 'countries': ['US'], 'title': 'Test 1', 'year': 2020},
-                    {'mubi_id': 2, 'countries': ['GB'], 'title': 'Test 2', 'year': 2020}
-                ]
-            }
-            input_file = os.path.join(test_dir, "previous.json")
-            with open(input_file, 'w') as f:
-                json.dump(previous_data, f)
-                
-            # Mock scraper session to return NO new films (so we just keep existing ones)
-            self.scraper.session.get.return_value.status_code = 200
-            self.scraper.session.get.return_value.json.return_value = {
-                 'films': [], 'meta': {'next_page': None}
-            }
+            output_file = os.path.join(test_dir, 'test_lang.json')
+            series_file = os.path.join(test_dir, 'test_series.json')
             
-            with patch('backend.scraper.MubiScraper.COUNTRIES', ['US', 'GB']):
-                 output_file = os.path.join(test_dir, "output.json")
-                 series_file = os.path.join(test_dir, "series.json")
-                 self.scraper.run(output_path=output_file, series_path=series_file, mode='shallow', input_path=input_file)
-                 
-                 # Check output
-                 with open(output_file, 'r') as f:
-                     output = json.load(f)
-                     self.assertEqual(len(output['items']), 2)
-                     # Should still have the original films even if scrape returned nothing (Append-Only)
-                     self.assertEqual(output['items'][0]['mubi_id'], 1)
+            with patch('backend.scraper.MubiScraper.COUNTRIES', ['US']):
+                self.scraper.run(output_path=output_file, series_path=series_file)
+            
+            with open(output_file, 'r') as f:
+                data = json.load(f)
+            
+            film = data['items'][0]
+            # Check top level
+            self.assertIn('playback_languages', film)
+            self.assertEqual(film['playback_languages']['audio_options'], ['English'])
+            
+            # Check available_countries (should NOT have playback_languages)
+            us_consumable = film['available_countries']['US']
+            self.assertNotIn('playback_languages', us_consumable)
+            self.assertEqual(us_consumable['status'], 'live')
+
         finally:
             shutil.rmtree(test_dir)
-
 
 if __name__ == '__main__':
     unittest.main()

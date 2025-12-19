@@ -2650,20 +2650,17 @@ class TestMubi:
     def test_process_film_data_handles_github_source_format(self, mubi_instance):
         """
         Test that process_film_data correctly extracts available countries 
-        from the 'countries' field which is present in the GitHub JSON data (films.json).
-        
-        Current behavior (Bug): It ignores 'countries' and only looks for '__available_countries__'.
-        Expected behavior (Fix): It should also look for 'countries'.
+        from the 'available_countries' field which is present in the GitHub JSON data (films.json).
         """
         from plugin_video_mubi.resources.lib.film import Film
         
         # Emulate data from GithubDataSource (films.json)
-        # It has 'countries' list but NO '__available_countries__'
+        # It has 'available_countries' dict
         github_data = {
             'id': 12345,
             'title': 'Test Movie',
-            'countries': ['US', 'FR', 'DE'],  # This is how it appears in films.json
-            'mubi_id': 12345, # films.json often has both or mubi_id
+            'available_countries': {'US': {}, 'FR': {}, 'DE': {}},  # New schema
+            'mubi_id': 12345,
             'consumable': {
                 # omit dates to bypass dateutil parsing (which is mocked and causes issues)
             }

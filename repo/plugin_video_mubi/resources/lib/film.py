@@ -8,17 +8,11 @@ import json
 import time
 import re
 from typing import Optional, List
-import re
-from pathlib import Path
 from .external_metadata import MetadataProviderFactory
-
-
-
-
 
 class Film:
     def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata,
-                 available_countries: list = None):
+                 available_countries: dict = None):
         if not mubi_id or not metadata:
             raise ValueError("Film must have a mubi_id and metadata")
 
@@ -31,8 +25,11 @@ class Film:
         self.artwork = artwork
         self.web_url = web_url
         self.metadata = metadata
-        # List of country codes where this film is available (e.g., ['CH', 'DE', 'US'])
-        self.available_countries = available_countries or []
+        # Dictionary of country codes where this film is available with availability details
+        # Format: {'code': {'availability': 'live', 'expires_at': ..., ...}}
+        # Dictionary of country codes where this film is available with availability details
+        # Format: {'code': {'availability': 'live', 'expires_at': ..., ...}}
+        self.available_countries = available_countries or {}
 
     def __eq__(self, other):
         if not isinstance(other, Film):
@@ -41,9 +38,6 @@ class Film:
 
     def __hash__(self):
         return hash(self.mubi_id)
-
-
-
 
     def _sanitize_filename(self, filename: str) -> str:
         """
@@ -207,7 +201,6 @@ class Film:
                 folder_name = folder_name[:max_length]
 
         return folder_name
-
 
     def create_strm_file(self, film_path: Path, base_url: str):
         """Create the .strm file for the film.
@@ -478,8 +471,6 @@ class Film:
                         # SECURITY FIX: Sanitize language content
                         subtitle_lang.text = self._sanitize_xml_content(str(lang).strip())
 
-
-
         ET.SubElement(movie, "dateadded").text = self._sanitize_xml_content(str(metadata.dateadded))
 
         # Add MUBI ID as default uniqueid (Jellyfin/interoperability fix)
@@ -515,7 +506,7 @@ class Film:
         Add MUBI availability information to the NFO XML tree.
 
         Creates a <mubi_availability> section with country entries including
-        ISO codes and full country names from countries.py.
+        ISO codes, full country names, and specific availability dates.
 
         :param movie: The movie XML element to add availability to.
         """
@@ -526,14 +517,36 @@ class Film:
 
         mubi_availability = ET.SubElement(movie, "mubi_availability")
 
-        for country_code in self.available_countries:
+        # Sort countries for consistent output (by code)
+        sorted_countries = sorted(self.available_countries.items())
+
+        for country_code, details in sorted_countries:
             country_elem = ET.SubElement(mubi_availability, "country")
             # Store ISO code as attribute
             country_elem.set("code", self._sanitize_xml_content(country_code.upper()))
-            # Look up full country name from countries.py (codes are lowercase there)
+            
+            # Look up full country name
             country_data = COUNTRIES.get(country_code.lower(), {})
             country_name = country_data.get("name", country_code)
-            country_elem.text = self._sanitize_xml_content(country_name)
+            
+            # Add Name
+            ET.SubElement(country_elem, "name").text = self._sanitize_xml_content(country_name)
+            
+            # Add Availability Details if present
+            if not details: 
+                continue
+
+            if 'availability' in details:
+                 ET.SubElement(country_elem, "availability").text = self._sanitize_xml_content(details['availability'])
+            
+            if 'available_at' in details:
+                 ET.SubElement(country_elem, "available_at").text = self._sanitize_xml_content(str(details['available_at']))
+            
+            if 'expires_at' in details:
+                 ET.SubElement(country_elem, "expires_at").text = self._sanitize_xml_content(str(details['expires_at']))
+
+            if 'availability_ends_at' in details:
+                 ET.SubElement(country_elem, "availability_ends_at").text = self._sanitize_xml_content(str(details['availability_ends_at']))
 
     def _download_thumbnail(self, film_path: Path, film_folder_name: str) -> Optional[str]:
         """

@@ -710,18 +710,14 @@ class Mubi:
         # But here 'film_data' is just the dict from the API (plus __available_countries__)
         
         fid = film_data.get('id')
-        
-        # Check if country availability was injected by DataSource (__available_countries__)
-        # OR if it exists in the data directly ('countries' - from GitHub JSON)
-        available_countries = film_data.get('__available_countries__')
-        if not available_countries:
-            available_countries = film_data.get('countries', [])
-        
+    
+        # Check for available_countries (injected by DataSource OR from GitHub JSON)
+        available_countries = film_data.get('available_countries', {})
+
+        # Create film object
         # We need to wrap it because get_film_metadata expects {'film': ...} structure
-        # This is a legacy artifact of the Mubi API V3/V4 structure where sometimes it sends wrapper
         film_wrapper = {'film': film_data}
-        
-        return self.get_film_metadata(film_wrapper, available_countries=list(available_countries))
+        return self.get_film_metadata(film_wrapper, available_countries=available_countries)
 
     def get_all_films(self, playable_only=True, progress_callback=None, countries=None, data_source=None):
         """
@@ -874,13 +870,13 @@ class Mubi:
 
 
 
-    def get_film_metadata(self, film_data: dict, available_countries: list = None) -> Film:
+    def get_film_metadata(self, film_data: dict, available_countries: dict = None) -> Film:
         """
         Extracts and returns film metadata from the API data.
         Filters out series content to only process actual films.
 
         :param film_data: Dictionary containing film data
-        :param available_countries: List of country codes where this film is available
+        :param available_countries: Dictionary of country availability data
         :return: Film instance or None if not valid or is a series
         """
         try:
@@ -1000,7 +996,7 @@ class Mubi:
                 artwork=self._get_best_thumbnail_url(film_info),
                 web_url=film_info.get('web_url', ''),
                 metadata=metadata,
-                available_countries=available_countries or []
+                available_countries=available_countries or {}
             )
         except Exception as e:
             xbmc.log(f"Error parsing film metadata: {e}", xbmc.LOGERROR)
@@ -1147,12 +1143,15 @@ class Mubi:
         :return: Tuple of (audio_languages, subtitle_languages, media_features)
         """
         try:
-            # Get consumable information which contains playback_languages
-            consumable = film_info.get('consumable', {})
-            if not isinstance(consumable, dict):
-                return [], [], []
+            # Check top-level playback_languages first (New Scehma)
+            playback_languages = film_info.get('playback_languages')
+            
+            # Fallback to nested consumable (API / Old Schema)
+            if not playback_languages:
+                consumable = film_info.get('consumable', {})
+                if isinstance(consumable, dict):
+                    playback_languages = consumable.get('playback_languages')
 
-            playback_languages = consumable.get('playback_languages', {})
             if not isinstance(playback_languages, dict):
                 return [], [], []
 

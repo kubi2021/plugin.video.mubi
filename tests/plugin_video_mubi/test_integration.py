@@ -409,7 +409,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries=["us", "gb", "de"]  # Film available in 3 countries
+            available_countries={"US": {}, "GB": {}, "DE": {}}  # Film available in 3 countries
         )
 
         # Add film to library
@@ -516,7 +516,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries=["ch", "de", "gb"]  # Film is available in 3 countries
+            available_countries={"CH": {}, "DE": {}, "GB": {}}  # Film is available in 3 countries
         )
 
         library.add_film(existing_film)
@@ -1100,7 +1100,7 @@ class TestEndToEndFlows:
             artwork="http://example.com/art.jpg",
             web_url="http://mubi.com/films/test",
             metadata=metadata,
-            available_countries=['US', 'FR', 'DE']
+            available_countries={'US': {}, 'FR': {}, 'DE': {}}
         )
         library.add_film(film)
 

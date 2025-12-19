@@ -42,7 +42,7 @@ class TestScraperLogic(unittest.TestCase):
                     'title': 'Old Title', 
                     'year': 1990, 
                     'imdb_id': 'tt0099685', # Custom field
-                    'countries': ['US']
+                    'available_countries': {'US': {'status': 'live'}}
                 }
             ]
         }
@@ -58,7 +58,8 @@ class TestScraperLogic(unittest.TestCase):
                     'id': 100, 
                     'title': 'New Updated Title', # Changed
                     'year': 1990,
-                    'directors': [{'name': 'Director A'}]
+                    'directors': [{'name': 'Director A'}],
+                    'consumable': {'status': 'live'}
                 }
             ],
             'meta': {'next_page': None}
@@ -86,8 +87,8 @@ class TestScraperLogic(unittest.TestCase):
         # 1. Setup existing data with 2 films
         existing_data = {
             'items': [
-                {'mubi_id': 1, 'title': 'Film 1', 'countries': ['US']},
-                {'mubi_id': 2, 'title': 'Film 2', 'countries': ['US']}
+                {'mubi_id': 1, 'title': 'Film 1', 'available_countries': {'US': {'status': 'live'}}},
+                {'mubi_id': 2, 'title': 'Film 2', 'available_countries': {'US': {'status': 'live'}}}
             ]
         }
         with open(self.films_json_path, 'w') as f:
@@ -98,7 +99,7 @@ class TestScraperLogic(unittest.TestCase):
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             'films': [
-                {'id': 1, 'title': 'Film 1', 'year': 2020}
+                {'id': 1, 'title': 'Film 1', 'year': 2020, 'consumable': {'status': 'live'}}
             ],
             'meta': {'next_page': None}
         }
@@ -124,8 +125,8 @@ class TestScraperLogic(unittest.TestCase):
         # 1. Setup existing data with Film A (US) and Film B (FR)
         existing_data = {
             'items': [
-                {'mubi_id': 1, 'title': 'US Film', 'countries': ['US']},
-                {'mubi_id': 2, 'title': 'FR Film', 'countries': ['FR']}
+                {'mubi_id': 1, 'title': 'US Film', 'available_countries': {'US': {'status': 'live'}}},
+                {'mubi_id': 2, 'title': 'FR Film', 'available_countries': {'FR': {'status': 'live'}}}
             ]
         }
         with open(self.films_json_path, 'w') as f:
@@ -136,7 +137,7 @@ class TestScraperLogic(unittest.TestCase):
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             'films': [
-                {'id': 1, 'title': 'US Film', 'year': 2020}
+                {'id': 1, 'title': 'US Film', 'year': 2020, 'consumable': {'status': 'live'}}
             ],
             'meta': {'next_page': None}
         }
@@ -165,27 +166,17 @@ class TestScraperLogic(unittest.TestCase):
         # 1. Setup: Film 1 thinks it is in US and GB
         existing_data = {
             'items': [
-                {'mubi_id': 1, 'title': 'Film 1', 'countries': ['US', 'GB']}
+                {'mubi_id': 1, 'title': 'Film 1', 'available_countries': {'US': {'status': 'live'}, 'GB': {'status': 'live'}}}
             ]
         }
         with open(self.films_json_path, 'w') as f:
             json.dump(existing_data, f)
             
         # 2. Mock: Scraper for US returns Film 1. Scraper for GB returns Nothing.
-        def side_effect(*args, **kwargs):
-            # args[0] is url containing country... wait, we fetch by country code arg
-            # The actual call is scraper.fetch_films_for_country(country_code)
-            # But we are mocking session.get.
-            
-            # The 'run' method calls fetch_films_for_country in threads.
-            # We can mock fetch_films_for_country directly to be safer/easier than mocking session.
-            pass
-
-        # Easier: Mock fetch_films_for_country directly to return data based on input
         with patch.object(self.scraper, 'fetch_films_for_country') as mock_fetch:
             def fetch_side_effect(country_code):
                 if country_code == 'US':
-                    return [{'id': 1, 'title': 'Film 1', 'year': 2020}]
+                    return [{'id': 1, 'title': 'Film 1', 'year': 2020, 'consumable': {'status': 'live'}}]
                 return [] # GB returns nothing
             
             mock_fetch.side_effect = fetch_side_effect
@@ -200,7 +191,7 @@ class TestScraperLogic(unittest.TestCase):
             
         film = data['items'][0]
         self.assertEqual(film['mubi_id'], 1)
-        self.assertEqual(film['countries'], ['US'], "Countries should be reset to only where it was found (US), removing GB")
+        self.assertEqual(list(film['available_countries'].keys()), ['US'], "Countries should be reset to only where it was found (US), removing GB")
 
     def test_shallow_sync_appends_countries(self):
         """
@@ -210,7 +201,7 @@ class TestScraperLogic(unittest.TestCase):
         # 1. Setup: Film 1 in US
         existing_data = {
             'items': [
-                {'mubi_id': 1, 'title': 'Film 1', 'countries': ['US']}
+                {'mubi_id': 1, 'title': 'Film 1', 'available_countries': {'US': {'status': 'live'}}}
             ]
         }
         with open(self.films_json_path, 'w') as f:
@@ -218,7 +209,7 @@ class TestScraperLogic(unittest.TestCase):
 
         # 2. Mock: Scrape GB and find Film 1
         with patch.object(self.scraper, 'fetch_films_for_country') as mock_fetch:
-            mock_fetch.return_value = [{'id': 1, 'title': 'Film 1', 'year': 2020}]
+            mock_fetch.return_value = [{'id': 1, 'title': 'Film 1', 'year': 2020, 'consumable': {'status': 'live'}}]
             
             # 3. Run SHALLOW sync on GB
             # Force target to GB
@@ -231,7 +222,7 @@ class TestScraperLogic(unittest.TestCase):
             
         film = data['items'][0]
         self.assertEqual(film['mubi_id'], 1)
-        self.assertEqual(sorted(film['countries']), ['GB', 'US'], "New country GB should be appended to existing US")
+        self.assertEqual(sorted(film['available_countries'].keys()), ['GB', 'US'], "New country GB should be appended to existing US")
 
 if __name__ == '__main__':
     unittest.main()

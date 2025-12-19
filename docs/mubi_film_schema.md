@@ -100,32 +100,41 @@ Each film in `films.json` is a combination of:
   "optimised_trailers": null,
 
   // ─────────────────────────────────────────────
-  // Availability & Playback (consumable)
+  // Playback Languages (Global)
   // ─────────────────────────────────────────────
-  "consumable": {
-    "film_id": 243900,
-    "available_at": "2025-04-15T07:00:00Z",
-    "availability": "live",
-    "availability_ends_at": "2027-04-15T07:00:00Z",
-    "expires_at": "2027-04-15T19:00:00Z",
-    "film_date_message": null,
-    "exclusive": false,
-    "permit_download": true,
-    "offered": [
-      {
-        "type": "catalogue",
-        "download_availability": null
-      }
-    ],
-    "playback_languages": {
-      "audio_options": ["French"],
-      "extended_audio_options": ["French (5.1)"],
-      "subtitle_options": ["English", "English (SDH)", "Dutch", "French", "German"],
-      "media_options": {
-        "duration": 1255,
-        "hd": true
-      },
-      "media_features": ["HD", "5.1"]
+  "playback_languages": {
+    "audio_options": ["French"],
+    "extended_audio_options": ["French (5.1)"],
+    "subtitle_options": ["English", "English (SDH)", "Dutch", "French", "German"],
+    "media_options": {
+      "duration": 1255,
+      "hd": true
+    },
+    "media_features": ["HD", "5.1"]
+  },
+
+  // ─────────────────────────────────────────────
+  // Availability & Playback (Per-Country)
+  // ─────────────────────────────────────────────
+  "available_countries": {
+    "US": {
+      "film_id": 243900,
+      "available_at": "2025-04-15T07:00:00Z",
+      "availability": "live",
+      "availability_ends_at": "2027-04-15T07:00:00Z",
+      "expires_at": "2027-04-15T19:00:00Z",
+      "film_date_message": null,
+      "exclusive": false,
+      "permit_download": true,
+      "offered": [
+        {
+          "type": "catalogue",
+          "download_availability": null
+        }
+      ]
+    },
+    "GB": {
+        // ... same structure for Great Britain ...
     }
   },
 
@@ -148,8 +157,8 @@ Each film in `films.json` is a combination of:
   // ─────────────────────────────────────────────
   // Scraper-added Metadata
   // ─────────────────────────────────────────────
-  "countries": ["US", "GB", "FR"],
-
+  // Legacy 'countries' list is removed in favor of available_countries keys
+  
   // ─────────────────────────────────────────────
   // Ratings (Multi-source)
   // ─────────────────────────────────────────────
@@ -249,19 +258,23 @@ Each film in `films.json` is a combination of:
 | `trailer_id` | integer\|null | Mubi trailer ID | Mubi API | — |
 | `optimised_trailers` | object\|null | Optimized trailer variants | Mubi API | — |
 
-### Availability & Playback (consumable)
+### Playback Languages (Global)
+| `playback_languages` | object | Audio/subtitle info | Mubi API | `<fileinfo>` |
+| `playback_languages.audio_options` | `<audio><language>` | Audio tracks | Mubi API | `<audio><language>` |
+| `playback_languages.subtitle_options` | `<subtitle><language>` | Subtitles | Mubi API | `<subtitle><language>` |
+| `playback_languages.media_features` | string[] | Features: "HD", "4K", "5.1" | Mubi API | — |
+
+### Availability & Playback (available_countries)
+
+Top-level `consumable` field is removed. Availability is now stored per-country in `available_countries` dictionary.
 
 | Field | Type | Description | Source | NFO Tag |
 |-------|------|-------------|--------|---------|
-| `consumable` | object | Playback availability data | Mubi API | — |
-| `consumable.available_at` | string | Availability start (ISO date) | Mubi API | `<premiered>` |
-| `consumable.availability` | string | Status: "live", "upcoming" | Mubi API | — |
-| `consumable.availability_ends_at` | string | Availability end (ISO date) | Mubi API | — |
-| `consumable.playback_languages` | object | Audio/subtitle info | Mubi API | `<fileinfo>` |
-| `consumable.playback_languages.audio_options` | string[] | Audio languages | Mubi API | `<audio><language>` |
-| `consumable.playback_languages.extended_audio_options` | string[] | Audio with channel info | Mubi API | `<audio><channels>` |
-| `consumable.playback_languages.subtitle_options` | string[] | Subtitle languages | Mubi API | `<subtitle><language>` |
-| `consumable.playback_languages.media_features` | string[] | Features: "HD", "4K", "5.1" | Mubi API | — |
+| `available_countries` | object | Dict of availability per country code | Scraper | `<mubi_availability>` |
+| `{country_code}` | object | Availability data for specific country | Mubi API | `<country code="...">` |
+| `{code}.available_at` | string | Availability start (ISO date) | Mubi API | `<available_at>` |
+| `{code}.availability` | string | Status: "live", "upcoming" | Mubi API | `<availability>` |
+| `{code}.availability_ends_at` | string | Availability end (ISO date) | Mubi API | `<availability_ends_at>` |
 
 ### Awards & Press
 
@@ -281,9 +294,8 @@ Each film in `films.json` is a combination of:
 
 ### Scraper Metadata
 
-| Field | Type | Description | Source |
-|-------|------|-------------|--------|
-| `countries` | string[] | ISO 2-letter country codes where available | Scraper |
+Legacy `countries` list is removed. Use keys of `available_countries` instead.
+
 
 ---
 
@@ -336,13 +348,13 @@ The following fields from `films.json` are used to generate Kodi-compatible `.nf
 | `historic_countries` | `<country>` | Production countries |
 | `content_rating.label` | `<mpaa>` | Age rating |
 | `content_warnings[].name` | `<tag>` | Content warning tags |
-| `consumable.available_at` | `<premiered>` | YYYY-MM-DD format |
+| `{country}.available_at` | `<premiered>` | YYYY-MM-DD format (from active country) |
 | `press_quote` | `<tagline>` | Press quote |
 | `trailer_url` | `<trailer>` | Trailer URL |
 | `stills.retina` | `<thumb>` | Artwork |
 | `artworks[]` | `<poster>`, `<fanart>` | Additional artwork |
-| `consumable.playback_languages.audio_options` | `<audio><language>` | Audio tracks |
-| `consumable.playback_languages.subtitle_options` | `<subtitle><language>` | Subtitles |
+| `{country}.playback_languages.audio_options` | `<audio><language>` | Audio tracks (from active country) |
+| `{country}.playback_languages.subtitle_options` | `<subtitle><language>` | Subtitles (from active country) |
 | `tmdb_id` | `<uniqueid type="tmdb">` | Cross-reference |
 | `imdb_id` | `<uniqueid type="imdb">`, `<imdbid>` | Cross-reference |
 
