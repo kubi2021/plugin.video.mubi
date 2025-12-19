@@ -151,7 +151,18 @@ class Library:
 
     def is_film_valid(self, film: Film) -> bool:
         # Check that film has all necessary attributes AND at least one available country
-        return film.mubi_id and film.title and film.metadata and film.available_countries
+        if not film.mubi_id or not film.title or not film.metadata:
+            return False
+            
+        # Check integrity of available_countries
+        # Case 1: Empty dictionary (True Zombie) - Caught by 'and film.available_countries'
+        # Case 2: Keys with empty values (Semi-Zombie) - e.g. {'DK': {}} due to null consumable
+        if not film.available_countries:
+            return False
+            
+        # Ensure at least one country has valid consumable data (truthy value)
+        has_valid_country = any(data for data in film.available_countries.values() if data)
+        return has_valid_country
 
     def prepare_files_for_film(
         self, film: Film, base_url: str, plugin_userdata_path: Path, skip_external_metadata: bool = False

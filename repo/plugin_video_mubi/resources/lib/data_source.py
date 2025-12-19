@@ -148,12 +148,13 @@ class MubiApiDataSource(FilmDataSource):
                 this_film_data = film_data.get(film_id, {})
                 consumable = this_film_data.get('consumable') or {}  # Handle explicit null
                 
-                # Prune playback_languages from country-specific data (now global)
-                if 'playback_languages' in consumable:
-                    consumable = consumable.copy()
-                    consumable.pop('playback_languages', None)
-                
-                film_country_map[film_id][country] = consumable
+                if consumable:
+                    # Prune playback_languages from country-specific data (now global)
+                    if 'playback_languages' in consumable:
+                        consumable = consumable.copy()
+                        consumable.pop('playback_languages', None)
+                    
+                    film_country_map[film_id][country] = consumable
 
             # Merge new films into all_film_data
             new_films_count = 0

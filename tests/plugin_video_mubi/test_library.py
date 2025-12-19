@@ -374,9 +374,9 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
         film1 = Film(mubi_id="123", title="Sample Movie 1", artwork="http://example.com/art1.jpg",
-                     web_url="http://example.com/film1", metadata=metadata, available_countries={"US": {}})
+                     web_url="http://example.com/film1", metadata=metadata, available_countries={"US": {"valid": True}})
         film2 = Film(mubi_id="456", title="Sample Movie 2", artwork="http://example.com/art2.jpg",
-                     web_url="http://example.com/film2", metadata=metadata, available_countries={"US": {}})
+                     web_url="http://example.com/film2", metadata=metadata, available_countries={"US": {"valid": True}})
         library.add_film(film1)
         library.add_film(film2)
 
@@ -427,9 +427,9 @@ def test_sync_locally_user_cancellation(mock_xbmc, mock_remove_obsolete, mock_pr
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
         film1 = Film(mubi_id="123", title="Sample Movie 1", artwork="http://example.com/art1.jpg",
-                     web_url="http://example.com/film1", metadata=metadata, available_countries={"US": {}})
+                     web_url="http://example.com/film1", metadata=metadata, available_countries={"US": {"valid": True}})
         film2 = Film(mubi_id="456", title="Sample Movie 2", artwork="http://example.com/art2.jpg",
-                     web_url="http://example.com/film2", metadata=metadata, available_countries={"US": {}})
+                     web_url="http://example.com/film2", metadata=metadata, available_countries={"US": {"valid": True}})
         library.add_film(film1)
         library.add_film(film2)
 
@@ -680,7 +680,7 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
                 artwork=f"http://example.com/art{i}.jpg",
                 web_url=f"http://example.com/film{i}",
                 metadata=metadata,
-                available_countries={"US": {}}
+                available_countries={"US": {"valid": True}}
             )
             library.add_film(film)
 

@@ -72,7 +72,7 @@ class TestRealComponentIntegration:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_film_metadata,
-            available_countries={"US": {}}
+            available_countries={"US": {"valid": True}}
         )
 
     def test_session_manager_device_id_persistence(self, real_session_manager):
@@ -414,7 +414,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"US": {}, "GB": {}, "DE": {}}  # Film available in 3 countries
+            available_countries={"US": {"valid": True}, "GB": {"valid": True}, "DE": {"valid": True}}  # Film available in 3 countries
         )
 
         # Add film to library
@@ -521,7 +521,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"CH": {}, "DE": {}, "GB": {}}  # Film is available in 3 countries
+            available_countries={"CH": {"valid": True}, "DE": {"valid": True}, "GB": {"valid": True}}  # Film is available in 3 countries
         )
 
         library.add_film(existing_film)
@@ -633,7 +633,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=current_metadata,
-            available_countries={"US": {}}
+            available_countries={"US": {"valid": True}}
         )
 
         library.add_film(current_film)
@@ -711,7 +711,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"US": {}}
+            available_countries={"US": {"valid": True}}
         )
 
         library.add_film(problematic_film)
@@ -794,7 +794,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=comprehensive_metadata,
-            available_countries={"US": {}}
+            available_countries={"US": {"valid": True}}
         )
 
         library.add_film(comprehensive_film)
@@ -900,7 +900,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"US": {}}
+            available_countries={"US": {"valid": True}}
         )
 
         library.add_film(network_test_film)
@@ -1109,7 +1109,7 @@ class TestEndToEndFlows:
             artwork="http://example.com/art.jpg",
             web_url="http://mubi.com/films/test",
             metadata=metadata,
-            available_countries={'US': {}, 'FR': {}, 'DE': {}}
+            available_countries={'US': {'valid': True}, 'FR': {'valid': True}, 'DE': {'valid': True}}
         )
         library.add_film(film)
 
