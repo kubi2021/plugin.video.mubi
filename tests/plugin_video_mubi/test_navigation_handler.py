@@ -399,6 +399,7 @@ class TestNavigationHandler:
         mock_library = Mock()
         mock_film = Mock()
         mock_film.title = "Watchlist Movie"
+        mock_film.available_countries = {"US": {}} # Required for is_film_valid
         mock_library.films = [mock_film]
         mock_mubi.get_watch_list.return_value = mock_library
 
@@ -675,6 +676,7 @@ class TestKodi20Features:
         mock_film = Mock()
         mock_film.title = kwargs.get('title', "Test Movie")
         mock_film.mubi_id = kwargs.get('mubi_id', "123")
+        mock_film.available_countries = kwargs.get('available_countries', {"US": {}})
 
         # Create metadata with spec to ensure hasattr works correctly
         mock_metadata = Mock()

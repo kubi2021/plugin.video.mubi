@@ -150,8 +150,8 @@ class Library:
 
 
     def is_film_valid(self, film: Film) -> bool:
-        # Check that film has all necessary attributes
-        return film.mubi_id and film.title and film.metadata
+        # Check that film has all necessary attributes AND at least one available country
+        return film.mubi_id and film.title and film.metadata and film.available_countries
 
     def prepare_files_for_film(
         self, film: Film, base_url: str, plugin_userdata_path: Path, skip_external_metadata: bool = False

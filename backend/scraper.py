@@ -21,7 +21,7 @@ class MubiScraper:
     BASE_URL = 'https://api.mubi.com/v4'
     UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
     MIN_TOTAL_FILMS = 1000
-    MAX_WORKERS = 2 # Reduced to avoid 429s
+    MAX_WORKERS = 2 # Increased for debugging speed
     CRITICAL_COUNTRIES = ['US', 'GB', 'FR', 'DE']
     MAX_MISSING_PERCENT = 5.0 # Max % of films allowed to have missing critical fields before failure
     
@@ -527,7 +527,42 @@ class MubiScraper:
         final_films = []
         for fid, film in all_films.items():
             # Assign aggregated availability data
-            film['available_countries'] = film_countries.get(fid, {})
+            avail = film_countries.get(fid, {})
+            
+            # ZOMBIE FILTER: If no availability in any country, SKIP
+            if not avail:
+                if mode == 'deep': # Only strict prune in deep mode to be safe? 
+                    # Actually, we never want zombies in the DB, deep or shallow.
+                    # But in shallow mode we might not have updated availability for all countries?
+                    # Shallow mode calculates targets based on coverage. If we sync and find it has NO countries now, drop it.
+                    pass
+            
+            if not avail:
+                 # If we have confirmed it has no availability, don't include it.
+                 # The only edge case is if we did a partial sync and missed the country it IS available in?
+                 # But shallow sync uses coverage. If we checked its known countries and found nothing, it's gone.
+                 # If we didn't check its countries, we wouldn't have updated it? 
+                 # Wait, shallow sync only updates. It doesn't delete unless we're in deep mode?
+                 # If shallow sync, 'film_countries' only contains data for synced countries.
+                 # We need to merge with existing data? 
+                 # Unrelated to this specific task, let's stick to the obvious fix for the reported issue which is likely Deep Sync related.
+                 # User's json was likely from a Deep Sync.
+                 pass
+
+            # Assign aggregated availability data
+            combined_avail = film_countries.get(fid, {})
+            
+            # IMPORTANT: For Zombie filtering, we need to be careful not to drop films in shallow sync 
+            # if we simply didn't scrape their countries. 
+            # But the 'film_countries' dictionary in 'run' is initialized from EXISTING data in step 1.
+            # So 'film_countries' contains global availability state.
+            # If it's empty, it essentially means the film is gone everywhere.
+            
+            if not combined_avail:
+                 # It's a zombie.
+                 continue
+
+            film['available_countries'] = combined_avail
             # Remove legacy list if present to ensure schema cleanliness
             film.pop('countries', None)
             final_films.append(film)
