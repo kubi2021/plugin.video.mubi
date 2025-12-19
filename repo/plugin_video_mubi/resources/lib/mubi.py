@@ -711,8 +711,11 @@ class Mubi:
         
         fid = film_data.get('id')
         
-        # Check if country availability was injected by DataSource
-        available_countries = film_data.get('__available_countries__', [])
+        # Check if country availability was injected by DataSource (__available_countries__)
+        # OR if it exists in the data directly ('countries' - from GitHub JSON)
+        available_countries = film_data.get('__available_countries__')
+        if not available_countries:
+            available_countries = film_data.get('countries', [])
         
         # We need to wrap it because get_film_metadata expects {'film': ...} structure
         # This is a legacy artifact of the Mubi API V3/V4 structure where sometimes it sends wrapper

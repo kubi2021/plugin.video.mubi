@@ -2647,6 +2647,38 @@ class TestMubi:
         assert result is None, "No response should return None"
 
 
+    def test_process_film_data_handles_github_source_format(self, mubi_instance):
+        """
+        Test that process_film_data correctly extracts available countries 
+        from the 'countries' field which is present in the GitHub JSON data (films.json).
+        
+        Current behavior (Bug): It ignores 'countries' and only looks for '__available_countries__'.
+        Expected behavior (Fix): It should also look for 'countries'.
+        """
+        from plugin_video_mubi.resources.lib.film import Film
+        
+        # Emulate data from GithubDataSource (films.json)
+        # It has 'countries' list but NO '__available_countries__'
+        github_data = {
+            'id': 12345,
+            'title': 'Test Movie',
+            'countries': ['US', 'FR', 'DE'],  # This is how it appears in films.json
+            'mubi_id': 12345, # films.json often has both or mubi_id
+            'consumable': {
+                # omit dates to bypass dateutil parsing (which is mocked and causes issues)
+            }
+        }
+        
+        # Act
+        film = mubi_instance.process_film_data(github_data)
+        
+        # Assert
+        assert isinstance(film, Film)
+        assert 'US' in film.available_countries, f"Expected ['US', 'FR', 'DE'], got {film.available_countries}"
+        assert 'FR' in film.available_countries
+        assert 'DE' in film.available_countries
+
+
 class TestMultiCountrySync:
     """Test cases for multi-country sync and country aggregation logic."""
 
