@@ -1089,6 +1089,10 @@ class Mubi:
                     elif artwork_format == 'centered_background' and 'fanart' not in artwork_urls:
                         artwork_urls['fanart'] = image_url
 
+                    # Banner from cover_artwork_horizontal (wide horizontal image for list views)
+                    elif artwork_format == 'cover_artwork_horizontal' and 'banner' not in artwork_urls:
+                        artwork_urls['banner'] = image_url
+
             # Fallback: Portrait image for poster if not found in artworks[]
             if 'poster' not in artwork_urls:
                 portrait_image = film_info.get('portrait_image')

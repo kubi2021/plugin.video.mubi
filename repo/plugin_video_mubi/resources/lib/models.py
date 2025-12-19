@@ -54,23 +54,21 @@ class PlaybackLanguages(BaseModel):
     media_features: List[str] = []
 
 
-class Offered(BaseModel):
-    """Offering type information."""
-    type: Optional[str] = None
-    download_availability: Optional[Any] = None  # Can be str or int (seconds)
-
 
 class Consumable(BaseModel):
-    """Film availability and playback information."""
-    film_id: Optional[int] = None
+    """Film availability and playback information (per-country).
+    
+    Note: The following fields were pruned from the JSON to reduce file size:
+    - offered: Always [{"type": "catalogue", ...}]
+    - film_id: Already at top level
+    - film_date_message: Always null
+    - exclusive: Always false, not used
+    - permit_download: Always true, not used
+    """
     available_at: Optional[str] = None
     availability: Optional[str] = None
     availability_ends_at: Optional[str] = None
     expires_at: Optional[str] = None
-    film_date_message: Optional[Any] = None  # Can be str or dict
-    exclusive: Optional[bool] = None
-    permit_download: Optional[bool] = None
-    offered: List[Offered] = []
     # Playback languages moved to global Film scope
     
     

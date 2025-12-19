@@ -426,6 +426,13 @@ class Film:
             clearlogo_name = Path(artwork_paths['clearlogo']).name
             xbmc.log(f"Using local clearlogo: {clearlogo_name}", xbmc.LOGDEBUG)
 
+        # Banner artwork (horizontal wide image for list views)
+        if (artwork_paths and 'banner' in artwork_paths
+                and Path(artwork_paths['banner']).exists()):
+            banner = ET.SubElement(movie, "banner")
+            banner.text = Path(artwork_paths['banner']).name
+            xbmc.log(f"Using local banner: {Path(artwork_paths['banner']).name}", xbmc.LOGDEBUG)
+
         # Audio and subtitle language information using official Kodi structure
         # Only add fileinfo/streamdetails if we have audio or subtitle data
         if ((hasattr(metadata, 'audio_languages') and metadata.audio_languages) or

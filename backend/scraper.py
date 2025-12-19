@@ -237,12 +237,17 @@ class MubiScraper:
         if content_rating and isinstance(content_rating, dict):
             content_rating.pop('label_hex_color', None)
         
-        # Prune artworks
+        # Prune artworks - only keep formats used by Kodi
         artworks = data.get('artworks', [])
-        if artworks:
+        if artworks and isinstance(artworks, list):
+            # Formats we use: cover_artwork_vertical (poster), centered_background (fanart), cover_artwork_horizontal (banner)
+            used_formats = {'cover_artwork_vertical', 'centered_background', 'cover_artwork_horizontal'}
+            pruned_artworks = []
             for artwork in artworks:
-                if isinstance(artwork, dict):
+                if isinstance(artwork, dict) and artwork.get('format') in used_formats:
                     artwork.pop('focal_point', None)
+                    pruned_artworks.append(artwork)
+            data['artworks'] = pruned_artworks
 
     def run(self, output_path='films.json', series_path='series.json', mode='deep', input_path=None):
         all_films = {} # id -> film_data
@@ -451,12 +456,19 @@ class MubiScraper:
                         # We store the 'consumable' object which contains dates and status
                         consumable = item.get('consumable') or {}
                         if consumable:
-                            # Move playback_languages to top level (already done above), remove from here to save space
-                            # But wait, we modified the logical 'new_data' above, we didn't modify 'item'
-                            # Should we modify the consumable dict that goes into film_countries?
-                            # Yes, to match the schema request "outside availability country".
+                            # Create a slim copy with only essential fields
                             consumable_copy = consumable.copy()
+                            
+                            # Remove playback_languages (moved to top level)
                             consumable_copy.pop('playback_languages', None)
+                            
+                            # Prune unused fields to reduce JSON size (~8MB savings)
+                            consumable_copy.pop('offered', None)           # Always catalogue
+                            consumable_copy.pop('film_id', None)           # Already at top level
+                            consumable_copy.pop('film_date_message', None) # Always null
+                            consumable_copy.pop('exclusive', None)         # Not used
+                            consumable_copy.pop('permit_download', None)   # Not used
+                            
                             target_countries_dict[fid][country] = consumable_copy
                     
                     logger.info(f"Finished {country}. Total films: {len(all_films)}, Total series: {len(all_series)}")
