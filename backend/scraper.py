@@ -237,16 +237,31 @@ class MubiScraper:
         if content_rating and isinstance(content_rating, dict):
             content_rating.pop('label_hex_color', None)
         
-        # Prune artworks - only keep formats used by Kodi
+        # Prune artworks
         artworks = data.get('artworks', [])
-        if artworks and isinstance(artworks, list):
-            # Formats we use: cover_artwork_vertical (poster), centered_background (fanart), cover_artwork_horizontal (banner)
-            used_formats = {'cover_artwork_vertical', 'centered_background', 'cover_artwork_horizontal'}
+        if artworks:
+            # Prune unused artwork formats to save space
+            # We only keep:
+            # - cover_artwork_vertical (Poster)
+            # - centered_background (Fanart)
+            # - cover_artwork_horizontal (Banner)
+            
+            kept_formats = {
+                'cover_artwork_vertical', 
+                'centered_background', 
+                'cover_artwork_horizontal'
+            }
+            
             pruned_artworks = []
             for artwork in artworks:
-                if isinstance(artwork, dict) and artwork.get('format') in used_formats:
-                    artwork.pop('focal_point', None)
+                if artwork.get('format') in kept_formats:
+                    # Prune extra fields from the artwork object itself
+                    if 'focal_point' in artwork:
+                        del artwork['focal_point']
+                    if 'locale' in artwork: # Often null or unused
+                         del artwork['locale']
                     pruned_artworks.append(artwork)
+            
             data['artworks'] = pruned_artworks
 
     def run(self, output_path='films.json', series_path='series.json', mode='deep', input_path=None):
