@@ -529,8 +529,10 @@ class MubiScraper:
             # Assign aggregated availability data
             avail = film_countries.get(fid, {})
             
-            # ZOMBIE FILTER: If no availability in any country, SKIP
-            if not avail:
+            # ZOMBIE FILTER: If no availability in any country, SKIP (Deep Sync Only)
+            # In Shallow Sync, we avoid removing items to ensure "append-only" behavior,
+            # even if they currently appear to have no availability (zombie state).
+            if mode == 'deep' and not avail:
                 if mode == 'deep': # Only strict prune in deep mode to be safe? 
                     # Actually, we never want zombies in the DB, deep or shallow.
                     # But in shallow mode we might not have updated availability for all countries?
