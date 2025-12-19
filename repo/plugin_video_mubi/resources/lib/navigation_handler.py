@@ -993,7 +993,9 @@ class NavigationHandler:
                 else:
                         error_body = f"Error: {msg}"
 
+                import traceback
                 xbmc.log(f"Sync failed with error: {e}", xbmc.LOGERROR)
+                xbmc.log(f"Full traceback:\n{traceback.format_exc()}", xbmc.LOGERROR)
                 pDialog.close()
                 
                 xbmcgui.Dialog().notification(

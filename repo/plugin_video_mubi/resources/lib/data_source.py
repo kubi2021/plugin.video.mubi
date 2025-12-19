@@ -146,7 +146,7 @@ class MubiApiDataSource(FilmDataSource):
                 
                 # Extract consumable data for this film in this country
                 this_film_data = film_data.get(film_id, {})
-                consumable = this_film_data.get('consumable', {})
+                consumable = this_film_data.get('consumable') or {}  # Handle explicit null
                 
                 # Prune playback_languages from country-specific data (now global)
                 if 'playback_languages' in consumable:
@@ -165,8 +165,8 @@ class MubiApiDataSource(FilmDataSource):
                     
                     # EXTRACT PLAYBACK LANGUAGES (Schema Update)
                     # We promote playback_languages to top-level if present in consumable
-                    consumable = clean_data.get('consumable', {})
-                    if 'playback_languages' in consumable:
+                    consumable = clean_data.get('consumable') or {}  # Handle explicit null
+                    if consumable and 'playback_languages' in consumable:
                         clean_data['playback_languages'] = consumable['playback_languages']
                     
                     clean_data.pop('consumable', None) # Remove core consumable

@@ -403,7 +403,7 @@ class MubiScraper:
                             'optimised_trailers': item.get('optimised_trailers'),
                             
                             # Availability & playback
-                            'playback_languages': item.get('consumable', {}).get('playback_languages'),
+                            'playback_languages': (item.get('consumable') or {}).get('playback_languages'),
                             
                             # Awards & press
                             'award': item.get('award'),
@@ -449,7 +449,7 @@ class MubiScraper:
 
                         # Add availability data for this country
                         # We store the 'consumable' object which contains dates and status
-                        consumable = item.get('consumable', {})
+                        consumable = item.get('consumable') or {}
                         if consumable:
                             # Move playback_languages to top level (already done above), remove from here to save space
                             # But wait, we modified the logical 'new_data' above, we didn't modify 'item'
@@ -462,7 +462,9 @@ class MubiScraper:
                     logger.info(f"Finished {country}. Total films: {len(all_films)}, Total series: {len(all_series)}")
                     
                 except Exception as e:
+                    import traceback
                     logger.error(f"Failed to process {country}: {e}")
+                    logger.error(f"Full traceback:\n{traceback.format_exc()}")
                     errors.append(f"{country}: {str(e)}")
 
 

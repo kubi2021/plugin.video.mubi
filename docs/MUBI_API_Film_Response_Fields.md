@@ -45,7 +45,7 @@ GET https://api.mubi.com/v4/browse/films?sort=popularity&playable=true&page=1&pe
 | `award` | null | `null` |
 | `cast_members_count` | int | `4` |
 | `comments_count` | int | `6` |
-| `consumable` | object | `{...}` |
+| `consumable` | object or null | `{...}` or `null` |
 | `consumable.availability` | str | `"live"` |
 | `consumable.availability_ends_at` | str | `"2026-11-14T08:00:00Z"` |
 | `consumable.available_at` | str | `"2025-11-14T08:00:00Z"` |

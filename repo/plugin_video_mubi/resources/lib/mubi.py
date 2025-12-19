@@ -789,6 +789,8 @@ class Mubi:
             # Process and add each film to the library
             for film_item in films_data:
                 this_film = film_item.get('film')
+                if not this_film:
+                    continue
                 consumable = this_film.get('consumable')
                 if consumable != None:
                     film = self.get_film_metadata(film_item)
@@ -888,8 +890,8 @@ class Mubi:
             if 'series' in film_info and film_info['series'] is not None:
                 return None  # Skip series content for film sync
 
-            available_at = film_info.get('consumable', {}).get('available_at')
-            expires_at = film_info.get('consumable', {}).get('expires_at')
+            available_at = (film_info.get('consumable') or {}).get('available_at')
+            expires_at = (film_info.get('consumable') or {}).get('expires_at')
             if available_at and expires_at:
                 available_at_dt = dateutil.parser.parse(available_at)
                 expires_at_dt = dateutil.parser.parse(expires_at)
@@ -947,7 +949,7 @@ class Mubi:
 
             # Extract premiered date from consumable.available_at
             premiered = ''
-            consumable = film_info.get('consumable', {})
+            consumable = film_info.get('consumable') or {}
             if isinstance(consumable, dict):
                 available_at = consumable.get('available_at', '')
                 if available_at:
@@ -1148,7 +1150,7 @@ class Mubi:
             
             # Fallback to nested consumable (API / Old Schema)
             if not playback_languages:
-                consumable = film_info.get('consumable', {})
+                consumable = film_info.get('consumable') or {}
                 if isinstance(consumable, dict):
                     playback_languages = consumable.get('playback_languages')
 
