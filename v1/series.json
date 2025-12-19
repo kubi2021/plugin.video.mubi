@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2025-12-18T16:58:47.342630Z",
+    "generated_at": "2025-12-19T13:11:07.699077Z",
     "version": 1,
     "total_count": 11,
     "mode": "deep"
@@ -25,9 +25,9 @@
         "Spain",
         "France"
       ],
-      "popularity": 965,
+      "popularity": 1006,
       "average_rating_out_of_ten": 9.0,
-      "number_of_ratings": 2583,
+      "number_of_ratings": 2668,
       "hd": true,
       "critic_review_rating": 0,
       "content_rating": {
@@ -156,7 +156,7 @@
         "title": "The New Years",
         "original_title": "Los años nuevos",
         "limited": true,
-        "rating_comments_count": 5,
+        "rating_comments_count": 6,
         "episode_count": 10,
         "season_count": 1,
         "content_rating": {
@@ -172,7 +172,7 @@
         ],
         "average_rating": 4.5,
         "average_rating_out_of_ten": 9.0,
-        "number_of_ratings": 2583,
+        "number_of_ratings": 2668,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Madrid, New Year’s Eve. Ana and Óscar meet for the first time on the night they both turn thirty. That night, their worlds collide in an unexpected romance that will unfold over an entire decade of New Year’s Eves.",
@@ -431,9 +431,9 @@
         "South Africa",
         "United States"
       ],
-      "popularity": 2069,
+      "popularity": 2070,
       "average_rating_out_of_ten": 9.2,
-      "number_of_ratings": 4078,
+      "number_of_ratings": 4079,
       "hd": true,
       "critic_review_rating": 5.0,
       "content_rating": {
@@ -613,7 +613,7 @@
         ],
         "average_rating": 4.6,
         "average_rating_out_of_ten": 9.2,
-        "number_of_ratings": 4078,
+        "number_of_ratings": 4079,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "During the COVID-19 pandemic, renowned South African artist William Kentridge opens the doors to his Johannesburg studio to lay bare his creative process. Combining animation, collage, performance, and conversations with doppelgängers, Kentridge reflects on culture, history, and political memory.",
@@ -1029,7 +1029,7 @@
       ],
       "popularity": 1576,
       "average_rating_out_of_ten": 8.8,
-      "number_of_ratings": 3215,
+      "number_of_ratings": 3217,
       "hd": false,
       "critic_review_rating": 0,
       "content_rating": {
@@ -1188,7 +1188,7 @@
         ],
         "average_rating": 4.4,
         "average_rating_out_of_ten": 8.8,
-        "number_of_ratings": 3215,
+        "number_of_ratings": 3217,
         "info_label": "SERIES",
         "availability": "live",
         "short_synopsis": "Isabella Rossellini slips into the roles of various animals to act out their mating rituals, reproductive habits, and parenting behaviors. Shapeshifting from a vengeful female spider to a wiggly worm, Rossellini reveals some of the stranger truths of the animal kingdom.",
@@ -1813,11 +1813,11 @@
         "United States",
         "Italy"
       ],
-      "popularity": 3156,
+      "popularity": 3164,
       "average_rating_out_of_ten": 9.3,
-      "number_of_ratings": 8138,
+      "number_of_ratings": 8176,
       "hd": true,
-      "critic_review_rating": 0.0,
+      "critic_review_rating": 0,
       "content_rating": {
         "label": "mature",
         "rating_code": "MATURE",
@@ -1955,7 +1955,7 @@
         "title": "Mussolini: Son of the Century",
         "original_title": "Mussolini: Il figlio del secolo",
         "limited": true,
-        "rating_comments_count": 39,
+        "rating_comments_count": 40,
         "episode_count": 8,
         "season_count": 1,
         "content_rating": {
@@ -1972,7 +1972,7 @@
         ],
         "average_rating": 4.6,
         "average_rating_out_of_ten": 9.3,
-        "number_of_ratings": 8138,
+        "number_of_ratings": 8176,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Spanning the political chaos of 1920s Italy, Benito Mussolini transforms from socialist journalist to Italy’s brutal dictator, starting with his Blackshirts militia to the establishment of an authoritarian rule that would go on to set Europe aflame.",
@@ -2182,1281 +2182,6 @@
       "tmdb_id": "239386"
     },
     {
-      "mubi_id": 433422,
-      "title": "Northwest Passage",
-      "original_title": "Northwest Passage",
-      "year": 1990,
-      "duration": 94,
-      "genres": [
-        "Drama",
-        "Thriller",
-        "Crime",
-        "Mystery",
-        "TV Series",
-        "Cult"
-      ],
-      "directors": [
-        "David Lynch"
-      ],
-      "short_synopsis": "The small northwest town of Twin Peaks, Washington, is shaken up when the body of the Homecoming Queen, Laura Palmer, is discovered washed up on a riverbank, wrapped in plastic.",
-      "default_editorial": "",
-      "historic_countries": [
-        "United States"
-      ],
-      "popularity": 9916,
-      "average_rating_out_of_ten": 9.5,
-      "number_of_ratings": 18338,
-      "hd": true,
-      "critic_review_rating": 0.0,
-      "content_rating": {
-        "label": "caution",
-        "rating_code": "CAUTION",
-        "description": "Contains material that may not be suitable for children or young adults.",
-        "icon_url": null
-      },
-      "content_warnings": [
-        {
-          "id": 1,
-          "name": "sexual assault",
-          "key": "sexual_assault"
-        },
-        {
-          "id": 2,
-          "name": "domestic violence",
-          "key": "domestic_violence"
-        }
-      ],
-      "stills": {
-        "small": "https://assets.mubicdn.net/images/film/433422/image-w256.jpg?1747141083",
-        "medium": "https://assets.mubicdn.net/images/film/433422/image-w448.jpg?1747141083",
-        "standard": "https://assets.mubicdn.net/images/film/433422/image-w856.jpg?1747141083",
-        "retina": "https://assets.mubicdn.net/images/film/433422/image-w1280.jpg?1747141083",
-        "small_overlaid": "https://assets.mubicdn.net/images/film/433422/image-w512_overlaid.jpg?1747141083",
-        "large_overlaid": "https://assets.mubicdn.net/images/film/433422/image-w1504_overlaid.jpg?1747141083",
-        "standard_push": "https://assets.mubicdn.net/images/film/433422/image-w856_two_one.jpg?1747141083"
-      },
-      "still_url": "https://images.mubicdn.net/images/film/433422/cache-1035490-1747141083/image-w1280.jpg",
-      "portrait_image": null,
-      "artworks": [
-        {
-          "format": "tile_artwork",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/776753/cache-776753-1747141123/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box_episode",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/776754/cache-776754-1747141125/images-original.png"
-        },
-        {
-          "format": "centered_background",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/776755/cache-776755-1747141129/images-original.png"
-        },
-        {
-          "format": "centered_background_small",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/776756/cache-776756-1747141133/images-original.png"
-        },
-        {
-          "format": "cover_artwork_horizontal",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/776757/cache-776757-1747141136/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/776765/cache-776765-1747141166/images-original.png"
-        },
-        {
-          "format": "tvos_cover_artwork",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/776769/cache-776769-1747141179/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box_textless",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/778455/cache-778455-1747758226/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box_series",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/781961/cache-781961-1749751675/images-original.png"
-        },
-        {
-          "format": "cover_artwork_vertical",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/842159/cache-842159-1752048728/images-original.png"
-        }
-      ],
-      "trailer_url": null,
-      "trailer_id": null,
-      "optimised_trailers": null,
-      "consumable": {
-        "film_id": 433422,
-        "available_at": "2025-06-13T04:00:00Z",
-        "availability": "live",
-        "availability_ends_at": "2027-06-01T04:00:00Z",
-        "expires_at": "2027-06-01T16:00:00Z",
-        "film_date_message": null,
-        "offered": [
-          {
-            "type": "catalogue",
-            "download_availability": null
-          }
-        ],
-        "exclusive": false,
-        "permit_download": true,
-        "playback_languages": {
-          "audio_options": [
-            "English"
-          ],
-          "subtitle_options": [
-            "English",
-            "English (SDH)"
-          ],
-          "media_options": {
-            "duration": 5633,
-            "hd": true
-          },
-          "media_features": [
-            "HD",
-            "stereo"
-          ],
-          "extended_audio_options": [
-            "English"
-          ]
-        }
-      },
-      "award": null,
-      "press_quote": null,
-      "episode": {
-        "label": "Season 1 - Episode 1",
-        "number": 1,
-        "series_title": "Twin Peaks",
-        "season_number": 1,
-        "season_title": "Season 1",
-        "film_group_id": null,
-        "film_group_slug": null,
-        "episode_title": "Northwest Passage",
-        "series_id": 7,
-        "season_id": 13,
-        "episode_label": "E1",
-        "episode_season_label": "SEASON 1: E1"
-      },
-      "series": {
-        "id": 7,
-        "title": "Twin Peaks",
-        "original_title": "Twin Peaks",
-        "limited": false,
-        "rating_comments_count": 60,
-        "episode_count": 30,
-        "season_count": 2,
-        "content_rating": {
-          "label": "mature",
-          "rating_code": "MATURE",
-          "description": "Contains material and themes suitable only for mature audiences.",
-          "icon_url": null,
-          "label_hex_color": "dd2323"
-        },
-        "genres": [
-          "Drama",
-          "Thriller",
-          "Crime",
-          "Mystery",
-          "TV Series",
-          "Cult"
-        ],
-        "average_rating": 4.7,
-        "average_rating_out_of_ten": 9.5,
-        "number_of_ratings": 18338,
-        "info_label": "SERIES",
-        "availability": "live",
-        "short_synopsis": "F.B.I. Agent Dale Cooper comes to the logging town of Twin Peaks to investigate the murder of Laura Palmer, a popular high school student. While investigating, Agent Cooper comes to know the town’s inhabitants, their odd behaviors, and slowly learns that strange things are happening.",
-        "default_editorial": "Refracting primetime soap operas and cop shows into a one-of-a-kind cosmic melodrama, showrunners Mark Frost and David Lynch captured lightning in a bottle. Cloaking its dark secrets in a down-home slice of winsome Americana, Twin Peaks is the pop-cultural juggernaut that captivated a generation.",
-        "seasons": [
-          {
-            "id": 13,
-            "title_upcase": "SEASON 1",
-            "original_title": "Season 1",
-            "season_number": 1,
-            "release_year": 1990,
-            "slug": "season-1",
-            "web_url": "https://mubi.com/series/twin-peaks/season/season-1",
-            "trailer_url": "https://trailers.mubicdn.net/seasons/13/optimised/1080p-t-13_en_us_1749828150.mp4",
-            "trailer_id": 127527,
-            "critic_review_rating": 4.1667,
-            "short_synopsis": "The sensational murder of the high school homecoming queen strips the veneer of respectable gentility from the rural community of Twin Peaks to expose its seething undercurrents. FBI agent Dale Cooper and Sheriff Harry S Truman join forces to investigate—and discover a town full of secrets. ",
-            "short_synopsis_html": "<p>The sensational murder of the high school homecoming queen strips the veneer of respectable gentility from the rural community of Twin Peaks to expose its seething undercurrents. FBI agent Dale Cooper and Sheriff Harry S Truman join forces to investigate&#8212;and discover a town full of secrets. </p>",
-            "episode_count": 8,
-            "title": "Season 1",
-            "industry_events_count": 8,
-            "cast_members_count": 68,
-            "default_editorial": "An ancient terror lurks beneath the homey facades of sleepy diners and cozy cabins in the iconic first season of Twin Peaks. Tread carefully, travelers, through this place where secrets and lies come wrapped in plastic. The picture-perfect image of small-town America is about to go up in flames.",
-            "default_editorial_html": "<p>An ancient terror lurks beneath the homey facades of sleepy diners and cozy cabins in the iconic first season of <em>Twin Peaks</em>. Tread carefully, travelers, through this place where secrets and lies come wrapped in plastic. The picture-perfect image of small-town America is about to go up in flames.</p>",
-            "optimised_trailers": [
-              {
-                "url": "https://trailers.mubicdn.net/seasons/13/optimised/240p-t-13_en_us_1749828150.mp4",
-                "profile": "240p"
-              },
-              {
-                "url": "https://trailers.mubicdn.net/seasons/13/optimised/720p-t-13_en_us_1749828150.mp4",
-                "profile": "720p"
-              },
-              {
-                "url": "https://trailers.mubicdn.net/seasons/13/optimised/1080p-t-13_en_us_1749828150.mp4",
-                "profile": "1080p"
-              }
-            ],
-            "artworks": [
-              {
-                "format": "cover_artwork_box_textless",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/777852/cache-777852-1747683134/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "tile_artwork",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/778454/cache-778454-1747758184/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_horizontal",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/781785/cache-781785-1749748645/images-original.jpg",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_vertical",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/781786/cache-781786-1749748697/images-original.jpg",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_episode",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782018/cache-782018-1749806399/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782019/cache-782019-1749806404/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background_small",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782020/cache-782020-1749806408/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782037/cache-782037-1749806514/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "tvos_cover_artwork",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782046/cache-782046-1749806566/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_series",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782055/cache-782055-1749806577/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              }
-            ]
-          },
-          {
-            "id": 14,
-            "title_upcase": "SEASON 2",
-            "original_title": "Season 2",
-            "season_number": 2,
-            "release_year": 1990,
-            "slug": "season-2",
-            "web_url": "https://mubi.com/series/twin-peaks/season/season-2",
-            "trailer_url": "https://trailers.mubicdn.net/seasons/14/optimised/1080p-t-14_en_us_1749828198.mp4",
-            "trailer_id": 127534,
-            "critic_review_rating": 4.0769,
-            "short_synopsis": "FBI Agent Dale Cooper continues his investigation into Laura Palmer’s murder. As secrets surface and new threats emerge, the town of Twin Peaks grows ever stranger and more dangerous.",
-            "short_synopsis_html": "<p>FBI Agent Dale Cooper continues his investigation into Laura Palmer&#8217;s murder. As secrets surface and new threats emerge, the town of Twin Peaks grows ever stranger and more dangerous.</p>",
-            "episode_count": 22,
-            "title": "Season 2",
-            "industry_events_count": 4,
-            "cast_members_count": 118,
-            "default_editorial": "As Laura Palmer’s furtive past continues to unravel in mysterious ways, the second season of Twin Peaks takes an unsettling detour into the mystical and supernatural. With a Pandora’s box containing the wicked truth now pried open, the moral darkness that haunts the American dream is soon unbound.",
-            "default_editorial_html": "<p>As Laura Palmer&#8217;s furtive past continues to unravel in mysterious ways, the second season of <em>Twin Peaks</em> takes an unsettling detour into the mystical and supernatural. With a Pandora&#8217;s box containing the wicked truth now pried open, the moral darkness that haunts the American dream is soon unbound.</p>",
-            "optimised_trailers": [
-              {
-                "url": "https://trailers.mubicdn.net/seasons/14/optimised/240p-t-14_en_us_1749828198.mp4",
-                "profile": "240p"
-              },
-              {
-                "url": "https://trailers.mubicdn.net/seasons/14/optimised/720p-t-14_en_us_1749828198.mp4",
-                "profile": "720p"
-              },
-              {
-                "url": "https://trailers.mubicdn.net/seasons/14/optimised/1080p-t-14_en_us_1749828198.mp4",
-                "profile": "1080p"
-              }
-            ],
-            "artworks": [
-              {
-                "format": "tile_artwork",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/777349/cache-777349-1747243835/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_textless",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/777794/cache-777794-1747649956/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_horizontal",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/781787/cache-781787-1749748727/images-original.jpg",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_vertical",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/781788/cache-781788-1749748755/images-original.jpg",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_episode",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782064/cache-782064-1749806939/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782065/cache-782065-1749806944/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background_small",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782066/cache-782066-1749806947/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782083/cache-782083-1749807063/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "tvos_cover_artwork",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782092/cache-782092-1749807118/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_series",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782101/cache-782101-1749807129/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "countries": [
-        "AG",
-        "AI",
-        "AR",
-        "AS",
-        "AT",
-        "AW",
-        "BB",
-        "BO",
-        "BQ",
-        "BR",
-        "BZ",
-        "CH",
-        "CL",
-        "CO",
-        "CR",
-        "CW",
-        "DE",
-        "DM",
-        "DO",
-        "EC",
-        "FM",
-        "GB",
-        "GD",
-        "GG",
-        "GI",
-        "GT",
-        "GU",
-        "GY",
-        "HN",
-        "HT",
-        "IE",
-        "IM",
-        "IN",
-        "IT",
-        "JE",
-        "JM",
-        "KN",
-        "KY",
-        "LC",
-        "LU",
-        "MC",
-        "MH",
-        "MP",
-        "MS",
-        "MT",
-        "MX",
-        "NI",
-        "NL",
-        "PA",
-        "PE",
-        "PW",
-        "PY",
-        "SM",
-        "SR",
-        "SV",
-        "SX",
-        "TC",
-        "TR",
-        "TT",
-        "UM",
-        "US",
-        "UY",
-        "VA",
-        "VC",
-        "VE",
-        "VG",
-        "VI"
-      ],
-      "imdb_id": "tt0098936",
-      "tmdb_id": "1920"
-    },
-    {
-      "mubi_id": 433459,
-      "title": "Part 1",
-      "original_title": "Twin Peaks: The Return Episode 1",
-      "year": 2017,
-      "duration": 61,
-      "genres": [
-        "Drama",
-        "Fantasy",
-        "Thriller",
-        "Crime",
-        "Mystery",
-        "TV Mini-series"
-      ],
-      "directors": [
-        "David Lynch"
-      ],
-      "short_synopsis": "My log has a message for you.",
-      "default_editorial": "",
-      "historic_countries": [
-        "United States"
-      ],
-      "popularity": 5034,
-      "average_rating_out_of_ten": 9.4,
-      "number_of_ratings": 8521,
-      "hd": true,
-      "critic_review_rating": 0.0,
-      "content_rating": {
-        "label": "mature",
-        "rating_code": "MATURE",
-        "description": "Contains material and themes suitable only for mature audiences.",
-        "icon_url": null
-      },
-      "content_warnings": [
-        {
-          "id": 17,
-          "name": "injury detail",
-          "key": "injury_detail"
-        }
-      ],
-      "stills": {
-        "small": "https://assets.mubicdn.net/images/film/433459/image-w256.jpg?1747696370",
-        "medium": "https://assets.mubicdn.net/images/film/433459/image-w448.jpg?1747696370",
-        "standard": "https://assets.mubicdn.net/images/film/433459/image-w856.jpg?1747696370",
-        "retina": "https://assets.mubicdn.net/images/film/433459/image-w1280.jpg?1747696370",
-        "small_overlaid": "https://assets.mubicdn.net/images/film/433459/image-w512_overlaid.jpg?1747696370",
-        "large_overlaid": "https://assets.mubicdn.net/images/film/433459/image-w1504_overlaid.jpg?1747696370",
-        "standard_push": "https://assets.mubicdn.net/images/film/433459/image-w856_two_one.jpg?1747696370"
-      },
-      "still_url": "https://images.mubicdn.net/images/film/433459/cache-1036225-1747696370/image-w1280.jpg",
-      "portrait_image": null,
-      "artworks": [
-        {
-          "format": "cover_artwork_box_textless",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/777932/cache-777932-1747695587/images-original.png"
-        },
-        {
-          "format": "tile_artwork",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/777933/cache-777933-1747696436/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box_episode",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/777934/cache-777934-1747696439/images-original.png"
-        },
-        {
-          "format": "centered_background",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/777935/cache-777935-1747696443/images-original.png"
-        },
-        {
-          "format": "centered_background_small",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/777936/cache-777936-1747696446/images-original.png"
-        },
-        {
-          "format": "cover_artwork_horizontal",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/777937/cache-777937-1747696451/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/777945/cache-777945-1747696485/images-original.png"
-        },
-        {
-          "format": "tvos_cover_artwork",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/777949/cache-777949-1747696499/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box_series",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/781884/cache-781884-1749750109/images-original.png"
-        },
-        {
-          "format": "cover_artwork_vertical",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/842335/cache-842335-1752049565/images-original.png"
-        }
-      ],
-      "trailer_url": null,
-      "trailer_id": null,
-      "optimised_trailers": null,
-      "consumable": {
-        "film_id": 433459,
-        "available_at": "2025-06-13T04:00:00Z",
-        "availability": "live",
-        "availability_ends_at": "2027-06-01T04:00:00Z",
-        "expires_at": "2027-06-01T16:00:00Z",
-        "film_date_message": null,
-        "offered": [
-          {
-            "type": "catalogue",
-            "download_availability": null
-          }
-        ],
-        "exclusive": false,
-        "permit_download": true,
-        "playback_languages": {
-          "audio_options": [
-            "English"
-          ],
-          "subtitle_options": [
-            "English",
-            "English (SDH)"
-          ],
-          "media_options": {
-            "duration": 3634,
-            "hd": true
-          },
-          "media_features": [
-            "HD",
-            "5.1"
-          ],
-          "extended_audio_options": [
-            "English (5.1)"
-          ]
-        }
-      },
-      "award": null,
-      "press_quote": null,
-      "episode": {
-        "label": "The Return - Episode 1",
-        "number": 1,
-        "series_title": "Twin Peaks: A Limited Event Series",
-        "season_number": 1,
-        "season_title": "The Return",
-        "film_group_id": null,
-        "film_group_slug": null,
-        "episode_title": "Part 1",
-        "series_id": 8,
-        "season_id": 15,
-        "episode_label": "E1",
-        "episode_season_label": "E1"
-      },
-      "series": {
-        "id": 8,
-        "title": "Twin Peaks: A Limited Event Series",
-        "original_title": "Twin Peaks: A Limited Event Series",
-        "limited": true,
-        "rating_comments_count": 35,
-        "episode_count": 18,
-        "season_count": 1,
-        "content_rating": {
-          "label": "mature",
-          "rating_code": "MATURE",
-          "description": "Contains material and themes suitable only for mature audiences.",
-          "icon_url": null,
-          "label_hex_color": "dd2323"
-        },
-        "genres": [
-          "Drama",
-          "Fantasy",
-          "Thriller",
-          "Crime",
-          "Mystery",
-          "TV Mini-series"
-        ],
-        "average_rating": 4.7,
-        "average_rating_out_of_ten": 9.4,
-        "number_of_ratings": 8521,
-        "info_label": "LIMITED SERIES",
-        "availability": "live",
-        "short_synopsis": "One of the most groundbreaking and influential broadcast series of all time, Twin Peaks followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues…",
-        "default_editorial": "",
-        "seasons": [
-          {
-            "id": 15,
-            "title_upcase": "THE RETURN",
-            "original_title": "The Return",
-            "season_number": 1,
-            "release_year": 2017,
-            "slug": "season-1",
-            "web_url": "https://mubi.com/series/twin-peaks-a-limited-event-series/season/season-1",
-            "trailer_url": "https://trailers.mubicdn.net/seasons/15/optimised/1080p-t-15_en_us_1749752841.mp4",
-            "trailer_id": 128941,
-            "critic_review_rating": 4.7021,
-            "short_synopsis": "One of the most groundbreaking and influential broadcast series of all time, Twin Peaks followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues…",
-            "short_synopsis_html": "<p>One of the most groundbreaking and influential broadcast series of all time, <em>Twin Peaks</em> followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues&#8230;</p>",
-            "episode_count": 18,
-            "title": "The Return",
-            "industry_events_count": 8,
-            "cast_members_count": 129,
-            "default_editorial": "Dreams nest in nightmares, and nightmares in dreams, in Mark Frost and David Lynch’s electrifying return to the world of Twin Peaks. A monumental work of novelistic scope and grandeur, this limited series event slips the boundaries of space and time to prowl the charged line between good and evil.",
-            "default_editorial_html": "<p>Dreams nest in nightmares, and nightmares in dreams, in Mark Frost and David Lynch&#8217;s electrifying return to the world of Twin Peaks. A monumental work of novelistic scope and grandeur, this limited series event slips the boundaries of space and time to prowl the charged line between good and evil.</p>",
-            "optimised_trailers": [
-              {
-                "url": "https://trailers.mubicdn.net/seasons/15/optimised/240p-t-15_en_us_1749752841.mp4",
-                "profile": "240p"
-              },
-              {
-                "url": "https://trailers.mubicdn.net/seasons/15/optimised/720p-t-15_en_us_1749752841.mp4",
-                "profile": "720p"
-              },
-              {
-                "url": "https://trailers.mubicdn.net/seasons/15/optimised/1080p-t-15_en_us_1749752841.mp4",
-                "profile": "1080p"
-              }
-            ],
-            "artworks": [
-              {
-                "format": "tile_artwork",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/778550/cache-778550-1747761231/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_textless",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/778551/cache-778551-1747761245/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_horizontal",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/781789/cache-781789-1749748798/images-original.jpg",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_vertical",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/781790/cache-781790-1749748824/images-original.jpg",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_episode",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782110/cache-782110-1749807494/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782111/cache-782111-1749807499/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background_small",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/782112/cache-782112-1749807502/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782113/cache-782113-1749807507/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "tvos_cover_artwork",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782114/cache-782114-1749807510/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_series",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/782115/cache-782115-1749807514/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "countries": [
-        "AG",
-        "AI",
-        "AR",
-        "AS",
-        "AT",
-        "AW",
-        "BB",
-        "BO",
-        "BQ",
-        "BR",
-        "BZ",
-        "CH",
-        "CL",
-        "CO",
-        "CR",
-        "CW",
-        "DE",
-        "DM",
-        "DO",
-        "EC",
-        "FM",
-        "GB",
-        "GD",
-        "GG",
-        "GI",
-        "GT",
-        "GU",
-        "GY",
-        "HN",
-        "HT",
-        "IE",
-        "IM",
-        "IN",
-        "IT",
-        "JE",
-        "JM",
-        "KN",
-        "KY",
-        "LC",
-        "LU",
-        "MC",
-        "MH",
-        "MP",
-        "MS",
-        "MT",
-        "MX",
-        "NI",
-        "NL",
-        "PA",
-        "PE",
-        "PW",
-        "PY",
-        "SM",
-        "SR",
-        "SV",
-        "SX",
-        "TC",
-        "TR",
-        "TT",
-        "UM",
-        "US",
-        "UY",
-        "VA",
-        "VC",
-        "VE",
-        "VG",
-        "VI"
-      ],
-      "imdb_id": "tt3950230",
-      "tmdb_id": "63854"
-    },
-    {
-      "mubi_id": 448206,
-      "title": "Pilot",
-      "original_title": "Pilot",
-      "year": 2025,
-      "duration": 26,
-      "genres": [
-        "Comedy",
-        "Drama",
-        "TV Mini-series"
-      ],
-      "directors": [
-        "Cooper Raiff"
-      ],
-      "short_synopsis": "Hal and Harper’s childhood house is on the market, and Dad’s got even bigger news that’s about to send all three on a journey through time.",
-      "default_editorial": "",
-      "historic_countries": [
-        "United States"
-      ],
-      "popularity": 1563,
-      "average_rating_out_of_ten": 9.3,
-      "number_of_ratings": 3908,
-      "hd": true,
-      "critic_review_rating": 0,
-      "content_rating": {
-        "label": "caution",
-        "rating_code": "CAUTION",
-        "description": "Contains material that may not be suitable for children or young adults.",
-        "icon_url": null
-      },
-      "content_warnings": [],
-      "stills": {
-        "small": "https://assets.mubicdn.net/images/film/448206/image-w256.jpg?1757432851",
-        "medium": "https://assets.mubicdn.net/images/film/448206/image-w448.jpg?1757432851",
-        "standard": "https://assets.mubicdn.net/images/film/448206/image-w856.jpg?1757432851",
-        "retina": "https://assets.mubicdn.net/images/film/448206/image-w1280.jpg?1757432851",
-        "small_overlaid": "https://assets.mubicdn.net/images/film/448206/image-w512_overlaid.jpg?1757432851",
-        "large_overlaid": "https://assets.mubicdn.net/images/film/448206/image-w1504_overlaid.jpg?1757432851",
-        "standard_push": "https://assets.mubicdn.net/images/film/448206/image-w856_two_one.jpg?1757432851"
-      },
-      "still_url": "https://images.mubicdn.net/images/film/448206/cache-1082712-1757432851/image-w1280.jpg",
-      "portrait_image": null,
-      "artworks": [
-        {
-          "format": "tile_artwork",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/857523/cache-857523-1757432875/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box_episode",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/857524/cache-857524-1757432878/images-original.png"
-        },
-        {
-          "format": "centered_background",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/857525/cache-857525-1757432883/images-original.png"
-        },
-        {
-          "format": "centered_background_small",
-          "locale": null,
-          "image_url": "https://images.mubicdn.net/images/artworks/857526/cache-857526-1757432886/images-original.png"
-        },
-        {
-          "format": "cover_artwork_horizontal",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/865965/cache-865965-1758810182/images-original.png"
-        },
-        {
-          "format": "cover_artwork_vertical",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/865966/cache-865966-1758810187/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/865967/cache-865967-1758810192/images-original.png"
-        },
-        {
-          "format": "tvos_cover_artwork",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/865969/cache-865969-1758810195/images-original.png"
-        },
-        {
-          "format": "cover_artwork_box_series",
-          "locale": "en-US",
-          "image_url": "https://images.mubicdn.net/images/artworks/865970/cache-865970-1758810198/images-original.png"
-        }
-      ],
-      "trailer_url": null,
-      "trailer_id": null,
-      "optimised_trailers": null,
-      "consumable": {
-        "film_id": 448206,
-        "available_at": "2025-10-18T12:00:00Z",
-        "availability": "live",
-        "availability_ends_at": "2028-10-18T12:00:00Z",
-        "expires_at": "2028-10-19T00:00:00Z",
-        "film_date_message": null,
-        "offered": [
-          {
-            "type": "catalogue",
-            "download_availability": null
-          }
-        ],
-        "exclusive": false,
-        "permit_download": true,
-        "playback_languages": {
-          "audio_options": [
-            "English"
-          ],
-          "subtitle_options": [
-            "French",
-            "English",
-            "English (SDH)"
-          ],
-          "media_options": {
-            "duration": 1536,
-            "hd": true
-          },
-          "media_features": [
-            "HD",
-            "5.1"
-          ],
-          "extended_audio_options": [
-            "English (5.1)"
-          ]
-        }
-      },
-      "award": null,
-      "press_quote": null,
-      "episode": {
-        "label": "Season 1 - Episode 1",
-        "number": 1,
-        "series_title": "Hal & Harper",
-        "season_number": 1,
-        "season_title": "Season 1",
-        "film_group_id": null,
-        "film_group_slug": null,
-        "episode_title": "Pilot",
-        "series_id": 13,
-        "season_id": 22,
-        "episode_label": "E1",
-        "episode_season_label": "E1"
-      },
-      "series": {
-        "id": 13,
-        "title": "Hal & Harper",
-        "original_title": "Hal & Harper",
-        "limited": true,
-        "rating_comments_count": 17,
-        "episode_count": 8,
-        "season_count": 1,
-        "content_rating": {
-          "label": "mature",
-          "rating_code": "MATURE",
-          "description": "Contains material and themes suitable only for mature audiences.",
-          "icon_url": null,
-          "label_hex_color": "dd2323"
-        },
-        "genres": [
-          "Comedy",
-          "Drama",
-          "TV Mini-series"
-        ],
-        "average_rating": 4.6,
-        "average_rating_out_of_ten": 9.3,
-        "number_of_ratings": 3908,
-        "info_label": "LIMITED SERIES",
-        "availability": "live",
-        "short_synopsis": "Hal and Harper have built their adult lives side by side in Los Angeles, bound by a lifetime of inside jokes and shared pain. When Dad announces he’s having a baby with his girlfriend, the siblings must reexamine their past and reckon with the versions of themselves they’ve carried into adulthood.",
-        "default_editorial": "",
-        "seasons": [
-          {
-            "id": 22,
-            "title_upcase": "SEASON 1",
-            "original_title": "Season 1",
-            "season_number": 1,
-            "release_year": 2025,
-            "slug": "season-1",
-            "web_url": "https://mubi.com/series/hal-harper/season/season-1",
-            "trailer_url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
-            "trailer_id": 135064,
-            "critic_review_rating": 4.1818,
-            "short_synopsis": "",
-            "short_synopsis_html": "",
-            "episode_count": 8,
-            "title": "Season 1",
-            "industry_events_count": 4,
-            "cast_members_count": 21,
-            "default_editorial": "Multi-hyphenate wunderkind Cooper Raiff (Cha Cha Real Smooth) writes, directs, and stars in this conceptually ambitious comic drama. With knockout performances from Lili Reinhart and Mark Ruffalo, Hal & Harper is a beautifully modulated examination of love, identity, and arrested development.",
-            "default_editorial_html": "<p>Multi-hyphenate wunderkind Cooper Raiff (<em>Cha Cha Real Smooth</em>) writes, directs, and stars in this conceptually ambitious comic drama. With knockout performances from Lili Reinhart and Mark Ruffalo, <em>Hal &amp; Harper</em> is a beautifully modulated examination of love, identity, and arrested development.</p>",
-            "optimised_trailers": [
-              {
-                "url": "https://trailers.mubicdn.net/seasons/22/optimised/240p-t-22_fr_fr_1759508323.mp4",
-                "profile": "240p"
-              },
-              {
-                "url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
-                "profile": "720p"
-              }
-            ],
-            "artworks": [
-              {
-                "format": "cover_artwork_box_textless",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/865963/cache-865963-1758806743/images-original.png",
-                "focal_point": {
-                  "x": 0.49,
-                  "y": 0.52
-                }
-              },
-              {
-                "format": "tile_artwork",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/865964/cache-865964-1758806806/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_episode",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/872515/cache-872515-1760529050/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/872516/cache-872516-1760529055/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "centered_background_small",
-                "locale": null,
-                "image_url": "https://images.mubicdn.net/images/artworks/872517/cache-872517-1760529059/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_horizontal",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/872518/cache-872518-1760529066/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_vertical",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/872527/cache-872527-1760529133/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/872536/cache-872536-1760529183/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "tvos_cover_artwork",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/872545/cache-872545-1760529235/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              },
-              {
-                "format": "cover_artwork_box_series",
-                "locale": "en-US",
-                "image_url": "https://images.mubicdn.net/images/artworks/872554/cache-872554-1760529247/images-original.png",
-                "focal_point": {
-                  "x": 0.5,
-                  "y": 0.0
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "countries": [
-        "AD",
-        "AG",
-        "AI",
-        "AR",
-        "AS",
-        "AW",
-        "BB",
-        "BL",
-        "BO",
-        "BQ",
-        "BR",
-        "BS",
-        "BZ",
-        "CL",
-        "CO",
-        "CR",
-        "CU",
-        "CW",
-        "DM",
-        "DO",
-        "EC",
-        "FM",
-        "FR",
-        "GD",
-        "GF",
-        "GP",
-        "GT",
-        "GU",
-        "GY",
-        "HN",
-        "HT",
-        "JM",
-        "KN",
-        "KY",
-        "LC",
-        "MC",
-        "MF",
-        "MH",
-        "MP",
-        "MQ",
-        "MS",
-        "MX",
-        "NC",
-        "NI",
-        "PA",
-        "PE",
-        "PF",
-        "PM",
-        "PR",
-        "PY",
-        "RE",
-        "SR",
-        "SV",
-        "SX",
-        "TF",
-        "TT",
-        "UM",
-        "US",
-        "UY",
-        "VC",
-        "VE",
-        "VG",
-        "VI",
-        "WF",
-        "YT"
-      ],
-      "tmdb_id": "282948"
-    },
-    {
       "mubi_id": 30673,
       "title": "The Unheavenly Host",
       "original_title": "Den hvide flok",
@@ -3476,9 +2201,9 @@
         "Denmark",
         "Sweden"
       ],
-      "popularity": 1423,
+      "popularity": 1425,
       "average_rating_out_of_ten": 8.3,
-      "number_of_ratings": 3946,
+      "number_of_ratings": 3949,
       "hd": true,
       "critic_review_rating": 0,
       "content_rating": {
@@ -3648,7 +2373,7 @@
         ],
         "average_rating": 4.2,
         "average_rating_out_of_ten": 8.3,
-        "number_of_ratings": 3946,
+        "number_of_ratings": 3949,
         "info_label": "SERIES",
         "availability": "live",
         "short_synopsis": "Filmmaker Lars von Trier’s internationally acclaimed, cult classic series tells the story of a hospital built on top of the old bleaching ponds in Copenhagen, where evil has taken root and medical science faces a daily struggle with itself; where the Swedes curse the Danes, and the mysterious and inexplicable blend together in a mixture of horror and humor.",
@@ -4159,6 +2884,1281 @@
         "VI",
         "YE"
       ]
+    },
+    {
+      "mubi_id": 433422,
+      "title": "Northwest Passage",
+      "original_title": "Northwest Passage",
+      "year": 1990,
+      "duration": 94,
+      "genres": [
+        "Drama",
+        "Thriller",
+        "Crime",
+        "Mystery",
+        "TV Series",
+        "Cult"
+      ],
+      "directors": [
+        "David Lynch"
+      ],
+      "short_synopsis": "The small northwest town of Twin Peaks, Washington, is shaken up when the body of the Homecoming Queen, Laura Palmer, is discovered washed up on a riverbank, wrapped in plastic.",
+      "default_editorial": "",
+      "historic_countries": [
+        "United States"
+      ],
+      "popularity": 9930,
+      "average_rating_out_of_ten": 9.5,
+      "number_of_ratings": 18376,
+      "hd": true,
+      "critic_review_rating": 0.0,
+      "content_rating": {
+        "label": "caution",
+        "rating_code": "CAUTION",
+        "description": "Contains material that may not be suitable for children or young adults.",
+        "icon_url": null
+      },
+      "content_warnings": [
+        {
+          "id": 1,
+          "name": "sexual assault",
+          "key": "sexual_assault"
+        },
+        {
+          "id": 2,
+          "name": "domestic violence",
+          "key": "domestic_violence"
+        }
+      ],
+      "stills": {
+        "small": "https://assets.mubicdn.net/images/film/433422/image-w256.jpg?1747141083",
+        "medium": "https://assets.mubicdn.net/images/film/433422/image-w448.jpg?1747141083",
+        "standard": "https://assets.mubicdn.net/images/film/433422/image-w856.jpg?1747141083",
+        "retina": "https://assets.mubicdn.net/images/film/433422/image-w1280.jpg?1747141083",
+        "small_overlaid": "https://assets.mubicdn.net/images/film/433422/image-w512_overlaid.jpg?1747141083",
+        "large_overlaid": "https://assets.mubicdn.net/images/film/433422/image-w1504_overlaid.jpg?1747141083",
+        "standard_push": "https://assets.mubicdn.net/images/film/433422/image-w856_two_one.jpg?1747141083"
+      },
+      "still_url": "https://images.mubicdn.net/images/film/433422/cache-1035490-1747141083/image-w1280.jpg",
+      "portrait_image": null,
+      "artworks": [
+        {
+          "format": "tile_artwork",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/776753/cache-776753-1747141123/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box_episode",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/776754/cache-776754-1747141125/images-original.png"
+        },
+        {
+          "format": "centered_background",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/776755/cache-776755-1747141129/images-original.png"
+        },
+        {
+          "format": "centered_background_small",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/776756/cache-776756-1747141133/images-original.png"
+        },
+        {
+          "format": "cover_artwork_horizontal",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/776757/cache-776757-1747141136/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/776765/cache-776765-1747141166/images-original.png"
+        },
+        {
+          "format": "tvos_cover_artwork",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/776769/cache-776769-1747141179/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box_textless",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/778455/cache-778455-1747758226/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box_series",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/781961/cache-781961-1749751675/images-original.png"
+        },
+        {
+          "format": "cover_artwork_vertical",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/842159/cache-842159-1752048728/images-original.png"
+        }
+      ],
+      "trailer_url": null,
+      "trailer_id": null,
+      "optimised_trailers": null,
+      "consumable": {
+        "film_id": 433422,
+        "available_at": "2025-06-13T04:00:00Z",
+        "availability": "live",
+        "availability_ends_at": "2027-06-01T04:00:00Z",
+        "expires_at": "2027-06-01T16:00:00Z",
+        "film_date_message": null,
+        "offered": [
+          {
+            "type": "catalogue",
+            "download_availability": null
+          }
+        ],
+        "exclusive": false,
+        "permit_download": true,
+        "playback_languages": {
+          "audio_options": [
+            "English"
+          ],
+          "subtitle_options": [
+            "English",
+            "English (SDH)"
+          ],
+          "media_options": {
+            "duration": 5633,
+            "hd": true
+          },
+          "media_features": [
+            "HD",
+            "stereo"
+          ],
+          "extended_audio_options": [
+            "English"
+          ]
+        }
+      },
+      "award": null,
+      "press_quote": null,
+      "episode": {
+        "label": "Season 1 - Episode 1",
+        "number": 1,
+        "series_title": "Twin Peaks",
+        "season_number": 1,
+        "season_title": "Season 1",
+        "film_group_id": null,
+        "film_group_slug": null,
+        "episode_title": "Northwest Passage",
+        "series_id": 7,
+        "season_id": 13,
+        "episode_label": "E1",
+        "episode_season_label": "SEASON 1: E1"
+      },
+      "series": {
+        "id": 7,
+        "title": "Twin Peaks",
+        "original_title": "Twin Peaks",
+        "limited": false,
+        "rating_comments_count": 60,
+        "episode_count": 30,
+        "season_count": 2,
+        "content_rating": {
+          "label": "mature",
+          "rating_code": "MATURE",
+          "description": "Contains material and themes suitable only for mature audiences.",
+          "icon_url": null,
+          "label_hex_color": "dd2323"
+        },
+        "genres": [
+          "Drama",
+          "Thriller",
+          "Crime",
+          "Mystery",
+          "TV Series",
+          "Cult"
+        ],
+        "average_rating": 4.7,
+        "average_rating_out_of_ten": 9.5,
+        "number_of_ratings": 18376,
+        "info_label": "SERIES",
+        "availability": "live",
+        "short_synopsis": "F.B.I. Agent Dale Cooper comes to the logging town of Twin Peaks to investigate the murder of Laura Palmer, a popular high school student. While investigating, Agent Cooper comes to know the town’s inhabitants, their odd behaviors, and slowly learns that strange things are happening.",
+        "default_editorial": "Refracting primetime soap operas and cop shows into a one-of-a-kind cosmic melodrama, showrunners Mark Frost and David Lynch captured lightning in a bottle. Cloaking its dark secrets in a down-home slice of winsome Americana, Twin Peaks is the pop-cultural juggernaut that captivated a generation.",
+        "seasons": [
+          {
+            "id": 13,
+            "title_upcase": "SEASON 1",
+            "original_title": "Season 1",
+            "season_number": 1,
+            "release_year": 1990,
+            "slug": "season-1",
+            "web_url": "https://mubi.com/series/twin-peaks/season/season-1",
+            "trailer_url": "https://trailers.mubicdn.net/seasons/13/optimised/1080p-t-13_en_us_1749828150.mp4",
+            "trailer_id": 127527,
+            "critic_review_rating": 4.1667,
+            "short_synopsis": "The sensational murder of the high school homecoming queen strips the veneer of respectable gentility from the rural community of Twin Peaks to expose its seething undercurrents. FBI agent Dale Cooper and Sheriff Harry S Truman join forces to investigate—and discover a town full of secrets. ",
+            "short_synopsis_html": "<p>The sensational murder of the high school homecoming queen strips the veneer of respectable gentility from the rural community of Twin Peaks to expose its seething undercurrents. FBI agent Dale Cooper and Sheriff Harry S Truman join forces to investigate&#8212;and discover a town full of secrets. </p>",
+            "episode_count": 8,
+            "title": "Season 1",
+            "industry_events_count": 8,
+            "cast_members_count": 68,
+            "default_editorial": "An ancient terror lurks beneath the homey facades of sleepy diners and cozy cabins in the iconic first season of Twin Peaks. Tread carefully, travelers, through this place where secrets and lies come wrapped in plastic. The picture-perfect image of small-town America is about to go up in flames.",
+            "default_editorial_html": "<p>An ancient terror lurks beneath the homey facades of sleepy diners and cozy cabins in the iconic first season of <em>Twin Peaks</em>. Tread carefully, travelers, through this place where secrets and lies come wrapped in plastic. The picture-perfect image of small-town America is about to go up in flames.</p>",
+            "optimised_trailers": [
+              {
+                "url": "https://trailers.mubicdn.net/seasons/13/optimised/240p-t-13_en_us_1749828150.mp4",
+                "profile": "240p"
+              },
+              {
+                "url": "https://trailers.mubicdn.net/seasons/13/optimised/720p-t-13_en_us_1749828150.mp4",
+                "profile": "720p"
+              },
+              {
+                "url": "https://trailers.mubicdn.net/seasons/13/optimised/1080p-t-13_en_us_1749828150.mp4",
+                "profile": "1080p"
+              }
+            ],
+            "artworks": [
+              {
+                "format": "cover_artwork_box_textless",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/777852/cache-777852-1747683134/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "tile_artwork",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/778454/cache-778454-1747758184/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_horizontal",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/781785/cache-781785-1749748645/images-original.jpg",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_vertical",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/781786/cache-781786-1749748697/images-original.jpg",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_episode",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782018/cache-782018-1749806399/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782019/cache-782019-1749806404/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background_small",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782020/cache-782020-1749806408/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782037/cache-782037-1749806514/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "tvos_cover_artwork",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782046/cache-782046-1749806566/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_series",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782055/cache-782055-1749806577/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              }
+            ]
+          },
+          {
+            "id": 14,
+            "title_upcase": "SEASON 2",
+            "original_title": "Season 2",
+            "season_number": 2,
+            "release_year": 1990,
+            "slug": "season-2",
+            "web_url": "https://mubi.com/series/twin-peaks/season/season-2",
+            "trailer_url": "https://trailers.mubicdn.net/seasons/14/optimised/1080p-t-14_en_us_1749828198.mp4",
+            "trailer_id": 127534,
+            "critic_review_rating": 4.0769,
+            "short_synopsis": "FBI Agent Dale Cooper continues his investigation into Laura Palmer’s murder. As secrets surface and new threats emerge, the town of Twin Peaks grows ever stranger and more dangerous.",
+            "short_synopsis_html": "<p>FBI Agent Dale Cooper continues his investigation into Laura Palmer&#8217;s murder. As secrets surface and new threats emerge, the town of Twin Peaks grows ever stranger and more dangerous.</p>",
+            "episode_count": 22,
+            "title": "Season 2",
+            "industry_events_count": 4,
+            "cast_members_count": 118,
+            "default_editorial": "As Laura Palmer’s furtive past continues to unravel in mysterious ways, the second season of Twin Peaks takes an unsettling detour into the mystical and supernatural. With a Pandora’s box containing the wicked truth now pried open, the moral darkness that haunts the American dream is soon unbound.",
+            "default_editorial_html": "<p>As Laura Palmer&#8217;s furtive past continues to unravel in mysterious ways, the second season of <em>Twin Peaks</em> takes an unsettling detour into the mystical and supernatural. With a Pandora&#8217;s box containing the wicked truth now pried open, the moral darkness that haunts the American dream is soon unbound.</p>",
+            "optimised_trailers": [
+              {
+                "url": "https://trailers.mubicdn.net/seasons/14/optimised/240p-t-14_en_us_1749828198.mp4",
+                "profile": "240p"
+              },
+              {
+                "url": "https://trailers.mubicdn.net/seasons/14/optimised/720p-t-14_en_us_1749828198.mp4",
+                "profile": "720p"
+              },
+              {
+                "url": "https://trailers.mubicdn.net/seasons/14/optimised/1080p-t-14_en_us_1749828198.mp4",
+                "profile": "1080p"
+              }
+            ],
+            "artworks": [
+              {
+                "format": "tile_artwork",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/777349/cache-777349-1747243835/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_textless",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/777794/cache-777794-1747649956/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_horizontal",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/781787/cache-781787-1749748727/images-original.jpg",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_vertical",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/781788/cache-781788-1749748755/images-original.jpg",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_episode",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782064/cache-782064-1749806939/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782065/cache-782065-1749806944/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background_small",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782066/cache-782066-1749806947/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782083/cache-782083-1749807063/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "tvos_cover_artwork",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782092/cache-782092-1749807118/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_series",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782101/cache-782101-1749807129/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "countries": [
+        "AG",
+        "AI",
+        "AR",
+        "AS",
+        "AT",
+        "AW",
+        "BB",
+        "BO",
+        "BQ",
+        "BR",
+        "BZ",
+        "CH",
+        "CL",
+        "CO",
+        "CR",
+        "CW",
+        "DE",
+        "DM",
+        "DO",
+        "EC",
+        "FM",
+        "GB",
+        "GD",
+        "GG",
+        "GI",
+        "GT",
+        "GU",
+        "GY",
+        "HN",
+        "HT",
+        "IE",
+        "IM",
+        "IN",
+        "IT",
+        "JE",
+        "JM",
+        "KN",
+        "KY",
+        "LC",
+        "LU",
+        "MC",
+        "MH",
+        "MP",
+        "MS",
+        "MT",
+        "MX",
+        "NI",
+        "NL",
+        "PA",
+        "PE",
+        "PW",
+        "PY",
+        "SM",
+        "SR",
+        "SV",
+        "SX",
+        "TC",
+        "TR",
+        "TT",
+        "UM",
+        "US",
+        "UY",
+        "VA",
+        "VC",
+        "VE",
+        "VG",
+        "VI"
+      ],
+      "imdb_id": "tt0098936",
+      "tmdb_id": "1920"
+    },
+    {
+      "mubi_id": 433459,
+      "title": "Part 1",
+      "original_title": "Twin Peaks: The Return Episode 1",
+      "year": 2017,
+      "duration": 61,
+      "genres": [
+        "Drama",
+        "Fantasy",
+        "Thriller",
+        "Crime",
+        "Mystery",
+        "TV Mini-series"
+      ],
+      "directors": [
+        "David Lynch"
+      ],
+      "short_synopsis": "My log has a message for you.",
+      "default_editorial": "",
+      "historic_countries": [
+        "United States"
+      ],
+      "popularity": 5046,
+      "average_rating_out_of_ten": 9.4,
+      "number_of_ratings": 8545,
+      "hd": true,
+      "critic_review_rating": 0.0,
+      "content_rating": {
+        "label": "mature",
+        "rating_code": "MATURE",
+        "description": "Contains material and themes suitable only for mature audiences.",
+        "icon_url": null
+      },
+      "content_warnings": [
+        {
+          "id": 17,
+          "name": "injury detail",
+          "key": "injury_detail"
+        }
+      ],
+      "stills": {
+        "small": "https://assets.mubicdn.net/images/film/433459/image-w256.jpg?1747696370",
+        "medium": "https://assets.mubicdn.net/images/film/433459/image-w448.jpg?1747696370",
+        "standard": "https://assets.mubicdn.net/images/film/433459/image-w856.jpg?1747696370",
+        "retina": "https://assets.mubicdn.net/images/film/433459/image-w1280.jpg?1747696370",
+        "small_overlaid": "https://assets.mubicdn.net/images/film/433459/image-w512_overlaid.jpg?1747696370",
+        "large_overlaid": "https://assets.mubicdn.net/images/film/433459/image-w1504_overlaid.jpg?1747696370",
+        "standard_push": "https://assets.mubicdn.net/images/film/433459/image-w856_two_one.jpg?1747696370"
+      },
+      "still_url": "https://images.mubicdn.net/images/film/433459/cache-1036225-1747696370/image-w1280.jpg",
+      "portrait_image": null,
+      "artworks": [
+        {
+          "format": "cover_artwork_box_textless",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/777932/cache-777932-1747695587/images-original.png"
+        },
+        {
+          "format": "tile_artwork",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/777933/cache-777933-1747696436/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box_episode",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/777934/cache-777934-1747696439/images-original.png"
+        },
+        {
+          "format": "centered_background",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/777935/cache-777935-1747696443/images-original.png"
+        },
+        {
+          "format": "centered_background_small",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/777936/cache-777936-1747696446/images-original.png"
+        },
+        {
+          "format": "cover_artwork_horizontal",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/777937/cache-777937-1747696451/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/777945/cache-777945-1747696485/images-original.png"
+        },
+        {
+          "format": "tvos_cover_artwork",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/777949/cache-777949-1747696499/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box_series",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/781884/cache-781884-1749750109/images-original.png"
+        },
+        {
+          "format": "cover_artwork_vertical",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/842335/cache-842335-1752049565/images-original.png"
+        }
+      ],
+      "trailer_url": null,
+      "trailer_id": null,
+      "optimised_trailers": null,
+      "consumable": {
+        "film_id": 433459,
+        "available_at": "2025-06-13T04:00:00Z",
+        "availability": "live",
+        "availability_ends_at": "2027-06-01T04:00:00Z",
+        "expires_at": "2027-06-01T16:00:00Z",
+        "film_date_message": null,
+        "offered": [
+          {
+            "type": "catalogue",
+            "download_availability": null
+          }
+        ],
+        "exclusive": false,
+        "permit_download": true,
+        "playback_languages": {
+          "audio_options": [
+            "English"
+          ],
+          "subtitle_options": [
+            "English",
+            "English (SDH)"
+          ],
+          "media_options": {
+            "duration": 3634,
+            "hd": true
+          },
+          "media_features": [
+            "HD",
+            "5.1"
+          ],
+          "extended_audio_options": [
+            "English (5.1)"
+          ]
+        }
+      },
+      "award": null,
+      "press_quote": null,
+      "episode": {
+        "label": "The Return - Episode 1",
+        "number": 1,
+        "series_title": "Twin Peaks: A Limited Event Series",
+        "season_number": 1,
+        "season_title": "The Return",
+        "film_group_id": null,
+        "film_group_slug": null,
+        "episode_title": "Part 1",
+        "series_id": 8,
+        "season_id": 15,
+        "episode_label": "E1",
+        "episode_season_label": "E1"
+      },
+      "series": {
+        "id": 8,
+        "title": "Twin Peaks: A Limited Event Series",
+        "original_title": "Twin Peaks: A Limited Event Series",
+        "limited": true,
+        "rating_comments_count": 35,
+        "episode_count": 18,
+        "season_count": 1,
+        "content_rating": {
+          "label": "mature",
+          "rating_code": "MATURE",
+          "description": "Contains material and themes suitable only for mature audiences.",
+          "icon_url": null,
+          "label_hex_color": "dd2323"
+        },
+        "genres": [
+          "Drama",
+          "Fantasy",
+          "Thriller",
+          "Crime",
+          "Mystery",
+          "TV Mini-series"
+        ],
+        "average_rating": 4.7,
+        "average_rating_out_of_ten": 9.4,
+        "number_of_ratings": 8545,
+        "info_label": "LIMITED SERIES",
+        "availability": "live",
+        "short_synopsis": "One of the most groundbreaking and influential broadcast series of all time, Twin Peaks followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues…",
+        "default_editorial": "",
+        "seasons": [
+          {
+            "id": 15,
+            "title_upcase": "THE RETURN",
+            "original_title": "The Return",
+            "season_number": 1,
+            "release_year": 2017,
+            "slug": "season-1",
+            "web_url": "https://mubi.com/series/twin-peaks-a-limited-event-series/season/season-1",
+            "trailer_url": "https://trailers.mubicdn.net/seasons/15/optimised/1080p-t-15_en_us_1749752841.mp4",
+            "trailer_id": 128941,
+            "critic_review_rating": 4.7021,
+            "short_synopsis": "One of the most groundbreaking and influential broadcast series of all time, Twin Peaks followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues…",
+            "short_synopsis_html": "<p>One of the most groundbreaking and influential broadcast series of all time, <em>Twin Peaks</em> followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues&#8230;</p>",
+            "episode_count": 18,
+            "title": "The Return",
+            "industry_events_count": 8,
+            "cast_members_count": 129,
+            "default_editorial": "Dreams nest in nightmares, and nightmares in dreams, in Mark Frost and David Lynch’s electrifying return to the world of Twin Peaks. A monumental work of novelistic scope and grandeur, this limited series event slips the boundaries of space and time to prowl the charged line between good and evil.",
+            "default_editorial_html": "<p>Dreams nest in nightmares, and nightmares in dreams, in Mark Frost and David Lynch&#8217;s electrifying return to the world of Twin Peaks. A monumental work of novelistic scope and grandeur, this limited series event slips the boundaries of space and time to prowl the charged line between good and evil.</p>",
+            "optimised_trailers": [
+              {
+                "url": "https://trailers.mubicdn.net/seasons/15/optimised/240p-t-15_en_us_1749752841.mp4",
+                "profile": "240p"
+              },
+              {
+                "url": "https://trailers.mubicdn.net/seasons/15/optimised/720p-t-15_en_us_1749752841.mp4",
+                "profile": "720p"
+              },
+              {
+                "url": "https://trailers.mubicdn.net/seasons/15/optimised/1080p-t-15_en_us_1749752841.mp4",
+                "profile": "1080p"
+              }
+            ],
+            "artworks": [
+              {
+                "format": "tile_artwork",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/778550/cache-778550-1747761231/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_textless",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/778551/cache-778551-1747761245/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_horizontal",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/781789/cache-781789-1749748798/images-original.jpg",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_vertical",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/781790/cache-781790-1749748824/images-original.jpg",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_episode",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782110/cache-782110-1749807494/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782111/cache-782111-1749807499/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background_small",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/782112/cache-782112-1749807502/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782113/cache-782113-1749807507/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "tvos_cover_artwork",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782114/cache-782114-1749807510/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_series",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/782115/cache-782115-1749807514/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "countries": [
+        "AG",
+        "AI",
+        "AR",
+        "AS",
+        "AT",
+        "AW",
+        "BB",
+        "BO",
+        "BQ",
+        "BR",
+        "BZ",
+        "CH",
+        "CL",
+        "CO",
+        "CR",
+        "CW",
+        "DE",
+        "DM",
+        "DO",
+        "EC",
+        "FM",
+        "GB",
+        "GD",
+        "GG",
+        "GI",
+        "GT",
+        "GU",
+        "GY",
+        "HN",
+        "HT",
+        "IE",
+        "IM",
+        "IN",
+        "IT",
+        "JE",
+        "JM",
+        "KN",
+        "KY",
+        "LC",
+        "LU",
+        "MC",
+        "MH",
+        "MP",
+        "MS",
+        "MT",
+        "MX",
+        "NI",
+        "NL",
+        "PA",
+        "PE",
+        "PW",
+        "PY",
+        "SM",
+        "SR",
+        "SV",
+        "SX",
+        "TC",
+        "TR",
+        "TT",
+        "UM",
+        "US",
+        "UY",
+        "VA",
+        "VC",
+        "VE",
+        "VG",
+        "VI"
+      ],
+      "imdb_id": "tt3950230",
+      "tmdb_id": "63854"
+    },
+    {
+      "mubi_id": 448206,
+      "title": "Pilot",
+      "original_title": "Pilot",
+      "year": 2025,
+      "duration": 26,
+      "genres": [
+        "Comedy",
+        "Drama",
+        "TV Mini-series"
+      ],
+      "directors": [
+        "Cooper Raiff"
+      ],
+      "short_synopsis": "Hal and Harper’s childhood house is on the market, and Dad’s got even bigger news that’s about to send all three on a journey through time.",
+      "default_editorial": "",
+      "historic_countries": [
+        "United States"
+      ],
+      "popularity": 1576,
+      "average_rating_out_of_ten": 9.3,
+      "number_of_ratings": 3948,
+      "hd": true,
+      "critic_review_rating": 0,
+      "content_rating": {
+        "label": "caution",
+        "rating_code": "CAUTION",
+        "description": "Contains material that may not be suitable for children or young adults.",
+        "icon_url": null
+      },
+      "content_warnings": [],
+      "stills": {
+        "small": "https://assets.mubicdn.net/images/film/448206/image-w256.jpg?1757432851",
+        "medium": "https://assets.mubicdn.net/images/film/448206/image-w448.jpg?1757432851",
+        "standard": "https://assets.mubicdn.net/images/film/448206/image-w856.jpg?1757432851",
+        "retina": "https://assets.mubicdn.net/images/film/448206/image-w1280.jpg?1757432851",
+        "small_overlaid": "https://assets.mubicdn.net/images/film/448206/image-w512_overlaid.jpg?1757432851",
+        "large_overlaid": "https://assets.mubicdn.net/images/film/448206/image-w1504_overlaid.jpg?1757432851",
+        "standard_push": "https://assets.mubicdn.net/images/film/448206/image-w856_two_one.jpg?1757432851"
+      },
+      "still_url": "https://images.mubicdn.net/images/film/448206/cache-1082712-1757432851/image-w1280.jpg",
+      "portrait_image": null,
+      "artworks": [
+        {
+          "format": "tile_artwork",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/857523/cache-857523-1757432875/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box_episode",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/857524/cache-857524-1757432878/images-original.png"
+        },
+        {
+          "format": "centered_background",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/857525/cache-857525-1757432883/images-original.png"
+        },
+        {
+          "format": "centered_background_small",
+          "locale": null,
+          "image_url": "https://images.mubicdn.net/images/artworks/857526/cache-857526-1757432886/images-original.png"
+        },
+        {
+          "format": "cover_artwork_horizontal",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/865965/cache-865965-1758810182/images-original.png"
+        },
+        {
+          "format": "cover_artwork_vertical",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/865966/cache-865966-1758810187/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/865967/cache-865967-1758810192/images-original.png"
+        },
+        {
+          "format": "tvos_cover_artwork",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/865969/cache-865969-1758810195/images-original.png"
+        },
+        {
+          "format": "cover_artwork_box_series",
+          "locale": "en-US",
+          "image_url": "https://images.mubicdn.net/images/artworks/865970/cache-865970-1758810198/images-original.png"
+        }
+      ],
+      "trailer_url": null,
+      "trailer_id": null,
+      "optimised_trailers": null,
+      "consumable": {
+        "film_id": 448206,
+        "available_at": "2025-10-18T12:00:00Z",
+        "availability": "live",
+        "availability_ends_at": "2028-10-18T12:00:00Z",
+        "expires_at": "2028-10-19T00:00:00Z",
+        "film_date_message": null,
+        "offered": [
+          {
+            "type": "catalogue",
+            "download_availability": null
+          }
+        ],
+        "exclusive": false,
+        "permit_download": true,
+        "playback_languages": {
+          "audio_options": [
+            "English"
+          ],
+          "subtitle_options": [
+            "French",
+            "English",
+            "English (SDH)"
+          ],
+          "media_options": {
+            "duration": 1536,
+            "hd": true
+          },
+          "media_features": [
+            "HD",
+            "5.1"
+          ],
+          "extended_audio_options": [
+            "English (5.1)"
+          ]
+        }
+      },
+      "award": null,
+      "press_quote": null,
+      "episode": {
+        "label": "Season 1 - Episode 1",
+        "number": 1,
+        "series_title": "Hal & Harper",
+        "season_number": 1,
+        "season_title": "Season 1",
+        "film_group_id": null,
+        "film_group_slug": null,
+        "episode_title": "Pilot",
+        "series_id": 13,
+        "season_id": 22,
+        "episode_label": "E1",
+        "episode_season_label": "E1"
+      },
+      "series": {
+        "id": 13,
+        "title": "Hal & Harper",
+        "original_title": "Hal & Harper",
+        "limited": true,
+        "rating_comments_count": 17,
+        "episode_count": 8,
+        "season_count": 1,
+        "content_rating": {
+          "label": "mature",
+          "rating_code": "MATURE",
+          "description": "Contains material and themes suitable only for mature audiences.",
+          "icon_url": null,
+          "label_hex_color": "dd2323"
+        },
+        "genres": [
+          "Comedy",
+          "Drama",
+          "TV Mini-series"
+        ],
+        "average_rating": 4.6,
+        "average_rating_out_of_ten": 9.3,
+        "number_of_ratings": 3948,
+        "info_label": "LIMITED SERIES",
+        "availability": "live",
+        "short_synopsis": "Hal and Harper have built their adult lives side by side in Los Angeles, bound by a lifetime of inside jokes and shared pain. When Dad announces he’s having a baby with his girlfriend, the siblings must reexamine their past and reckon with the versions of themselves they’ve carried into adulthood.",
+        "default_editorial": "",
+        "seasons": [
+          {
+            "id": 22,
+            "title_upcase": "SEASON 1",
+            "original_title": "Season 1",
+            "season_number": 1,
+            "release_year": 2025,
+            "slug": "season-1",
+            "web_url": "https://mubi.com/series/hal-harper/season/season-1",
+            "trailer_url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
+            "trailer_id": 135064,
+            "critic_review_rating": 4.1818,
+            "short_synopsis": "",
+            "short_synopsis_html": "",
+            "episode_count": 8,
+            "title": "Season 1",
+            "industry_events_count": 4,
+            "cast_members_count": 21,
+            "default_editorial": "Multi-hyphenate wunderkind Cooper Raiff (Cha Cha Real Smooth) writes, directs, and stars in this conceptually ambitious comic drama. With knockout performances from Lili Reinhart and Mark Ruffalo, Hal & Harper is a beautifully modulated examination of love, identity, and arrested development.",
+            "default_editorial_html": "<p>Multi-hyphenate wunderkind Cooper Raiff (<em>Cha Cha Real Smooth</em>) writes, directs, and stars in this conceptually ambitious comic drama. With knockout performances from Lili Reinhart and Mark Ruffalo, <em>Hal &amp; Harper</em> is a beautifully modulated examination of love, identity, and arrested development.</p>",
+            "optimised_trailers": [
+              {
+                "url": "https://trailers.mubicdn.net/seasons/22/optimised/240p-t-22_fr_fr_1759508323.mp4",
+                "profile": "240p"
+              },
+              {
+                "url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
+                "profile": "720p"
+              }
+            ],
+            "artworks": [
+              {
+                "format": "cover_artwork_box_textless",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/865963/cache-865963-1758806743/images-original.png",
+                "focal_point": {
+                  "x": 0.49,
+                  "y": 0.52
+                }
+              },
+              {
+                "format": "tile_artwork",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/865964/cache-865964-1758806806/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_episode",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/872515/cache-872515-1760529050/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/872516/cache-872516-1760529055/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "centered_background_small",
+                "locale": null,
+                "image_url": "https://images.mubicdn.net/images/artworks/872517/cache-872517-1760529059/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_horizontal",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/872518/cache-872518-1760529066/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_vertical",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/872527/cache-872527-1760529133/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/872536/cache-872536-1760529183/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "tvos_cover_artwork",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/872545/cache-872545-1760529235/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              },
+              {
+                "format": "cover_artwork_box_series",
+                "locale": "en-US",
+                "image_url": "https://images.mubicdn.net/images/artworks/872554/cache-872554-1760529247/images-original.png",
+                "focal_point": {
+                  "x": 0.5,
+                  "y": 0.0
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "countries": [
+        "AD",
+        "AG",
+        "AI",
+        "AR",
+        "AS",
+        "AW",
+        "BB",
+        "BL",
+        "BO",
+        "BQ",
+        "BR",
+        "BS",
+        "BZ",
+        "CL",
+        "CO",
+        "CR",
+        "CU",
+        "CW",
+        "DM",
+        "DO",
+        "EC",
+        "FM",
+        "FR",
+        "GD",
+        "GF",
+        "GP",
+        "GT",
+        "GU",
+        "GY",
+        "HN",
+        "HT",
+        "JM",
+        "KN",
+        "KY",
+        "LC",
+        "MC",
+        "MF",
+        "MH",
+        "MP",
+        "MQ",
+        "MS",
+        "MX",
+        "NC",
+        "NI",
+        "PA",
+        "PE",
+        "PF",
+        "PM",
+        "PR",
+        "PY",
+        "RE",
+        "SR",
+        "SV",
+        "SX",
+        "TF",
+        "TT",
+        "UM",
+        "US",
+        "UY",
+        "VC",
+        "VE",
+        "VG",
+        "VI",
+        "WF",
+        "YT"
+      ],
+      "tmdb_id": "282948"
     },
     {
       "mubi_id": 412909,
@@ -4852,7 +4852,7 @@
       "historic_countries": [
         "France"
       ],
-      "popularity": 201,
+      "popularity": 202,
       "average_rating_out_of_ten": 8.3,
       "number_of_ratings": 569,
       "hd": true,
