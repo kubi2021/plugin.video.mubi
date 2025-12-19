@@ -1500,19 +1500,12 @@ class TestPlayMubiVideoFlow:
             mock_dialog_instance = Mock()
             mock_dialog.return_value = mock_dialog_instance
             
-            # Mock: Current country is CH (not in available list)
-            with patch('xbmcaddon.Addon') as mock_addon_class:
-                mock_addon_instance = Mock()
-                def get_setting_side_effect(key):
-                    if key == "client_country":
-                        return "CH"
-                    return ""
-                mock_addon_instance.getSetting.side_effect = get_setting_side_effect
-                mock_addon_class.return_value = mock_addon_instance
+            # Mock: Current country is CH (via IP check)
+            navigation_handler.mubi.get_cli_country.return_value = "CH"
 
-                navigation_handler.play_mubi_video(
-                    film_id="123", web_url="https://mubi.com/films/test"
-                )
+            navigation_handler.play_mubi_video(
+                film_id="123", web_url="https://mubi.com/films/test"
+            )
 
             # Verify dialog.ok was called with VPN message
             mock_dialog_instance.ok.assert_called_once()
@@ -1563,20 +1556,12 @@ class TestPlayMubiVideoFlow:
 
         with patch('xbmcgui.Dialog') as mock_dialog, \
              patch('xbmcgui.ListItem'), \
-             patch('xbmcplugin.setResolvedUrl'), \
-             patch('xbmcaddon.Addon') as mock_addon_class:
-            
-            mock_addon_instance = Mock()
-            # Mock: Current country is CH (in available list)
-            def get_setting_side_effect(key):
-                if key == "client_country":
-                    return "CH"
-                return ""
-            mock_addon_instance.getSetting.side_effect = get_setting_side_effect
-            mock_addon_class.return_value = mock_addon_instance
-            
+             patch('xbmcplugin.setResolvedUrl'):
             mock_dialog_instance = Mock()
             mock_dialog.return_value = mock_dialog_instance
+
+            # Mock: Current country is CH (via IP check)
+            navigation_handler.mubi.get_cli_country.return_value = "CH"
 
             navigation_handler.play_mubi_video(
                 film_id="123", web_url="https://mubi.com/films/test"
@@ -1612,20 +1597,13 @@ class TestPlayMubiVideoFlow:
 </movie>"""
         )
 
-        with patch('xbmcgui.Dialog') as mock_dialog, \
-             patch('xbmcaddon.Addon') as mock_addon_class:
-            
-            mock_addon_instance = Mock()
-             # Mock: Current country is CH
-            def get_setting_side_effect(key):
-                if key == "client_country":
-                    return "CH"
-                return ""
-            mock_addon_instance.getSetting.side_effect = get_setting_side_effect
-            mock_addon_class.return_value = mock_addon_instance
+        with patch('xbmcgui.Dialog') as mock_dialog:
 
             mock_dialog_instance = Mock()
             mock_dialog.return_value = mock_dialog_instance
+            
+            # Mock: Current country is CH (via IP check)
+            navigation_handler.mubi.get_cli_country.return_value = "CH"
 
             navigation_handler.play_mubi_video(
                 film_id="999", web_url="https://mubi.com/films/upcoming"

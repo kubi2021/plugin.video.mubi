@@ -663,11 +663,10 @@ class NavigationHandler:
             return
 
         # Step 1: Get current client country (from settings or auto-detect logic)
-        addon = xbmcaddon.Addon()
-        current_country = addon.getSetting("client_country")
-        if not current_country:
-             current_country = "US" # Fallback/Default
-        xbmc.log(f"Current client country detected: {current_country}", xbmc.LOGINFO)
+        # Step 1: Get current client country (Live check for VPN support)
+        # We check the actual IP location to support users who switch VPNs before playback
+        current_country = self.mubi.get_cli_country()
+        xbmc.log(f"Current client country detected via IP: {current_country}", xbmc.LOGINFO)
 
         # Step 2: Get available countries from NFO file
         # Returns a dict of {country_code: availability_details}
