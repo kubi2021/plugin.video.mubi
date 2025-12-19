@@ -31,7 +31,7 @@ class TestConcurrency:
             
             library = Library()
             with patch.object(Library, 'remove_obsolete_files'):
-                library.films = [MagicMock()] 
+                library.films = {'test_id': MagicMock()} 
                 with patch.object(Library, 'is_film_valid', return_value=True):
                      library.sync_locally("plugin://url", Path("/tmp"))
             
@@ -57,7 +57,7 @@ class TestConcurrency:
             
             library = Library()
             with patch.object(Library, 'remove_obsolete_files'):
-                library.films = [MagicMock()]
+                library.films = {'test_id': MagicMock()}
                 with patch.object(Library, 'is_film_valid', return_value=True):
                     library.sync_locally("plugin://url", Path("/tmp"))
                 
@@ -80,7 +80,7 @@ class TestConcurrency:
             
             library = Library()
             with patch.object(Library, 'remove_obsolete_files'):
-                library.films = [MagicMock()]
+                library.films = {'test_id': MagicMock()} 
                 with patch.object(Library, 'is_film_valid', return_value=True):
                      library.sync_locally("plugin://url", Path("/tmp"))
             

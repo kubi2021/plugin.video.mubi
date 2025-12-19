@@ -758,7 +758,7 @@ class TestLibrarySyncEdgeCases:
         assert len(library.films) == 1
 
     def test_film_availability_country_merging(self):
-        """Test when same film added from different countries, duplicate is skipped."""
+        """Test when same film added from different countries, availability is merged."""
         library = Library()
         metadata = MockMetadata(year=2023)
 
@@ -769,7 +769,7 @@ class TestLibrarySyncEdgeCases:
             artwork="",
             web_url="",
             metadata=metadata,
-            available_countries=['US']
+            available_countries={'US': {}}
         )
         # Same film from FR (duplicate by mubi_id)
         film_fr = Film(
@@ -778,24 +778,25 @@ class TestLibrarySyncEdgeCases:
             artwork="",
             web_url="",
             metadata=metadata,
-            available_countries=['FR']
+            available_countries={'FR': {}}
         )
 
         library.add_film(film_us)
         library.add_film(film_fr)
 
-        # Library skips duplicates - only first film is kept
+        # Library keeps one entry but merges countries
         assert len(library.films) == 1
-        film = library.films[0]
-        # First film's countries are preserved
+        film = library.films["123"]
+        # Both countries are preserved
         assert 'US' in film.available_countries
+        assert 'FR' in film.available_countries
 
     def test_library_with_zero_films(self):
         """Test empty library operations work correctly."""
         library = Library()
 
         assert len(library.films) == 0
-        assert library.films == []
+        assert library.films == {}
 
     def test_library_with_one_film(self):
         """Test single film boundary case."""
@@ -812,7 +813,7 @@ class TestLibrarySyncEdgeCases:
         library.add_film(film)
 
         assert len(library.films) == 1
-        assert library.films[0].title == "Only Film"
+        assert library.films["123"].title == "Only Film"
 
 
 class TestRegressionTests:

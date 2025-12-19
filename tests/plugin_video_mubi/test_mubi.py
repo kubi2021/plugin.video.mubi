@@ -2799,7 +2799,7 @@ class TestMultiCountrySync:
 
             # Film should have all 3 countries in available_countries
             assert len(library.films) == 1
-            film_result = library.films[0]
+            film_result = list(library.films.values())[0]
             assert hasattr(film_result, 'available_countries')
             assert set(film_result.available_countries) == {'CH', 'DE', 'FR'}
 

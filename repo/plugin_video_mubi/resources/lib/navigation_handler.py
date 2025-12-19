@@ -705,11 +705,7 @@ class NavigationHandler:
 
             if vpn_suggestions:
                 vpn_countries = ", ".join([f"{s[1]}" for s in vpn_suggestions])
-                message = (
-                    f"This movie is not currently available in {current_country_name} "
-                    f"(Status: {availability_status}).\n\n"
-                    f"Connect to a VPN in one of these countries:\n{vpn_countries}"
-                )
+                message = f"This movie is not available in {current_country_name}. Connect to a VPN and try again. Available countries: {vpn_countries}"
             else:
                 extra_msg = ""
                 if availability_status != "unknown" and availability_status != "live":
@@ -718,6 +714,8 @@ class NavigationHandler:
 
             xbmc.log(f"Film not available in {current_country}: {message}", xbmc.LOGINFO)
             xbmcgui.Dialog().ok("MUBI - Not Available", message)
+            # Tell Kodi we failed so it stops loading, hopefully suppressing the timeout error
+            xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
             return
 
         # Step 4: Proceed with playback
@@ -735,17 +733,16 @@ class NavigationHandler:
                     vpn_suggestions = self._get_vpn_suggestions(available_countries_data)
                     if vpn_suggestions:
                         vpn_countries = ", ".join([s[1] for s in vpn_suggestions])
-                        message = (
-                            f"This movie is not available in {current_country_name}.\n\n"
-                            f"Connect to a VPN in one of these countries:\n{vpn_countries}"
-                        )
+                        message = f"This movie is not available in {current_country_name}. Connect to a VPN and try again. Available countries: {vpn_countries}"
                         xbmcgui.Dialog().ok("MUBI - Not Available", message)
+                        xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
                         return
 
                 # Check if this is a geo-restriction error (contains VPN message)
                 if 'VPN' in error_msg:
                     # Show a dialog for geo-restriction, no browser option
                     xbmcgui.Dialog().ok("MUBI", error_msg)
+                    xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
                     return  # Exit without offering browser option
                 else:
                     # For other errors, raise exception to trigger browser option

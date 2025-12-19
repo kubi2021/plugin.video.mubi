@@ -91,16 +91,20 @@ class TestRealComponentIntegration:
         device_id_2 = real_session_manager.get_or_generate_device_id()
         assert device_id_1 == device_id_2
 
-    def test_library_add_and_retrieve(self, real_film_library, sample_film):
-        """Test adding films to library and retrieving them."""
-        # Initially empty
+    def test_library_add_and_retrieve(self, sample_film):
+        """Test adding films to library and checking state."""
+        real_film_library = Library()
+        
+        # Check initial state
+        assert real_film_library.films == {}
         assert len(real_film_library) == 0
-        assert real_film_library.films == []
 
         # Add a film
         real_film_library.add_film(sample_film)
+        
+        # Verify it's there
         assert len(real_film_library) == 1
-        assert sample_film in real_film_library.films
+        assert sample_film in real_film_library.films.values()
 
         # Add duplicate (should not increase count)
         real_film_library.add_film(sample_film)
@@ -227,7 +231,7 @@ class TestRealComponentIntegration:
         assert mock_log.call_count >= 2
 
     def test_mubi_initialization_with_real_session(self, real_session_manager):
-        """Test Mubi initialization with real SessionManager."""
+        """Test Mubi class initialization with real session manager."""
         mubi = Mubi(real_session_manager)
         
         assert mubi.session_manager == real_session_manager
@@ -236,7 +240,7 @@ class TestRealComponentIntegration:
         
         # Test that libraries are properly initialized
         assert len(mubi.library) == 0
-        assert mubi.library.films == []
+        assert mubi.library.films == {}
 
 
 @pytest.mark.integration

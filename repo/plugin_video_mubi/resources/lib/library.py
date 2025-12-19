@@ -12,13 +12,20 @@ import re
 
 class Library:
     def __init__(self):
-        self.films: List[Film] = []
+        self.films = {}  # Dictionary mapping mubi_id to Film object
 
     def add_film(self, film: Film):
         if not film or not film.mubi_id or not film.title or not film.metadata:
             raise ValueError("Invalid film: missing required fields (mubi_id, title, or metadata).")
-        if film not in self.films:
-            self.films.append(film)
+        
+        if film.mubi_id in self.films:
+            # Film exists, merge availability data
+            existing_film = self.films[film.mubi_id]
+            if film.available_countries:
+                existing_film.available_countries.update(film.available_countries)
+        else:
+            # New film, add to library
+            self.films[film.mubi_id] = film
 
     def __len__(self):
         return len(self.films)
@@ -34,7 +41,7 @@ class Library:
         # Films are expected to be already filtered by the time they are added to Library
 
         # Log films that contain problematic characters for debugging
-        for film in self.films:
+        for film in self.films.values():
             if '#' in film.title or any(char in film.title for char in '<>:"/\\|?*^%$&{}@!;`~'):
                 xbmc.log(
                     f"Processing film with special characters: '{film.title}' "
@@ -80,7 +87,7 @@ class Library:
                 # Submit all tasks
                 future_to_film = {
                     executor.submit(self.prepare_files_for_film, film, base_url, plugin_userdata_path, skip_external_metadata): film
-                    for film in self.films
+                    for film in self.films.values()
                     if self.is_film_valid(film)
                 }
 
@@ -240,7 +247,7 @@ class Library:
         :return: The number of obsolete film folders removed.
         """
         # Get a set of sanitized folder names for the current films in the library
-        current_film_folders = {film.get_sanitized_folder_name() for film in self.films}
+        current_film_folders = {film.get_sanitized_folder_name() for film in self.films.values()}
 
         # Track obsolete folder count
         obsolete_folders_count = 0
