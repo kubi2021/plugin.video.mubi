@@ -95,6 +95,12 @@ def get_optimal_countries(user_country: str) -> List[str]:
     if not all_films:
         return []
 
+    # Import COUNTRIES for VPN tier lookup
+    try:
+        from .countries import COUNTRIES
+    except ImportError:
+        from countries import COUNTRIES
+
     # Greedy set cover algorithm
     covered = set()
     selected = []
@@ -107,9 +113,16 @@ def get_optimal_countries(user_country: str) -> List[str]:
         del remaining[user_country_lower]
 
     # Greedily select countries that cover the most uncovered films
+    # Tiebreaker: prefer countries with lower VPN tier (better infrastructure)
     while covered != all_films and remaining:
-        # Find country with most uncovered films
-        best = max(remaining.keys(), key=lambda c: len(remaining[c] - covered))
+        def country_score(c):
+            new_films_count = len(remaining[c] - covered)
+            # VPN tier: 1=best, 4=worst. Use negative for descending sort on coverage
+            vpn_tier = COUNTRIES.get(c, {}).get('vpn_tier', 4)
+            # Return tuple: (new_films DESC, vpn_tier ASC)
+            return (-new_films_count, vpn_tier)
+        
+        best = min(remaining.keys(), key=country_score)
         new_films = remaining[best] - covered
 
         if not new_films:
