@@ -431,16 +431,50 @@
                         "integer",
                         "null"
                     ]
+                },
+                "prize_image_url": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "prize_text": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
-            "additionalProperties": false
+            "additionalProperties": true
         },
         "press_quote": {
-            "type": [
-                "string",
-                "null"
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "quote": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "source": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+                    "additionalProperties": true
+                }
             ],
-            "description": "Press quote / tagline"
+            "description": "Press quote - can be string or object with quote/source"
         },
         "episode": {
             "type": [
