@@ -20,6 +20,9 @@ class ExternalMetadataResult:
     source_provider: str = ""
     success: bool = False
     error_message: Optional[str] = None
+    # Rating data from provider
+    vote_average: Optional[float] = None
+    vote_count: Optional[int] = None
 
 class TitleNormalizer:
     """Utilities for normalizing titles and generating spelling variants."""

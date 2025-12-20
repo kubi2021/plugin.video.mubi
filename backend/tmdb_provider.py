@@ -200,6 +200,12 @@ class TMDBProvider:
             if imdb_id:
                 result_data["imdb_id"] = imdb_id
                 result_data["imdb_url"] = f"https://www.imdb.com/title/{imdb_id}/"
+            
+            # Extract rating data (TMDB uses 0-10 scale)
+            if data.get("vote_average"):
+                result_data["vote_average"] = float(data["vote_average"])
+            if data.get("vote_count"):
+                result_data["vote_count"] = int(data["vote_count"])
                 
             return ExternalMetadataResult(**result_data)
             

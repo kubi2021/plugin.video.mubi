@@ -124,6 +124,31 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: 
             film['imdb_id'] = result.imdb_id
         if result.tmdb_id:
             film['tmdb_id'] = result.tmdb_id
+        
+        # Build ratings array
+        ratings = []
+        
+        # Add Mubi rating (from existing fields)
+        mubi_rating = film.get('average_rating_out_of_ten')
+        mubi_voters = film.get('number_of_ratings')
+        if mubi_rating is not None:
+            ratings.append({
+                "source": "mubi",
+                "score_over_10": float(mubi_rating),
+                "voters": int(mubi_voters) if mubi_voters else 0
+            })
+        
+        # Add TMDB rating
+        if result.vote_average is not None:
+            ratings.append({
+                "source": "tmdb",
+                "score_over_10": result.vote_average,
+                "voters": result.vote_count or 0
+            })
+        
+        if ratings:
+            film['ratings'] = ratings
+        
         logger.info(f"Found match: IMDB={result.imdb_id}, TMDB={result.tmdb_id}")
         return True
     else:
