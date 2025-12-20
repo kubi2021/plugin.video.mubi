@@ -1,0 +1,77 @@
+name: Mubi Deep Sync Test (Single Country)
+
+on:
+  workflow_dispatch:
+    inputs:
+      country:
+        description: 'Country code to test (e.g., DE, US, GB)'
+        required: true
+        default: 'DE'
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  test-sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11' 
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+
+    - name: Run Scraper (Single Country - ${{ inputs.country }})
+      run: |
+        # Create output directory
+        mkdir -p database/v1
+        
+        # Run scraper for single country only
+        python backend/scraper.py --mode deep --countries ${{ inputs.country }} --output database/v1/films.json --series-output database/v1/series.json
+        
+    - name: Enrich Metadata (Add IMDB/TMDB IDs)
+      env:
+        TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      run: |
+        python backend/enrich_metadata.py --path database/v1/films.json
+        python backend/enrich_metadata.py --path database/v1/series.json --type series
+        
+    - name: Generate Repo Files (Compress & Hash)
+      run: |
+        cd database/v1
+        python ../../backend/generate_repo.py --file films.json
+        python ../../backend/generate_repo.py --file series.json
+        
+        # Verify output
+        ls -la
+
+    - name: Validate Schema
+      run: |
+        pip install jsonschema
+        python backend/validate_schema.py --path database/v1/films.json --version 1
+        python backend/validate_schema.py --path database/v1/series.json --version 1
+        
+    - name: Show Results Summary
+      if: always()
+      run: |
+        echo "=== Test Sync Summary ==="
+        echo "Country: ${{ inputs.country }}"
+        if [ -f database/v1/films.json ]; then
+          echo "Films count: $(python -c "import json; print(json.load(open('database/v1/films.json'))['meta']['total_count'])")"
+        fi
+        if [ -f database/v1/series.json ]; then
+          echo "Series count: $(python -c "import json; print(json.load(open('database/v1/series.json'))['meta']['total_count'])")"
+        fi
+        echo "========================="
+
+    # NOTE: No deploy step - this is for testing only

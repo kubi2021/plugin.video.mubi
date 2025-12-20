@@ -635,8 +635,15 @@ if __name__ == "__main__":
     parser.add_argument('--output', default='films.json', help="Output films file path")
     parser.add_argument('--series-output', default='series.json', help="Output series file path")
     parser.add_argument('--input', default=None, help="Input file path (required for shallow mode)")
+    parser.add_argument('--countries', default=None, help="Comma-separated list of country codes to scrape (e.g., DE,US,GB). Defaults to all.")
     
     args = parser.parse_args()
     
     scraper = MubiScraper()
+    
+    # Override COUNTRIES if specified
+    if args.countries:
+        scraper.COUNTRIES = [c.strip().upper() for c in args.countries.split(',')]
+        logger.info(f"Limiting scrape to countries: {scraper.COUNTRIES}")
+    
     scraper.run(output_path=args.output, series_path=args.series_output, mode=args.mode, input_path=args.input)
