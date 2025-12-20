@@ -226,7 +226,7 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 ### Dec 20th, 2025 - Improved Availability Handling 🎯
 - **Smarter Country Selection**: Worldwide sync now prioritizes countries with better VPN infrastructure when selecting which regions to fetch from
 - **More Accurate Syncs**: Fixed edge cases where films could show incorrect or incomplete availability data
-- **Better User Experience**: Removed low-tier countries (like Antarctica) from sync optimization, resulting in more reliable playback options
+- **Better User Experience**: Removed low-tier VPN countries from sync optimization, resulting in more reliable playback options
 
 ### Dec 18th, 2025 - Fast Sync (Beta) ⚡
 - **GitHub-Hosted Backend Scraper**: Built a backend scraper that runs on GitHub Actions, pre-computing the MUBI catalogue so the plugin doesn't need to crawl the API directly.
