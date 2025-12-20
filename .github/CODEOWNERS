@@ -1,0 +1,11 @@
+# Schema tests require human review - agents cannot bypass
+# Changes to these files will require approval from @kubi2021
+
+# Protected schema validation tests
+/tests/backend/test_schema_v1.py @kubi2021
+
+# Protected schema definition files
+/backend/schemas/ @kubi2021
+
+# Optional: protect Pydantic models (uncomment if desired)
+# /repo/plugin_video_mubi/resources/lib/models.py @kubi2021
