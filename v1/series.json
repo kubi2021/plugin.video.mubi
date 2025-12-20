@@ -1,9 +1,9 @@
 {
   "meta": {
-    "generated_at": "2025-12-19T20:52:08.610158Z",
+    "generated_at": "2025-12-20T12:19:39.754547Z",
     "version": 1,
     "total_count": 11,
-    "mode": "deep"
+    "mode": "shallow"
   },
   "items": [
     {
@@ -25,9 +25,9 @@
         "Spain",
         "France"
       ],
-      "popularity": 1006,
+      "popularity": 1030,
       "average_rating_out_of_ten": 9.0,
-      "number_of_ratings": 2668,
+      "number_of_ratings": 2745,
       "hd": true,
       "critic_review_rating": 0,
       "content_rating": {
@@ -123,7 +123,7 @@
         ],
         "average_rating": 4.5,
         "average_rating_out_of_ten": 9.0,
-        "number_of_ratings": 2668,
+        "number_of_ratings": 2745,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Madrid, New Year’s Eve. Ana and Óscar meet for the first time on the night they both turn thirty. That night, their worlds collide in an unexpected romance that will unfold over an entire decade of New Year’s Eves.",
@@ -887,9 +887,9 @@
         "South Africa",
         "United States"
       ],
-      "popularity": 2070,
+      "popularity": 2071,
       "average_rating_out_of_ten": 9.2,
-      "number_of_ratings": 4081,
+      "number_of_ratings": 4083,
       "hd": true,
       "critic_review_rating": 5.0,
       "content_rating": {
@@ -1015,7 +1015,7 @@
         ],
         "average_rating": 4.6,
         "average_rating_out_of_ten": 9.2,
-        "number_of_ratings": 4081,
+        "number_of_ratings": 4083,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "During the COVID-19 pandemic, renowned South African artist William Kentridge opens the doors to his Johannesburg studio to lay bare his creative process. Combining animation, collage, performance, and conversations with doppelgängers, Kentridge reflects on culture, history, and political memory.",
@@ -2676,7 +2676,7 @@
       ],
       "popularity": 1577,
       "average_rating_out_of_ten": 8.8,
-      "number_of_ratings": 3217,
+      "number_of_ratings": 3219,
       "hd": false,
       "critic_review_rating": 0,
       "content_rating": {
@@ -2725,6 +2725,7 @@
           "English"
         ],
         "subtitle_options": [
+          "Turkish",
           "English",
           "English (SDH)",
           "Dutch",
@@ -2732,8 +2733,7 @@
           "German",
           "Italian",
           "Portuguese",
-          "Spanish (LatAm)",
-          "Turkish"
+          "Spanish (LatAm)"
         ],
         "media_options": {
           "duration": 173,
@@ -2786,7 +2786,7 @@
         ],
         "average_rating": 4.4,
         "average_rating_out_of_ten": 8.8,
-        "number_of_ratings": 3217,
+        "number_of_ratings": 3219,
         "info_label": "SERIES",
         "availability": "live",
         "short_synopsis": "Isabella Rossellini slips into the roles of various animals to act out their mating rituals, reproductive habits, and parenting behaviors. Shapeshifting from a vengeful female spider to a wiggly worm, Rossellini reveals some of the stranger truths of the animal kingdom.",
@@ -4481,9 +4481,9 @@
         "United States",
         "Italy"
       ],
-      "popularity": 3164,
+      "popularity": 3173,
       "average_rating_out_of_ten": 9.3,
-      "number_of_ratings": 8176,
+      "number_of_ratings": 8198,
       "hd": true,
       "critic_review_rating": 0,
       "content_rating": {
@@ -4569,7 +4569,7 @@
         "title": "Mussolini: Son of the Century",
         "original_title": "Mussolini: Il figlio del secolo",
         "limited": true,
-        "rating_comments_count": 40,
+        "rating_comments_count": 41,
         "episode_count": 8,
         "season_count": 1,
         "content_rating": {
@@ -4586,7 +4586,7 @@
         ],
         "average_rating": 4.6,
         "average_rating_out_of_ten": 9.3,
-        "number_of_ratings": 8176,
+        "number_of_ratings": 8198,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Spanning the political chaos of 1920s Italy, Benito Mussolini transforms from socialist journalist to Italy’s brutal dictator, starting with his Blackshirts militia to the establishment of an authoritarian rule that would go on to set Europe aflame.",
@@ -5165,7 +5165,7 @@
         "Denmark",
         "Sweden"
       ],
-      "popularity": 1426,
+      "popularity": 1425,
       "average_rating_out_of_ten": 8.3,
       "number_of_ratings": 3948,
       "hd": true,
@@ -6302,9 +6302,9 @@
       "historic_countries": [
         "United States"
       ],
-      "popularity": 9930,
+      "popularity": 9951,
       "average_rating_out_of_ten": 9.5,
-      "number_of_ratings": 18376,
+      "number_of_ratings": 18411,
       "hd": true,
       "critic_review_rating": 0.0,
       "content_rating": {
@@ -6414,7 +6414,7 @@
         ],
         "average_rating": 4.7,
         "average_rating_out_of_ten": 9.5,
-        "number_of_ratings": 18376,
+        "number_of_ratings": 18411,
         "info_label": "SERIES",
         "availability": "live",
         "short_synopsis": "F.B.I. Agent Dale Cooper comes to the logging town of Twin Peaks to investigate the murder of Laura Palmer, a popular high school student. While investigating, Agent Cooper comes to know the town’s inhabitants, their odd behaviors, and slowly learns that strange things are happening.",
@@ -7103,9 +7103,9 @@
       "historic_countries": [
         "United States"
       ],
-      "popularity": 5046,
+      "popularity": 5053,
       "average_rating_out_of_ten": 9.4,
-      "number_of_ratings": 8545,
+      "number_of_ratings": 8563,
       "hd": true,
       "critic_review_rating": 0.0,
       "content_rating": {
@@ -7210,7 +7210,7 @@
         ],
         "average_rating": 4.7,
         "average_rating_out_of_ten": 9.4,
-        "number_of_ratings": 8545,
+        "number_of_ratings": 8563,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "One of the most groundbreaking and influential broadcast series of all time, Twin Peaks followed the residents of a northwestern town stunned by the murder of homecoming queen Laura Palmer. Twenty-five years later, the story continues…",
@@ -7770,9 +7770,9 @@
       "historic_countries": [
         "United States"
       ],
-      "popularity": 1576,
+      "popularity": 1593,
       "average_rating_out_of_ten": 9.3,
-      "number_of_ratings": 3948,
+      "number_of_ratings": 3973,
       "hd": true,
       "critic_review_rating": 0,
       "content_rating": {
@@ -7815,9 +7815,9 @@
           "English"
         ],
         "subtitle_options": [
-          "French",
           "English",
-          "English (SDH)"
+          "English (SDH)",
+          "Spanish (LatAm)"
         ],
         "media_options": {
           "duration": 1536,
@@ -7869,7 +7869,7 @@
         ],
         "average_rating": 4.6,
         "average_rating_out_of_ten": 9.3,
-        "number_of_ratings": 3948,
+        "number_of_ratings": 3973,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "Hal and Harper have built their adult lives side by side in Los Angeles, bound by a lifetime of inside jokes and shared pain. When Dad announces he’s having a baby with his girlfriend, the siblings must reexamine their past and reckon with the versions of themselves they’ve carried into adulthood.",
@@ -7883,8 +7883,8 @@
             "release_year": 2025,
             "slug": "season-1",
             "web_url": "https://mubi.com/series/hal-harper/season/season-1",
-            "trailer_url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
-            "trailer_id": 135064,
+            "trailer_url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_en_us_1760968900.mp4",
+            "trailer_id": 135824,
             "critic_review_rating": 4.1818,
             "short_synopsis": "",
             "short_synopsis_html": "",
@@ -7896,11 +7896,11 @@
             "default_editorial_html": "<p>Multi-hyphenate wunderkind Cooper Raiff (<em>Cha Cha Real Smooth</em>) writes, directs, and stars in this conceptually ambitious comic drama. With knockout performances from Lili Reinhart and Mark Ruffalo, <em>Hal &amp; Harper</em> is a beautifully modulated examination of love, identity, and arrested development.</p>",
             "optimised_trailers": [
               {
-                "url": "https://trailers.mubicdn.net/seasons/22/optimised/240p-t-22_fr_fr_1759508323.mp4",
+                "url": "https://trailers.mubicdn.net/seasons/22/optimised/240p-t-22_en_us_1760968900.mp4",
                 "profile": "240p"
               },
               {
-                "url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_fr_fr_1759508323.mp4",
+                "url": "https://trailers.mubicdn.net/seasons/22/optimised/720p-t-22_en_us_1760968900.mp4",
                 "profile": "720p"
               }
             ],
@@ -8462,12 +8462,16 @@
           "image_url": "https://images.mubicdn.net/images/artworks/843104/cache-843104-1752052738/images-original.png"
         }
       ],
-      "trailer_url": "https://trailers.mubicdn.net/412909/optimised/240p-t-mysteries-of-lisbon-episode-1-o-menino-sem-nome_en_us_1723535378.mp4",
-      "trailer_id": 112052,
+      "trailer_url": "https://trailers.mubicdn.net/412909/optimised/720p-t-mysteries-of-lisbon-episode-1-o-menino-sem-nome_en_us_us_1723535378.mp4",
+      "trailer_id": 112053,
       "optimised_trailers": [
         {
-          "url": "https://trailers.mubicdn.net/412909/optimised/240p-t-mysteries-of-lisbon-episode-1-o-menino-sem-nome_en_us_1723535378.mp4",
+          "url": "https://trailers.mubicdn.net/412909/optimised/240p-t-mysteries-of-lisbon-episode-1-o-menino-sem-nome_en_us_us_1723535378.mp4",
           "profile": "240p"
+        },
+        {
+          "url": "https://trailers.mubicdn.net/412909/optimised/720p-t-mysteries-of-lisbon-episode-1-o-menino-sem-nome_en_us_us_1723535378.mp4",
+          "profile": "720p"
         }
       ],
       "playback_languages": {
@@ -8773,9 +8777,9 @@
       "historic_countries": [
         "Japan"
       ],
-      "popularity": 176,
+      "popularity": 177,
       "average_rating_out_of_ten": 7.8,
-      "number_of_ratings": 676,
+      "number_of_ratings": 677,
       "hd": true,
       "critic_review_rating": 3.8333333333333335,
       "content_rating": {
@@ -8901,7 +8905,7 @@
         ],
         "average_rating": 3.9,
         "average_rating_out_of_ten": 7.8,
-        "number_of_ratings": 676,
+        "number_of_ratings": 677,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "A mysterious stranger approaches a group of young friends at a sleepy small town playground, then kidnaps and brutally murders one of the girls. Wracked with grief, the victim’s unhinged mother Asako demands that the shaken survivors identify the killer or face a penance of her choosing.",
@@ -9137,9 +9141,9 @@
       "historic_countries": [
         "France"
       ],
-      "popularity": 202,
+      "popularity": 203,
       "average_rating_out_of_ten": 8.3,
-      "number_of_ratings": 572,
+      "number_of_ratings": 573,
       "hd": true,
       "critic_review_rating": 0,
       "content_rating": {
@@ -9256,7 +9260,7 @@
         ],
         "average_rating": 4.1,
         "average_rating_out_of_ten": 8.3,
-        "number_of_ratings": 572,
+        "number_of_ratings": 573,
         "info_label": "LIMITED SERIES",
         "availability": "live",
         "short_synopsis": "After a corpse is discovered inside a cow, a wild police investigation unfolds in a bizarre French village that has fallen prey to evil. Meanwhile, a band of young, mischievous scoundrels watches from the sides.",
