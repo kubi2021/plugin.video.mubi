@@ -1,3 +1,7 @@
+---
+description: security policy and filename sanitization guidelines
+---
+
 # Security Policy
 
 ## Security Level

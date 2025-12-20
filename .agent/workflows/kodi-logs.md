@@ -1,33 +1,52 @@
 ---
-type: "always_apply"
+description: analyzing Kodi logs for debugging
 ---
 
-# Kodi Log Analysis Rules
+# Kodi Log Analysis Workflow
 
-## Log File Location (macOS)
+## Log File Locations
 
-The Kodi log file is located at:
+| Platform | Path |
+|----------|------|
+| **macOS** | `~/Library/Logs/kodi.log` |
+| **Windows** | `%APPDATA%\Kodi\kodi.log` |
+| **Linux** | `~/.kodi/temp/kodi.log` |
+| **Android** | `/sdcard/Android/data/org.xbmc.kodi/files/.kodi/temp/kodi.log` |
+
+---
+
+## Workflow Steps
+
+### Step 1: Check Timestamp First
+
+// turbo
+```bash
+# macOS - show first 5 lines to verify log freshness
+head -5 ~/Library/Logs/kodi.log
 ```
-~/Library/Logs/kodi.log
+
+Compare the timestamp with current time. If log is stale (old session), **warn the user** before proceeding.
+
+### Step 2: Filter for MUBI Plugin Entries
+
+// turbo
+```bash
+# macOS - grep for MUBI-related entries
+grep -i "mubi\|plugin.video.mubi" ~/Library/Logs/kodi.log | tail -100
 ```
 
-## When to Access Logs
+### Step 3: Check for Errors
 
-- **Only look at the log when explicitly prompted by the user**
-- Do NOT proactively read logs without being asked
+// turbo
+```bash
+# Find error-level entries for MUBI
+grep -E "(error|ERROR|Error).*mubi" ~/Library/Logs/kodi.log | tail -50
+```
 
-## Timestamp Verification
-
-Before analyzing logs for debugging purposes:
-
-1. **Always check the timestamp** at the start of log entries
-2. Compare the log timestamp with the current time
-3. If the log is old (not from the current session), **warn the user** that the log may be stale
-4. Debugging based on old logs provides **no meaningful information** for current issues
+---
 
 ## Log Entry Format
 
-Kodi log entries follow this format:
 ```
 YYYY-MM-DD HH:MM:SS.mmm T:thread_id level <category>: message
 ```
@@ -37,10 +56,24 @@ Example:
 2025-12-05 19:16:54.438 T:3733214 debug <general>: CScriptRunner: running add-on script MUBI
 ```
 
-## Key Log Patterns for MUBI Plugin
+---
 
-- Plugin initialization: `running add-on script MUBI`
-- API calls: `Making API call: GET https://api.mubi.com/v4/`
-- Metadata extraction: `Using enhanced editorial content`, `Found fanart`, `Found poster`
-- Errors: Look for `error` level entries related to `plugin.video.mubi`
+## Key Patterns to Look For
 
+| Pattern | Meaning |
+|---------|---------|
+| `running add-on script MUBI` | Plugin startup |
+| `Starting GitHub Sync` | Sync initiated |
+| `Schema version: 1` | JSON version info |
+| `Successfully downloaded and parsed` | Sync completed |
+| `Error downloading file` | Network/download failure |
+| `MD5 verification` | Integrity check result |
+| `Failed to parse` | Schema/parsing error |
+
+---
+
+## Important Rules
+
+1. **Only read logs when explicitly asked** - do not proactively access
+2. **Always verify timestamp** - stale logs provide no meaningful debugging info
+3. **Focus on recent entries** - use `tail` to get latest entries
