@@ -1,0 +1,485 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://github.com/kubi2021/plugin.video.mubi/blob/main/backend/schemas/v1_schema.json",
+    "title": "Mubi Film Schema v1",
+    "description": "JSON Schema for Mubi film data (v1). PROTECTED: Changes require human review.",
+    "type": "object",
+    "required": [
+        "mubi_id",
+        "title"
+    ],
+    "properties": {
+        "mubi_id": {
+            "type": "integer",
+            "description": "Unique Mubi film ID"
+        },
+        "tmdb_id": {
+            "type": [
+                "integer",
+                "string",
+                "null"
+            ],
+            "description": "TMDB movie ID (enriched, may be string or int)"
+        },
+        "imdb_id": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "IMDB ID (e.g., tt1234567)"
+        },
+        "title": {
+            "type": "string",
+            "description": "Display title (localized)"
+        },
+        "original_title": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Original language title"
+        },
+        "year": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "description": "Release year"
+        },
+        "duration": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "description": "Runtime in minutes"
+        },
+        "genres": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "List of genre names"
+        },
+        "directors": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "List of director names"
+        },
+        "short_synopsis": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Brief plot summary"
+        },
+        "default_editorial": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Mubi's editorial description"
+        },
+        "historic_countries": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Production countries"
+        },
+        "popularity": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "description": "Mubi popularity ranking"
+        },
+        "average_rating_out_of_ten": {
+            "type": [
+                "number",
+                "null"
+            ],
+            "description": "Mubi user rating (0-10)"
+        },
+        "number_of_ratings": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "description": "Vote count"
+        },
+        "hd": {
+            "type": [
+                "boolean",
+                "null"
+            ],
+            "description": "HD availability flag"
+        },
+        "critic_review_rating": {
+            "type": [
+                "number",
+                "null"
+            ],
+            "description": "Critic rating"
+        },
+        "content_rating": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "properties": {
+                "label": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "rating_code": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "description": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "icon_url": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "content_warnings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "key"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "stills": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "properties": {
+                "small": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "medium": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "standard": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "retina": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "small_overlaid": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "large_overlaid": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "standard_push": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "still_url": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Primary still image URL"
+        },
+        "portrait_image": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Portrait/poster image"
+        },
+        "artworks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "format",
+                    "image_url"
+                ],
+                "properties": {
+                    "format": {
+                        "type": "string"
+                    },
+                    "locale": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "image_url": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "trailer_url": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Direct trailer URL"
+        },
+        "trailer_id": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "description": "Mubi trailer ID"
+        },
+        "optimised_trailers": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "Optimized trailer variants"
+        },
+        "playback_languages": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "properties": {
+                "audio_options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "extended_audio_options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "subtitle_options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "media_options": {
+                    "type": [
+                        "object",
+                        "null"
+                    ],
+                    "properties": {
+                        "duration": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ]
+                        },
+                        "hd": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "media_features": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "available_countries": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "available_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "availability": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "availability_ends_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "expires_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "film_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "film_date_message": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "exclusive": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "permit_download": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "offered": {
+                        "type": [
+                            "array",
+                            "null"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "description": "Per-country availability data"
+        },
+        "award": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "properties": {
+                "name": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "category": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "year": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "press_quote": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Press quote / tagline"
+        },
+        "episode": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Episode info (for series content)"
+        },
+        "series": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Parent series info (for series content)"
+        },
+        "ratings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "source",
+                    "score_over_10",
+                    "voters"
+                ],
+                "properties": {
+                    "source": {
+                        "type": "string"
+                    },
+                    "score_over_10": {
+                        "type": "number"
+                    },
+                    "voters": {
+                        "type": "integer"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "description": "Multi-source ratings array"
+        }
+    },
+    "additionalProperties": true
+}
