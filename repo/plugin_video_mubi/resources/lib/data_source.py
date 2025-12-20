@@ -237,6 +237,7 @@ class GithubDataSource(FilmDataSource):
     """
 
     GITHUB_URL = "https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz"
+    SUPPORTED_VERSIONS = [1]  # Supported schema versions
 
     def get_films(self, *args, **kwargs) -> List[Dict[str, Any]]:
         """
@@ -290,7 +291,18 @@ class GithubDataSource(FilmDataSource):
             # 4. Decompress and parse
             with gzip.GzipFile(fileobj=io.BytesIO(content)) as gz:
                 data = json.load(gz)
-                
+            
+            # 5. Check version compatibility
+            meta = data.get("meta", {})
+            version = meta.get("version", 1)
+            version_label = meta.get("version_label", "unknown")
+            
+            if version not in self.SUPPORTED_VERSIONS:
+                xbmc.log(f"Warning: Schema version {version} ({version_label}) not officially supported", xbmc.LOGWARNING)
+            else:
+                xbmc.log(f"Schema version: {version} ({version_label})", xbmc.LOGINFO)
+            
+            # 6. Parse films (best-effort - outer exception handler will catch failures)
             films_list = data.get("items", [])
             
             # Normalization: Map 'mubi_id' to 'id' if 'id' is missing

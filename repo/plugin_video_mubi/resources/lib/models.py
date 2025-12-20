@@ -163,6 +163,7 @@ class Meta(BaseModel):
     """Metadata about the generated JSON file."""
     generated_at: str
     version: int
+    version_label: Optional[str] = None  # Human-readable version (e.g., "1.0-beta.1")
     total_count: int
     mode: str
 

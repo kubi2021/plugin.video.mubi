@@ -59,6 +59,12 @@ jobs:
         # Verify output
         ls -la
 
+    - name: Validate Schema
+      run: |
+        pip install jsonschema
+        python backend/validate_schema.py --path database/v1/films.json --version 1
+        python backend/validate_schema.py --path database/v1/series.json --version 1
+
     - name: Deploy to Database Branch
       uses: JamesIves/github-pages-deploy-action@v4
       with:
