@@ -11,6 +11,7 @@ Coverage: Happy path, edge cases, and error handling
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
+import datetime
 from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
 
 
@@ -1907,3 +1908,89 @@ class TestWorldwideSyncMenuLabel:
             # Should use fallback label
             assert 'worldwide' in label.lower()
             assert 'VPN' in description or 'vpn' in description.lower()
+class TestIsCountryAvailable:
+    """Test date-based availability checking logic."""
+
+    @pytest.fixture(autouse=True)
+    def patch_dateutil(self):
+        """Patch dateutil.parser.parse to use datetime.fromisoformat since dateutil is mocked."""
+        # Use simple lambda to handle any extra args if necessary, though fromisoformat takes only string
+        side_effect = lambda s: datetime.datetime.fromisoformat(s)
+        with patch('plugin_video_mubi.resources.lib.navigation_handler.dateutil.parser.parse', side_effect=side_effect):
+            yield
+
+    @pytest.fixture
+    def navigation_handler(self):
+        """Fixture providing a NavigationHandler instance."""
+        mock_mubi = Mock()
+        mock_session = Mock()
+        return NavigationHandler(
+            handle=123,
+            base_url="plugin://plugin.video.mubi/",
+            mubi=mock_mubi,
+            session=mock_session
+        )
+
+    def test_legacy_live_status(self, navigation_handler):
+        """Test fallback to 'live' check when no dates provided."""
+        assert navigation_handler._is_country_available({'availability': 'live'}) is True
+        assert navigation_handler._is_country_available({'availability': 'upcoming'}) is False
+        assert navigation_handler._is_country_available({}) is False
+
+    def test_available_at_future(self, navigation_handler):
+        """Test film not available yet."""
+        future_date = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)).isoformat()
+        details = {
+            'available_at': future_date,
+            'availability': 'upcoming' # status shouldn't matter if date is future
+        }
+        assert navigation_handler._is_country_available(details) is False
+
+    def test_available_at_past(self, navigation_handler):
+        """Test film available now (start date in past)."""
+        past_date = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).isoformat()
+        details = {
+            'available_at': past_date,
+            'availability': 'upcoming' # status ignored if dates present and valid
+        }
+        assert navigation_handler._is_country_available(details) is True
+
+    def test_expires_at_past(self, navigation_handler):
+        """Test film expired."""
+        past_date = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).isoformat()
+        details = {
+            'expires_at': past_date,
+            'availability': 'live'
+        }
+        assert navigation_handler._is_country_available(details) is False
+
+    def test_expires_at_future(self, navigation_handler):
+        """Test film available (expires in future)."""
+        future_date = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)).isoformat()
+        details = {
+            'expires_at': future_date,
+            'availability': 'live'
+        }
+        assert navigation_handler._is_country_available(details) is True
+
+    def test_within_range(self, navigation_handler):
+        """Test film within valid date range."""
+        start = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).isoformat()
+        end = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)).isoformat()
+        details = {
+            'available_at': start,
+            'expires_at': end,
+            'availability': 'live'
+        }
+        assert navigation_handler._is_country_available(details) is True
+
+    def test_outside_range(self, navigation_handler):
+        """Test film outside date range (expired)."""
+        start = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)).isoformat()
+        end = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).isoformat()
+        details = {
+            'available_at': start,
+            'expires_at': end,
+            'availability': 'live'
+        }
+        assert navigation_handler._is_country_available(details) is False

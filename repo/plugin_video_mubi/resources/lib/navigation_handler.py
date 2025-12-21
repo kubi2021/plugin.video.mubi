@@ -9,7 +9,10 @@ from pathlib import Path
 import threading
 from typing import Optional
 from .library import Library
+from .library import Library
 from .playback import play_with_inputstream_adaptive
+import datetime
+import dateutil.parser
 
 class LibraryMonitor(xbmc.Monitor):
     def __init__(self):
@@ -599,6 +602,49 @@ class NavigationHandler:
         xbmc.log(f"No NFO file found for film_id {film_id}", xbmc.LOGWARNING)
         return {}
 
+    def _is_country_available(self, details: dict) -> bool:
+        """
+        Check if the film is available in a country based on date ranges.
+        Falls back to 'live' status check if dates are missing.
+
+        :param details: Availability details dict for a country
+        :return: True if available, False otherwise
+        """
+        # 1. Check date range if available
+        available_at = details.get('available_at')
+        expires_at = details.get('expires_at')
+
+        if available_at or expires_at:
+            try:
+                # Use UTC for comparison as API dates are typically UTC
+                now = datetime.datetime.now(datetime.timezone.utc)
+                
+                is_available = True
+                
+                if available_at:
+                    start_dt = dateutil.parser.parse(available_at)
+                    # ensure timezone awareness
+                    if not start_dt.tzinfo:
+                        start_dt = start_dt.replace(tzinfo=datetime.timezone.utc)
+                    if now < start_dt:
+                        is_available = False
+                
+                if expires_at:
+                    end_dt = dateutil.parser.parse(expires_at)
+                    # ensure timezone awareness
+                    if not end_dt.tzinfo:
+                        end_dt = end_dt.replace(tzinfo=datetime.timezone.utc)
+                    if now > end_dt:
+                        is_available = False
+                
+                return is_available
+            except Exception as e:
+                xbmc.log(f"Error parsing dates for availability check: {e}", xbmc.LOGWARNING)
+                # Fall through to legacy check on error
+
+        # 2. Legacy/Simple check: availability == 'live'
+        return details.get('availability') == 'live'
+
     def _get_vpn_suggestions(self, available_countries_data: dict, max_suggestions: int = 3) -> list:
         """
         Get VPN country suggestions sorted by best VPN tier (fastest infrastructure).
@@ -619,10 +665,8 @@ class NavigationHandler:
         for code, details in available_countries_data.items():
             code_lower = code.lower()
             
-            # Filter: availability must be 'live'
-            # If 'availability' key is missing but country is listed, assume live (legacy/simple)
-            status = details.get('availability', 'live')
-            if status != 'live':
+            # Filter: must be currently available (date check or 'live' status)
+            if not self._is_country_available(details):
                 continue
 
             if code_lower in COUNTRIES:
@@ -686,14 +730,14 @@ class NavigationHandler:
             xbmc.log(f"No availability data found for {film_id}. Assuming available.", xbmc.LOGINFO)
             is_available = True
         elif current_country.upper() in available_country_codes:
-            # Check detailed status if available
+            # Check detailed availability
             details = available_countries_data.get(current_country.upper(), {})
-            availability_status = details.get('availability', 'live') # Default to live if missing
             
-            if availability_status == 'live':
+            if self._is_country_available(details):
                 is_available = True
             else:
-                xbmc.log(f"Film {film_id} in {current_country} has status: {availability_status} (not live)", xbmc.LOGINFO)
+                availability_status = details.get('availability', 'unknown')
+                xbmc.log(f"Film {film_id} in {current_country} is not currently available (Status: {availability_status})", xbmc.LOGINFO)
         
         if not is_available:
             # Get country name for display
