@@ -39,8 +39,8 @@ class TestGithubSyncFlow:
         # Should NOT have called get_provider even once
         mock_factory.get_provider.assert_not_called()
         
-        # Should have proceeded to start sync ("Starting sync: Syncing...")
-        assert any("Starting sync: Syncing..." in str(call) for call in mock_log.call_args_list)
+        # Should have proceeded to start sync ("Starting sync: Syncing (Worldwide)...")
+        assert any("Starting sync: Syncing (Worldwide)..." in str(call) for call in mock_log.call_args_list)
 
     @patch('plugin_video_mubi.resources.lib.film.MetadataProviderFactory')
     def test_create_nfo_skips_external_metadata(self, mock_factory):

@@ -4,6 +4,9 @@ import time
 from typing import List, Dict, Any, Callable
 from abc import ABC, abstractmethod
 
+import datetime
+import dateutil.parser
+
 class FilmDataSource:
     """
     Interface for a film data source.
@@ -242,6 +245,10 @@ class GithubDataSource(FilmDataSource):
     def get_films(self, *args, **kwargs) -> List[Dict[str, Any]]:
         """
         Downloads, decompresses, and parses films.json.gz from GitHub.
+        
+        :kwargs countries: List[str] of country codes to filter by (optional). 
+                           If provided, only films available in at least one of these countries 
+                           (and currently live/within date range) will be returned.
         """
         import requests
         from requests.adapters import HTTPAdapter
@@ -318,6 +325,69 @@ class GithubDataSource(FilmDataSource):
                         film['directors'] = [{'name': d} for d in film['directors']]
 
             xbmc.log(f"Successfully downloaded and parsed {len(films_list)} films from GitHub", xbmc.LOGINFO)
+            
+            # --- FILTERING LOGIC ---
+            target_countries = kwargs.get('countries')
+            if target_countries:
+                # Normalize countries to uppercase
+                target_countries = [c.upper() for c in target_countries]
+                xbmc.log(f"Filtering films for countries: {target_countries}", xbmc.LOGINFO)
+                
+                filtered_list = []
+                now = datetime.datetime.now(datetime.timezone.utc)
+                
+                for film in films_list:
+                    available_countries = film.get('available_countries', {})
+                    if not available_countries:
+                        continue
+                        
+                    is_available = False
+                    
+                    # Check if film is available in ANY of the target countries
+                    for country_code in target_countries:
+                        if country_code in available_countries:
+                            details = available_countries[country_code]
+                            
+                            # Check date availability (logic mirrored from NavigationHandler._is_country_available)
+                            # 1. Date range check
+                            available_at = details.get('available_at')
+                            expires_at = details.get('expires_at')
+                            
+                            country_available = True
+                            
+                            if available_at or expires_at:
+                                try:
+                                    if available_at:
+                                        start_dt = dateutil.parser.parse(available_at)
+                                        if not start_dt.tzinfo:
+                                            start_dt = start_dt.replace(tzinfo=datetime.timezone.utc)
+                                        if now < start_dt:
+                                            country_available = False
+                                    
+                                    if country_available and expires_at:
+                                        end_dt = dateutil.parser.parse(expires_at)
+                                        if not end_dt.tzinfo:
+                                            end_dt = end_dt.replace(tzinfo=datetime.timezone.utc)
+                                        if now > end_dt:
+                                            country_available = False
+                                except Exception as e:
+                                    xbmc.log(f"Error parsing dates for film {film.get('id', '?')}: {e}", xbmc.LOGWARNING)
+                                    # Fallback to simple check
+                                    country_available = details.get('availability') == 'live'
+                            else:
+                                # 2. Simple check
+                                country_available = details.get('availability') == 'live'
+                            
+                            if country_available:
+                                is_available = True
+                                break # Found a valid country, keep the film
+                    
+                    if is_available:
+                        filtered_list.append(film)
+                
+                xbmc.log(f"Filtered count: {len(filtered_list)} (from {len(films_list)} total)", xbmc.LOGINFO)
+                return filtered_list
+
             return films_list
 
         except requests.exceptions.RequestException as e:

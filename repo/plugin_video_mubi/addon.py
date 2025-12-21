@@ -151,7 +151,8 @@ if __name__ == "__main__":
     elif action == "sync_github":
         xbmc.log(f"Calling sync_from_github with handle: {handle}", xbmc.LOGDEBUG)
         try:
-            navigation.sync_from_github()
+            country = params.get("country")
+            navigation.sync_from_github(country=country)
             xbmc.executebuiltin('Container.Refresh')
         except Exception as e:
             xbmc.log(f"Error in sync_github action: {e}", xbmc.LOGERROR)

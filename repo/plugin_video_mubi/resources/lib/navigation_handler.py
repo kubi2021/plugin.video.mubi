@@ -104,7 +104,26 @@ class NavigationHandler:
             
             # Conditionally add sync options based on fast sync setting
             if enable_fast_sync:
-                # Fast sync enabled: only show GitHub sync
+                # Fast sync enabled: show both local and worldwide options using GitHub
+                
+                # Local Sync (GitHub)
+                local_label = f"Sync {self._get_client_country_name()} catalogue"
+                local_desc = (
+                    f"Syncs only films available in {self._get_client_country_name()} "
+                    "using the fast pre-computed database."
+                )
+                menu_items.append(
+                    {
+                        "label": local_label, 
+                        "description": local_desc, 
+                        "action": "sync_github", 
+                        "is_folder": False,
+                        # Pass country as URL param handled in addon.py -> sync_from_github
+                        "params": {"country": self.plugin.getSetting("client_country")} 
+                    }
+                )
+
+                # Worldwide Sync (GitHub)
                 menu_items.append(
                     {"label": "Sync worldwide catalogue", "description": "Fast sync using pre-computed database from GitHub (database/v1/films.json.gz).", "action": "sync_github", "is_folder": False}
                 )
@@ -231,7 +250,12 @@ class NavigationHandler:
             info_tag.setTitle(item["label"])
             info_tag.setPlot(item["description"])
             info_tag.setMediaType("video")
-            url = self.get_url(action=item["action"])
+            if "params" in item:
+                # Add extra params to the URL
+                url = self.get_url(action=item["action"], **item["params"])
+            else:
+                url = self.get_url(action=item["action"])
+            
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, item["is_folder"])
         except Exception as e:
             xbmc.log(f"Error adding menu item {item['label']}: {e}", xbmc.LOGERROR)
@@ -913,14 +937,25 @@ class NavigationHandler:
 
         self._perform_sync(dialog_title=dialog_title, countries=countries)
 
-    def sync_from_github(self):
+    def sync_from_github(self, country: str = None):
         """
         Sync MUBI films locally by downloading a pre-computed database from GitHub.
+        
+        :param country: Optional ISO 3166-1 alpha-2 country code to filter by.
         """
         from .data_source import GithubDataSource
         github_source = GithubDataSource()
+        
+        countries = [country.upper()] if country else None
+        title = f"Syncing ({country.upper() if country else 'Worldwide'})..."
+        
         # Skip external metadata checks/fetches for GitHub sync as the JSON is already enriched
-        self._perform_sync(dialog_title="Syncing...", data_source=github_source, skip_external_metadata=True)
+        self._perform_sync(
+            dialog_title=title, 
+            data_source=github_source, 
+            skip_external_metadata=True,
+            countries=countries # Pass filter to data source
+        )
 
     def _perform_sync(self, dialog_title: str, countries: list = None, data_source=None, skip_external_metadata: bool = False):
         """
