@@ -920,7 +920,7 @@ class NavigationHandler:
         from .data_source import GithubDataSource
         github_source = GithubDataSource()
         # Skip external metadata checks/fetches for GitHub sync as the JSON is already enriched
-        self._perform_sync(dialog_title="Syncing from GitHub...", data_source=github_source, skip_external_metadata=True)
+        self._perform_sync(dialog_title="Syncing...", data_source=github_source, skip_external_metadata=True)
 
     def _perform_sync(self, dialog_title: str, countries: list = None, data_source=None, skip_external_metadata: bool = False):
         """
