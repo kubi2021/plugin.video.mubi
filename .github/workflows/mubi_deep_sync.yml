@@ -71,6 +71,12 @@ jobs:
             title: `🚨 Scraper Failed: Deep Sync`,
             body: `The weekly deep sync failed.\n\n[View Run logs](${run_url})\n\nPlease check the logs for 429 errors or API changes.`
           });
+
+    - name: Cleanup Raw JSON (Keep Compressed Only)
+      run: |
+        rm database/v1/films.json
+        rm database/v1/series.json
+
     - name: Deploy to Database Branch
       uses: JamesIves/github-pages-deploy-action@v4
       with:

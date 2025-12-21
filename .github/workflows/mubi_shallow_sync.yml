@@ -65,6 +65,11 @@ jobs:
         python backend/validate_schema.py --path database/v1/films.json --version 1
         python backend/validate_schema.py --path database/v1/series.json --version 1
 
+    - name: Cleanup Raw JSON (Keep Compressed Only)
+      run: |
+        rm database/v1/films.json
+        rm database/v1/series.json
+
     - name: Deploy to Database Branch
       uses: JamesIves/github-pages-deploy-action@v4
       with:
