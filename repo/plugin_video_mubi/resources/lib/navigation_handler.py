@@ -125,7 +125,7 @@ class NavigationHandler:
 
                 # Worldwide Sync (GitHub)
                 menu_items.append(
-                    {"label": "Sync worldwide catalogue", "description": "Fast sync using pre-computed database from GitHub (database/v1/films.json.gz).", "action": "sync_github", "is_folder": False}
+                    {"label": "Sync worldwide catalogue", "description": worldwide_description, "action": "sync_github", "is_folder": False}
                 )
             else:
                 # Fast sync disabled: show traditional MUBI sync options
@@ -185,9 +185,7 @@ class NavigationHandler:
                 total_films = stats.get('total_films', 0)
                 label = f"Sync MUBI worldwide (about 2k films)"
                 description = (
-                    f"Sync all {total_films} films from MUBI's worldwide catalogue.\n\n"
-                    f"Uses smart optimization: only {optimal_count} countries needed "
-                    f"for 100% coverage.\n\n"
+                    f"Sync all films from MUBI's worldwide catalogue.\n\n"
                     f"No VPN needed to sync, but a VPN is required to play "
                     f"movies outside of your country."
                 )
