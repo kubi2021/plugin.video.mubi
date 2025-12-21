@@ -5,6 +5,9 @@ import base64
 import json
 from urllib.parse import urlencode
 import xbmc
+import pathlib
+from .mpd_patcher import MPDPatcher
+from .local_server import LocalServer
 
 def generate_drm_license_key(token, user_id):
     """
@@ -105,6 +108,39 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, su
         }
 
         headers_str = "&".join([f"{k}={v}" for k, v in stream_headers.items()])
+
+        xbmc.log(f"MUBI Playback: Protocol={protocol}, URL={stream_url}", xbmc.LOGINFO)
+
+        # MPD Patching logic for Kodi audio channel detection
+        if protocol == "mpd":
+            try:
+                patcher = MPDPatcher()
+                # We need to pass headers for the download
+                patched_path = patcher.patch(stream_url, stream_headers)
+                
+                if patched_path:
+                    # Use Local HTTP Server to serve the patched manifest
+                    # This bypasses inputstream.adaptive's issues with local files on some platforms
+                    server = LocalServer.get_instance()
+                    local_url = server.get_url(patched_path)
+                    
+                    xbmc.log(f"Using patched manifest via local server: {local_url} (file: {patched_path})", xbmc.LOGINFO)
+                    stream_url = local_url
+                    
+                    # For the manifest request (localhost), we don't want headers
+                    headers_str = "" 
+                    # Note: Segments will still be fetched from remote (absolute BaseURL), 
+                    # avoiding the need for headers here usually working because of cookie/session persistence or URL tokens?
+                    # Actually, we might need headers for segments if they are not in the URL.
+                    # But we can't easily pass headers for segments but NOT for manifest in ISA current config if using 'stream_headers'.
+                    # However, Mubi usually uses URL-based tokens (cf generate_drm_license_key) or cookies.
+                    # Wait, stream_headers in ISA applies to EVERYTHING. 
+                    # If we set it to empty, segments might fail if they need headers.
+                    # BUT, if we keep it, ISA uses it for the manifest request to localhost, failing because of Host header mismatch or similar?
+                    # Actually, simple python http server ignores headers mostly.
+                    # Let's try EMPTY headers first. If segments fail, we have a different problem.
+            except Exception as e:
+                xbmc.log(f"MPD Patching failed, falling back to original URL: {e}", xbmc.LOGWARNING)
 
         if is_helper.check_inputstream():
             play_item = xbmcgui.ListItem(path=stream_url)

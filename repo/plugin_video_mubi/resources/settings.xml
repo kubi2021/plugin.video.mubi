@@ -14,6 +14,7 @@
                         <heading>30005</heading>
                     </control>
                 </setting>
+
                 <setting id="accept-language" label="30002" type="string" help="">
                     <level>0</level>
                     <default/>
