@@ -44,12 +44,18 @@ class TMDBProvider:
         original_title: Optional[str] = None,
         year: Optional[int] = None,
         media_type: str = "movie",
-        tmdb_id: Optional[int] = None
+        tmdb_id: Optional[int] = None,
+        mubi_directors: Optional[list] = None,
+        mubi_runtime: Optional[int] = None
     ) -> ExternalMetadataResult:
         """
         Fetch IMDB ID and TMDB ID from TMDB.
         Tries Movie search first, then TV search.
         If tmdb_id is provided, skips search and fetches details directly.
+        
+        Args:
+            mubi_directors: List of director names from Mubi for disambiguation.
+            mubi_runtime: Runtime in minutes from Mubi for disambiguation.
         """
         
         # Optimization: Use existing TMDB ID if provided
@@ -85,22 +91,30 @@ class TMDBProvider:
 
         for m_type in search_order:
             for candidate in search_candidates:
-                # A. Strict search
+                # A. Strict search (with disambiguation signals)
                 if m_type == "movie":
-                    tmdb_id = self._search_movie(candidate, year)
-                    if tmdb_id: return self._get_movie_details(tmdb_id)
+                    found_id = self._search_movie(candidate, year, 
+                                                   mubi_directors=mubi_directors, 
+                                                   mubi_runtime=mubi_runtime)
+                    if found_id: return self._get_movie_details(found_id)
                 else:
-                    tmdb_id = self._search_tv(candidate, year)
-                    if tmdb_id: return self._get_tv_details(tmdb_id)
+                    found_id = self._search_tv(candidate, year,
+                                                mubi_directors=mubi_directors,
+                                                mubi_runtime=mubi_runtime)
+                    if found_id: return self._get_tv_details(found_id)
                 
                 # B. Fuzzy year search (if year provided)
                 if year:
                     if m_type == "movie":
-                        tmdb_id = self._search_movie(candidate, year=None, target_year=year)
-                        if tmdb_id: return self._get_movie_details(tmdb_id)
+                        found_id = self._search_movie(candidate, year=None, target_year=year,
+                                                       mubi_directors=mubi_directors,
+                                                       mubi_runtime=mubi_runtime)
+                        if found_id: return self._get_movie_details(found_id)
                     else:
-                        tmdb_id = self._search_tv(candidate, year=None, target_year=year)
-                        if tmdb_id: return self._get_tv_details(tmdb_id)
+                        found_id = self._search_tv(candidate, year=None, target_year=year,
+                                                    mubi_directors=mubi_directors,
+                                                    mubi_runtime=mubi_runtime)
+                        if found_id: return self._get_tv_details(found_id)
         
         return ExternalMetadataResult(
             success=False,
@@ -108,18 +122,26 @@ class TMDBProvider:
             error_message="No match found in Movie or TV results"
         )
 
-    def _search_movie(self, title: str, year: Optional[int], target_year: Optional[int] = None) -> Optional[int]:
+
+    def _search_movie(self, title: str, year: Optional[int], target_year: Optional[int] = None,
+                      mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None) -> Optional[int]:
         """Search for a movie."""
-        return self._search_generic("movie", title, year, target_year)
+        return self._search_generic("movie", title, year, target_year, mubi_directors, mubi_runtime)
 
-    def _search_tv(self, title: str, year: Optional[int], target_year: Optional[int] = None) -> Optional[int]:
+    def _search_tv(self, title: str, year: Optional[int], target_year: Optional[int] = None,
+                   mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None) -> Optional[int]:
         """Search for a TV show."""
-        return self._search_generic("tv", title, year, target_year)
+        return self._search_generic("tv", title, year, target_year, mubi_directors, mubi_runtime)
 
-    def _search_generic(self, media_type: str, title: str, year: Optional[int], target_year: Optional[int] = None) -> Optional[int]:
+    def _search_generic(self, media_type: str, title: str, year: Optional[int], target_year: Optional[int] = None,
+                        mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None) -> Optional[int]:
         """
         Generic search for movie or tv.
         media_type: 'movie' or 'tv'
+        
+        When multiple results are returned, uses scoring to disambiguate:
+        - Director match: +10 points
+        - Runtime match (±3 min): +5 points
         """
         endpoint = f"search/{media_type}"
         params = {
@@ -145,13 +167,67 @@ class TMDBProvider:
             
             if not results:
                 return ExternalMetadataResult(success=False, source_provider=self.provider_name)
+            
+            # Single result: no ambiguity
+            if len(results) == 1:
+                return ExternalMetadataResult(
+                    success=True,
+                    tmdb_id=str(results[0]["id"]),
+                    source_provider=self.provider_name
+                )
+            
+            # Multiple results: apply scoring if disambiguation signals available
+            if mubi_directors or mubi_runtime:
+                scored_results = []
+                for item in results:
+                    score = 0
+                    tmdb_id = item["id"]
+                    
+                    # A. Director match (+10 pts)
+                    if mubi_directors:
+                        credits = self._get_credits(tmdb_id, media_type)
+                        tmdb_directors = [c.get("name", "").lower() for c in credits.get("crew", []) 
+                                          if c.get("job") == "Director"]
+                        mubi_directors_lower = [d.lower() for d in mubi_directors]
+                        if any(d in tmdb_directors for d in mubi_directors_lower):
+                            score += 10
+                            logger.debug(f"Director match for TMDB {tmdb_id}: +10")
+                    
+                    # B. Runtime match (+5 pts)
+                    if mubi_runtime:
+                        tmdb_runtime = item.get("runtime")  # May not be in search results
+                        if tmdb_runtime is None:
+                            details = self._get_details_light(tmdb_id, media_type)
+                            tmdb_runtime = details.get("runtime")
+                        if tmdb_runtime and abs(tmdb_runtime - mubi_runtime) <= 3:
+                            score += 5
+                            logger.debug(f"Runtime match for TMDB {tmdb_id} ({tmdb_runtime}min): +5")
+                    
+                    scored_results.append((score, item))
                 
-            # If target_year is provided (fuzzy search), find best match
+                # Sort by score descending
+                scored_results.sort(key=lambda x: -x[0])
+                best_score, best_item = scored_results[0]
+                
+                if best_score >= 10:
+                    logger.info(f"Disambiguated '{title}' by director match -> TMDB ID {best_item['id']}")
+                elif best_score >= 5:
+                    logger.info(f"Disambiguated '{title}' by runtime match -> TMDB ID {best_item['id']}")
+                elif best_score > 0:
+                    logger.info(f"Partial disambiguation for '{title}' (score={best_score}) -> TMDB ID {best_item['id']}")
+                else:
+                    logger.warning(f"'{title}': {len(results)} candidates, no strong signal. Using first result.")
+                
+                return ExternalMetadataResult(
+                    success=True,
+                    tmdb_id=str(best_item["id"]),
+                    source_provider=self.provider_name
+                )
+            
+            # If target_year is provided (fuzzy search without disambiguation signals), find year match
             if target_year and not year:
                 for item in results:
-                    # Get date string (release_date for movie, first_air_date for tv)
                     date_str = item.get("release_date") if media_type == "movie" else item.get("first_air_date")
-                    
                     if date_str:
                         try:
                             item_year = int(date_str.split("-")[0])
@@ -163,10 +239,9 @@ class TMDBProvider:
                                 )
                         except (ValueError, IndexError):
                             continue
-                
                 return ExternalMetadataResult(success=False, source_provider=self.provider_name)
                 
-            # Default: First result
+            # Default: First result (no disambiguation signals provided)
             return ExternalMetadataResult(
                 success=True,
                 tmdb_id=str(results[0]["id"]),
@@ -231,6 +306,37 @@ class TMDBProvider:
                 error_message=str(e)
             )
 
+
+    def _get_credits(self, tmdb_id: int, media_type: str) -> dict:
+        """Fetch credits (cast/crew) for a movie or TV show."""
+        endpoint = f"{media_type}/{tmdb_id}/credits"
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/{endpoint}",
+                params={"api_key": self.api_key},
+                timeout=10
+            )
+            if response.ok:
+                return response.json()
+        except Exception as e:
+            logger.debug(f"Failed to fetch credits for {media_type}/{tmdb_id}: {e}")
+        return {"crew": [], "cast": []}
+
+    def _get_details_light(self, tmdb_id: int, media_type: str) -> dict:
+        """Fetch lightweight details (runtime, etc.) for a movie or TV show."""
+        endpoint = f"{media_type}/{tmdb_id}"
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/{endpoint}",
+                params={"api_key": self.api_key},
+                timeout=10
+            )
+            if response.ok:
+                return response.json()
+        except Exception as e:
+            logger.debug(f"Failed to fetch details for {media_type}/{tmdb_id}: {e}")
+        return {}
+
     def test_connection(self) -> bool:
         """Test whether the provider is reachable."""
         try:
@@ -242,3 +348,4 @@ class TMDBProvider:
             return response.status_code == 200
         except Exception:
             return False
+

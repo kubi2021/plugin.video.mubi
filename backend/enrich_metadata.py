@@ -194,6 +194,8 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: Op
     title = film.get('title')
     original_title = film.get('original_title')
     year = film.get('year')
+    directors = film.get('directors', [])
+    duration = film.get('duration')
     
     logger.info(f"[{idx+1}/{total}] Fetching metadata for '{title}' ({year})...")
     
@@ -202,7 +204,15 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: Op
 
     tmdb_id = film.get('tmdb_id')
     
-    result = provider.get_imdb_id(title, original_title=original_title, year=year, media_type=media_type, tmdb_id=tmdb_id)
+    result = provider.get_imdb_id(
+        title, 
+        original_title=original_title, 
+        year=year, 
+        media_type=media_type, 
+        tmdb_id=tmdb_id,
+        mubi_directors=directors,
+        mubi_runtime=duration
+    )
     
     if result.success:
         if result.imdb_id:
