@@ -223,6 +223,11 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
+### Dec 22nd, 2025 - Bayesian Ratings & OMDB 🧠
+- **Bayesian Composite Ratings**: Implemented a smart rating system that fuses scores from Mubi, TMDB, and IMDB into a single, reliable 0-10 score. This "Bayesian Average" prevents movies with few votes from skewing the rankings. This is currently not showing in the plugin, only in the backend.
+- **OMDB Backend Integration**: The backend scraper now directly queries OMDB for additional ratings (IMDb, Rotten Tomatoes, Metacritic) during the enrichment phase.
+- **Robustness**: Improved API key handling and error resilience in the backend pipeline.
+
 ### Dec 20th, 2025 - Improved Availability Handling 🎯
 - **Smarter Country Selection**: Worldwide sync now prioritizes countries with better VPN infrastructure when selecting which regions to fetch from
 - **More Accurate Syncs**: Fixed edge cases where films could show incorrect or incomplete availability data
