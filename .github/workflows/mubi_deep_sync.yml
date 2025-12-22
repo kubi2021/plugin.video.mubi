@@ -42,6 +42,12 @@ jobs:
       run: |
         python backend/enrich_metadata.py --path database/v1/films.json
         python backend/enrich_metadata.py --path database/v1/series.json --type series
+
+    - name: Calculate Bayesian Ratings
+      run: |
+        echo "Running Bayesian Rating Calculator..."
+        python backend/rating_calculator.py database/v1/films.json
+        python backend/rating_calculator.py database/v1/series.json
         
     - name: Generate Repo Files (Compress & Hash)
       run: |
