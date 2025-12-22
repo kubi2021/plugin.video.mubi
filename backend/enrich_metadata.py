@@ -50,9 +50,9 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
     if not omdb_keys:
         # Fallback for local dev if needed, or raise warning
         logger.warning("No OMDB_API_KEYS found in environment. OMDB enrichment will be skipped or limited.")
-        omdb_keys = []
-        
-    omdb_provider = OMDBProvider(api_keys=omdb_keys)
+        omdb_provider = None
+    else:
+        omdb_provider = OMDBProvider(api_keys=omdb_keys)
 
     # 2. Load Films
     if not os.path.exists(films_path):
@@ -126,7 +126,7 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
     # Validation
     # ...
 
-def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: OMDBProvider, idx: int, total: int, media_type: str = "movie") -> bool:
+def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: Optional[OMDBProvider], idx: int, total: int, media_type: str = "movie") -> bool:
     """
     Process a single film to fetch external metadata.
     Returns True if updated, False otherwise.

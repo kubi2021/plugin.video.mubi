@@ -513,6 +513,18 @@
                 "additionalProperties": false
             },
             "description": "Multi-source ratings array"
+        },
+        "bayes_stats": {
+            "type": "object",
+            "properties": {
+                "global_mean_C": {
+                    "type": "number"
+                },
+                "mubi_confidence_m": {
+                    "type": "number"
+                }
+            },
+            "description": "Bayesian Rating Calibration Constants (Warm Start)"
         }
     },
     "additionalProperties": true

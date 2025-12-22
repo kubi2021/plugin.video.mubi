@@ -232,9 +232,10 @@ class TestNestedObjects:
             jsonschema.validate(minimal_valid_film, v1_schema)
 
     def test_ratings_structure(self, v1_schema, minimal_valid_film):
-        """ratings must have correct structure."""
+        """ratings must be correct structure."""
         minimal_valid_film["ratings"] = [
-            {"source": "mubi", "score_over_10": 7.5, "voters": 100}
+            {"source": "mubi", "score_over_10": 7.5, "voters": 100},
+            {"source": "bayesian", "score_over_10": 7.8, "voters": 999}
         ]
         jsonschema.validate(minimal_valid_film, v1_schema)
 
@@ -245,6 +246,9 @@ class TestNestedObjects:
         ]
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(minimal_valid_film, v1_schema)
+
+
+
 
 
 # ─────────────────────────────────────────────

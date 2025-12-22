@@ -316,8 +316,8 @@ Each rating source follows this schema:
 | Source | Description | Score Range |
 |--------|-------------|-------------|
 | `mubi` | Mubi community rating | 0-10 |
-| `imdb` | IMDB user rating | 0-10 |
 | `tmdb` | TMDB user rating | 0-10 |
+| `bayesian` | Composite weighted score | 0-10 |
 
 ---
 

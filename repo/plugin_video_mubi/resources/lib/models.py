@@ -150,6 +150,9 @@ class Film(BaseModel):
     
     # Multi-source ratings (enriched)
     ratings: List[Rating] = []
+
+    # Bayesian Calcuations
+
     
     class Config:
         extra = 'ignore'  # Allow extra fields for API compatibility
@@ -168,7 +171,14 @@ class Meta(BaseModel):
     mode: str
 
 
+class BayesStats(BaseModel):
+    """Bayesian Rating Calibration Constants."""
+    global_mean_C: float
+    mubi_confidence_m: float
+
+
 class MubiDatabase(BaseModel):
     """Root model for films.json and series.json files."""
     meta: Meta
+    bayes_stats: Optional[BayesStats] = None
     items: List[Film]
