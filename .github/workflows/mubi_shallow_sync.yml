@@ -38,10 +38,17 @@ jobs:
         # Create database directory
         mkdir -p database/v1
         
+        echo "DEBUG: Checking history directory..."
+        ls -la backend/history/v1/ || echo "backend/history/v1 not found"
+        
         # Fetch films.json (gzipped) from downloaded branch history
         if [ -f backend/history/v1/films.json.gz ]; then
+            echo "DEBUG: Found films.json.gz in history."
             cp backend/history/v1/films.json.gz backend/previous_films.json.gz
             gzip -d backend/previous_films.json.gz
+            
+            echo "DEBUG: Decompressed previous_films.json. Head content:"
+            head -n 20 backend/previous_films.json
         else
             echo "CRITICAL: No films.json found in database branch!"
             exit 1

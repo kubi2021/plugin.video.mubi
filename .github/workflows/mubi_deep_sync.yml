@@ -43,10 +43,19 @@ jobs:
         
     - name: Prepare History File
       run: |
+        echo "DEBUG: Checking history directory..."
+        ls -la backend/history/v1/ || echo "backend/history/v1/ not found"
+        
         if [ -f backend/history/v1/films.json.gz ]; then
-          echo "Found previous database. preparing for warm start..."
+          echo "Found previous database. Checking hash..."
+          md5sum backend/history/v1/films.json.gz || echo "No md5sum available"
+          
+          echo "Preparing for warm start..."
           cp backend/history/v1/films.json.gz backend/previous_films.json.gz
           gzip -d backend/previous_films.json.gz
+          
+          echo "DEBUG: previous_films.json created. Head content:"
+          head -n 20 backend/previous_films.json
         else
           echo "No previous database found in branch."
         fi

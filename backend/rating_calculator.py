@@ -38,19 +38,34 @@ class BayesianRatingCalculator:
         # Priority 2: History file (if provided)
         if self.data.get('bayes_stats'):
              self.bayes_stats = self.data.get('bayes_stats')
+             logger.info(f"Warm Start: Found stats in current file: {self.bayes_stats}")
         elif self.history_path:
-            try:
-                with open(self.history_path, 'r', encoding='utf-8') as f:
-                    hist_data = json.load(f)
-                    self.bayes_stats = hist_data.get('bayes_stats', {})
-                    logger.info(f"Loaded history stats from {self.history_path}: {self.bayes_stats}")
-            except FileNotFoundError:
-                logger.warning(f"History file {self.history_path} not found. Proceeding with Cold Start.")
+            import os
+            logger.info(f"Attempting Warm Start from history file: {self.history_path}")
+            if not os.path.exists(self.history_path):
+                logger.error(f"DEBUG: History file path '{self.history_path}' does NOT exist.")
                 self.bayes_stats = {}
-            except Exception as e:
-                logger.warning(f"Failed to load history file: {e}. Proceeding with Cold Start.")
-                self.bayes_stats = {}
+            else:
+                try:
+                    logger.info(f"DEBUG: Opening history file at {os.path.abspath(self.history_path)}")
+                    with open(self.history_path, 'r', encoding='utf-8') as f:
+                        hist_data = json.load(f)
+                        
+                    keys = list(hist_data.keys())
+                    logger.info(f"DEBUG: History file keys: {keys}")
+                    
+                    if 'bayes_stats' in hist_data:
+                        self.bayes_stats = hist_data.get('bayes_stats', {})
+                        logger.info(f"DEBUG: Successfully loaded history stats: {self.bayes_stats}")
+                    else:
+                        logger.warning("DEBUG: 'bayes_stats' key missing in history file!")
+                        self.bayes_stats = {}
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to load history file: {e}. Proceeding with Cold Start.")
+                    self.bayes_stats = {}
         else:
+             logger.info("No history file provided. Cold Start.")
              self.bayes_stats = {}
         
     def save_data(self):
