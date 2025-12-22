@@ -625,7 +625,9 @@ class MubiScraper:
         logger.info(f"Successfully saved {len(final_series)} series episodes to {series_path}")
 
         if errors:
-            logger.error(f"Scraper finished with {len(errors)} errors.")
+            logger.error(f"Scraper finished with {len(errors)} errors:")
+            for e in errors:
+                logger.error(f"  - {e}")
             sys.exit(1)
 
 if __name__ == "__main__":
