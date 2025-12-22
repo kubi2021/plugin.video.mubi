@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class BayesianRatingCalculator:
         with open(self.films_path, 'w', encoding='utf-8') as f:
             json.dump(self.data, f, indent=2, ensure_ascii=False)
             
-    def get_constants(self) -> tuple[float, float]:
+    def get_constants(self) -> Tuple[float, float]:
         """
         Determine C (Global Mean) and m (Confidence Threshold).
         Logic:
@@ -80,7 +80,7 @@ class BayesianRatingCalculator:
                 return r
         return None
 
-    def calculate_raw_metrics(self, item: Dict[str, Any]) -> tuple[float, int]:
+    def calculate_raw_metrics(self, item: Dict[str, Any]) -> Tuple[float, int]:
         """
         Calculate R (Raw Average) and v (Total Votes) from all sources.
         """
@@ -109,7 +109,7 @@ class BayesianRatingCalculator:
         raw_average = total_weighted_score / total_votes
         return raw_average, total_votes
 
-    def calculate_new_constants(self) -> tuple[float, float]:
+    def calculate_new_constants(self) -> Tuple[float, float]:
         """
         Recalculate C and m after processing for next run.
         C = Average of all R_raw
