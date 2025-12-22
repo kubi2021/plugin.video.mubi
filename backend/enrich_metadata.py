@@ -178,6 +178,7 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: OM
             omdb_result = omdb_provider.get_details(imdb_id)
             if omdb_result.success and hasattr(omdb_result, 'extra_ratings'):
                 ratings.extend(omdb_result.extra_ratings)
+                logger.info(f"Found match: OMDB for '{title}'")
         
         if ratings:
             film['ratings'] = ratings
