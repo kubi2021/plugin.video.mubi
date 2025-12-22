@@ -176,5 +176,64 @@ class TestEnrichMetadata(unittest.TestCase):
         self.assertEqual(tmdb_rating['score_over_10'], 8.0)
         self.assertEqual(tmdb_rating['voters'], 500)
 
+    @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key', 'OMDB_API_KEY': 'fake_omdb'})
+    @patch('backend.enrich_metadata.OMDBProvider')
+    @patch('backend.tmdb_provider.requests.get')
+    def test_enrich_metadata_incorporates_omdb_ratings(self, mock_tmdb_get, MockOMDBProvider):
+        """Test that OMDB ratings are fetched and added."""
+        # Setup initial JSON
+        initial_data = {
+            'items': [{
+                'mubi_id': 1,
+                'title': 'Test Movie',
+                'year': 2020
+            }]
+        }
+        with open(self.films_path, 'w') as f:
+            json.dump(initial_data, f)
+
+        # Mock TMDB responses (standard success flow)
+        mock_resp_config = MagicMock()
+        mock_resp_config.status_code = 200
+        mock_resp_search = MagicMock()
+        mock_resp_search.status_code = 200
+        mock_resp_search.json.return_value = {'results': [{'id': 999, 'release_date': '2020-01-01'}]}
+        mock_resp_details = MagicMock()
+        mock_resp_details.status_code = 200
+        mock_resp_details.json.return_value = {
+            'external_ids': {'imdb_id': 'tt999'},
+            'vote_average': 8.0, 
+            'vote_count': 500
+        }
+        mock_tmdb_get.side_effect = [mock_resp_config, mock_resp_search, mock_resp_details]
+
+        # Mock OMDB Provider instance and response
+        mock_omdb_instance = MockOMDBProvider.return_value
+        mock_omdb_result = MagicMock()
+        mock_omdb_result.success = True
+        mock_omdb_result.extra_ratings = [
+            {"source": "imdb", "score_over_10": 7.5, "voters": 1000},
+            {"source": "rotten_tomatoes", "score_over_10": 9.0, "voters": 0}
+        ]
+        mock_omdb_instance.get_details.return_value = mock_omdb_result
+
+        enrich_metadata(self.films_path)
+
+        # Verify calls
+        mock_omdb_instance.get_details.assert_called_with('tt999')
+
+        # Verify Output
+        with open(self.films_path, 'r') as f:
+            data = json.load(f)
+        
+        ratings = data['items'][0]['ratings']
+        self.assertEqual(len(ratings), 3) # TMDB + IMDB + RT
+        
+        sources = sorted([r['source'] for r in ratings])
+        self.assertEqual(sources, ['imdb', 'rotten_tomatoes', 'tmdb'])
+        
+        rt = next(r for r in ratings if r['source'] == 'rotten_tomatoes')
+        self.assertEqual(rt['score_over_10'], 9.0)
+
 if __name__ == '__main__':
     unittest.main()
