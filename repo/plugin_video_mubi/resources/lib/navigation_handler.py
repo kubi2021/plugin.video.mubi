@@ -13,6 +13,8 @@ from .library import Library
 from .playback import play_with_inputstream_adaptive
 import datetime
 import dateutil.parser
+import requests
+import re
 
 class LibraryMonitor(xbmc.Monitor):
     def __init__(self):
@@ -847,6 +849,34 @@ class NavigationHandler:
 
 
 
+    def _resolve_trailer_url(self, url: str) -> str:
+        """
+        Convert a standard YouTube web URL to a Kodi plugin URL.
+        Returns the plugin URL if it's a YouTube link, otherwise returns original URL.
+        """
+        # Check for youtube.com or youtu.be
+        youtube_regex = r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})'
+        match = re.search(youtube_regex, url)
+        if match:
+            video_id = match.group(1)
+            return f"plugin://plugin.video.youtube/play/?video_id={video_id}"
+        return url
+
+    def _validate_trailer_url(self, url: str) -> bool:
+        """
+        Check if a trailer URL is valid using a HEAD request.
+        Returns True if valid (2xx/3xx), False otherwise.
+        """
+        try:
+            # Only validate HTTP(S) links
+            if not url.startswith("http"):
+                return True
+                
+            response = requests.head(url, timeout=5, allow_redirects=True)
+            return response.status_code < 400
+        except requests.RequestException:
+            return False
+
     def play_trailer(self, url: str):
         """
         Play a trailer video within Kodi.
@@ -854,10 +884,33 @@ class NavigationHandler:
         :param url: URL of the trailer video
         """
         try:
-            play_item = xbmcgui.ListItem(path=url)
+            # 1. Resolve YouTube URLs
+            resolved_url = self._resolve_trailer_url(url)
+            
+            # 2. If it's a web URL (not a plugin:// URL), validate it
+            # We skip validation for plugin:// URLs as they are handled by other addons
+            if resolved_url.startswith("http"):
+                is_valid = self._validate_trailer_url(resolved_url)
+                if not is_valid:
+                    xbmc.log(f"Trailer URL is unreachable: {resolved_url}", xbmc.LOGWARNING)
+                    dialog = xbmcgui.Dialog()
+                    dialog.notification(
+                        "MUBI",
+                        "Trailer unavailable",
+                        xbmcgui.NOTIFICATION_ERROR,
+                        3000
+                    )
+                    # We still set resolved URL to false to tell Kodi we failed
+                    xbmcplugin.setResolvedUrl(self.handle, False, listitem=xbmcgui.ListItem())
+                    return
+
+            play_item = xbmcgui.ListItem(path=resolved_url)
             xbmcplugin.setResolvedUrl(self.handle, True, listitem=play_item)
+            xbmc.log(f"Playing trailer: {resolved_url}", xbmc.LOGINFO)
         except Exception as e:
             xbmc.log(f"Error playing trailer: {e}", xbmc.LOGERROR)
+            # Ensure we don't leave Kodi hanging
+            xbmcplugin.setResolvedUrl(self.handle, False, listitem=xbmcgui.ListItem())
 
 
 

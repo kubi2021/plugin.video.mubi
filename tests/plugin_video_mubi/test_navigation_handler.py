@@ -327,15 +327,66 @@ class TestNavigationHandler:
 
     @patch('xbmcplugin.setResolvedUrl')
     @patch('xbmcgui.ListItem')
-    def test_play_trailer(self, mock_list_item, mock_set_resolved, navigation_handler):
-        """Test playing trailer."""
+    @patch('plugin_video_mubi.resources.lib.navigation_handler.requests.head')
+    def test_play_trailer(self, mock_head, mock_list_item, mock_set_resolved, navigation_handler):
+        """Test playing trailer with valid URL."""
         mock_list_item_instance = Mock()
         mock_list_item.return_value = mock_list_item_instance
+        
+        # Mock successful HEAD request
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_head.return_value = mock_response
 
         navigation_handler.play_trailer("http://example.com/trailer")
 
         mock_list_item.assert_called_with(path="http://example.com/trailer")
         mock_set_resolved.assert_called_with(123, True, listitem=mock_list_item_instance)
+
+    @patch('xbmcplugin.setResolvedUrl')
+    @patch('xbmcgui.ListItem')
+    def test_play_trailer_youtube_conversion(self, mock_list_item, mock_set_resolved, navigation_handler):
+        """Test YouTube URL conversion in play_trailer."""
+        mock_list_item_instance = Mock()
+        mock_list_item.return_value = mock_list_item_instance
+
+        # YouTube URL should be converted to plugin:// path
+        # No web request should be made for plugin:// URLs, so we don't mock requests.head
+        yt_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        expected_plugin_url = "plugin://plugin.video.youtube/play/?video_id=dQw4w9WgXcQ"
+
+        navigation_handler.play_trailer(yt_url)
+
+        mock_list_item.assert_called_with(path=expected_plugin_url)
+        mock_set_resolved.assert_called_with(123, True, listitem=mock_list_item_instance)
+
+    @patch('xbmcplugin.setResolvedUrl')
+    @patch('xbmcgui.ListItem')
+    @patch('plugin_video_mubi.resources.lib.navigation_handler.requests.head')
+    @patch('xbmcgui.Dialog')
+    def test_play_trailer_invalid_url(self, mock_dialog, mock_head, mock_list_item, mock_set_resolved, navigation_handler):
+        """Test playing trailer with invalid/unreachable URL."""
+        # Mock failed HEAD request (404)
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_head.return_value = mock_response
+        
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        bad_url = "http://example.com/bad_trailer"
+        navigation_handler.play_trailer(bad_url)
+
+        # Should notify user and fail resolution
+        mock_dialog_instance.notification.assert_called_once()
+        args, _ = mock_dialog_instance.notification.call_args
+        assert args[0] == "MUBI"
+        assert args[1] == "Trailer unavailable"
+        # args[2] is the icon type (NOTIFICATION_ERROR), args[3] is duration
+        # Should call setResolvedUrl with False
+        # Note: listitem arg passed is a new instance, so we check the boolean flag
+        args, _ = mock_set_resolved.call_args
+        assert args[1] is False
 
     @patch('xbmcgui.DialogProgress')
     def test_sync_films(self, mock_dialog_progress, navigation_handler, mock_mubi, mock_addon):
