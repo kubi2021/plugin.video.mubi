@@ -50,8 +50,7 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
     if not omdb_keys:
         # Fallback for local dev if needed, or raise warning
         logger.warning("No OMDB_API_KEYS found in environment. OMDB enrichment will be skipped or limited.")
-        # We can pass a dummy key to prevent crash, but it won't work.
-        omdb_keys = ["placeholder_key"]
+        omdb_keys = []
         
     omdb_provider = OMDBProvider(api_keys=omdb_keys)
 
@@ -173,8 +172,9 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: OM
             })
         
         # 3. OMDB Enrichment
+        # Only attempt if provider has valid keys
         imdb_id = film.get('imdb_id')
-        if imdb_id:
+        if imdb_id and omdb_provider and omdb_provider.api_keys:
             omdb_result = omdb_provider.get_details(imdb_id)
             if omdb_result.success and hasattr(omdb_result, 'extra_ratings'):
                 ratings.extend(omdb_result.extra_ratings)

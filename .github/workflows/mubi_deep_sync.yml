@@ -38,6 +38,7 @@ jobs:
     - name: Enrich Metadata (Add IMDB/TMDB IDs)
       env:
         TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        OMDB_API_KEYS: ${{ secrets.OMDB_API_KEYS }}
       run: |
         python backend/enrich_metadata.py --path database/v1/films.json
         python backend/enrich_metadata.py --path database/v1/series.json --type series
