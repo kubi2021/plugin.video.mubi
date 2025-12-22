@@ -103,9 +103,8 @@ class OMDBProvider:
                     # Some OMDB errors (like "Request limit reached!") might simpler be handled by rotation too?
                     # But "Movie not found" should NOT rotate.
                     if "limit" in error_msg.lower():
-                        logger.warning(f"OMDB: Limit reached for key ending in ...{current_key[-4:]}. cycling.")
-                        # Maybe don't mark as bad permanently? Just rotate.
-                        # For now, treat as transient failure for this key?
+                        logger.warning(f"OMDB: Limit reached for key ending in ...{current_key[-4:]}. Removing from rotation.")
+                        self._mark_key_bad(current_key)
                         continue
                         
                     return ExternalMetadataResult(

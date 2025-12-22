@@ -134,5 +134,47 @@ class TestOMDBProvider(unittest.TestCase):
         # Good key should NOT be bad
         self.assertNotIn(good_key, self.provider._bad_keys)
 
+    @patch('requests.get')
+    def test_get_details_retry_on_limit_reached(self, mock_get):
+        """Test that provider retries with next key on 'Request limit reached!' error."""
+        # 1. First call returns 200 OK but with Limit Reached error
+        mock_limit = MagicMock()
+        mock_limit.status_code = 200
+        mock_limit.json.return_value = {
+            "Response": "False",
+            "Error": "Request limit reached!"
+        }
+        
+        # 2. Second call returns 200 Success
+        mock_success = MagicMock()
+        mock_success.status_code = 200
+        mock_success.json.return_value = {
+            "Response": "True", 
+            "imdbID": "tt123", 
+            "imdbRating": "8.0"
+        }
+        
+        mock_get.side_effect = [mock_limit, mock_success]
+        
+        result = self.provider.get_details("tt123")
+        
+        # Should succeed
+        self.assertTrue(result.success)
+        self.assertEqual(mock_get.call_count, 2)
+        
+        # Verify first call used key1 (failed)
+        args1, kwargs1 = mock_get.call_args_list[0]
+        bad_key = kwargs1['params']['apikey']
+        
+        # Verify second call used a DIFFERENT key
+        args2, kwargs2 = mock_get.call_args_list[1]
+        good_key = kwargs2['params']['apikey']
+        self.assertNotEqual(bad_key, good_key)
+        
+        # Verify bad key is marked
+        self.assertIn(bad_key, self.provider._bad_keys)
+        # Good key should NOT be bad
+        self.assertNotIn(good_key, self.provider._bad_keys)
+
 if __name__ == '__main__':
     unittest.main()
