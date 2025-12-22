@@ -21,8 +21,9 @@ class BayesianRatingCalculator:
     
     DEFAULT_C = 6.9
     
-    def __init__(self, films_path: str):
+    def __init__(self, films_path: str, history_path: Optional[str] = None):
         self.films_path = films_path
+        self.history_path = history_path
         self.data: Dict[str, Any] = {}
         self.items: List[Dict[str, Any]] = []
         self.bayes_stats: Dict[str, float] = {}
@@ -31,8 +32,26 @@ class BayesianRatingCalculator:
         with open(self.films_path, 'r', encoding='utf-8') as f:
             self.data = json.load(f)
         self.items = self.data.get('items', [])
+        
         # Load existing stats if available (Warm Start)
-        self.bayes_stats = self.data.get('bayes_stats', {})
+        # Priority 1: Current file (if it has stats)
+        # Priority 2: History file (if provided)
+        if self.data.get('bayes_stats'):
+             self.bayes_stats = self.data.get('bayes_stats')
+        elif self.history_path:
+            try:
+                with open(self.history_path, 'r', encoding='utf-8') as f:
+                    hist_data = json.load(f)
+                    self.bayes_stats = hist_data.get('bayes_stats', {})
+                    logger.info(f"Loaded history stats from {self.history_path}: {self.bayes_stats}")
+            except FileNotFoundError:
+                logger.warning(f"History file {self.history_path} not found. Proceeding with Cold Start.")
+                self.bayes_stats = {}
+            except Exception as e:
+                logger.warning(f"Failed to load history file: {e}. Proceeding with Cold Start.")
+                self.bayes_stats = {}
+        else:
+             self.bayes_stats = {}
         
     def save_data(self):
         self.data['items'] = self.items
@@ -192,10 +211,15 @@ class BayesianRatingCalculator:
 
 if __name__ == "__main__":
     import sys
+    import argparse
+    
     logging.basicConfig(level=logging.INFO)
-    if len(sys.argv) < 2:
-        print("Usage: python rating_calculator.py <path_to_films.json>")
-        sys.exit(1)
+    
+    parser = argparse.ArgumentParser(description="Bayesian Rating Calculator")
+    parser.add_argument('films_path', help="Path to films.json")
+    parser.add_argument('--history-file', help="Path to previous films.json for warm start stats", default=None)
+    
+    args = parser.parse_args()
         
-    calc = BayesianRatingCalculator(sys.argv[1])
+    calc = BayesianRatingCalculator(args.films_path, history_path=args.history_file)
     calc.run()

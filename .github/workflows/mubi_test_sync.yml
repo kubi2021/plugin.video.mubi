@@ -37,7 +37,14 @@ jobs:
         mkdir -p database/v1
         
         # Run scraper for single country only
+        # Run scraper for single country only
         python backend/scraper.py --mode deep --countries ${{ inputs.country }} --output database/v1/films.json --series-output database/v1/series.json
+
+        # Download previous database for Bayesian Warm Start (Optional for test, but good for coverage)
+        wget https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/database/v1/films.json.gz -O backend/previous_films.json.gz || echo "No previous database found."
+        if [ -f backend/previous_films.json.gz ]; then
+          gzip -d backend/previous_films.json.gz
+        fi
         
     - name: Enrich Metadata (Add IMDB/TMDB IDs)
       if: always()
@@ -54,7 +61,13 @@ jobs:
       continue-on-error: true
       run: |
         echo "Running Bayesian Rating Calculator..."
-        if [ -f database/v1/films.json ]; then python backend/rating_calculator.py database/v1/films.json; fi
+        if [ -f database/v1/films.json ]; then 
+            if [ -f backend/previous_films.json ]; then
+                python backend/rating_calculator.py database/v1/films.json --history-file backend/previous_films.json
+            else
+                python backend/rating_calculator.py database/v1/films.json
+            fi
+        fi
         if [ -f database/v1/series.json ]; then python backend/rating_calculator.py database/v1/series.json; fi
         
     - name: Generate Repo Files (Compress & Hash)

@@ -54,7 +54,11 @@ jobs:
     - name: Calculate Bayesian Ratings
       run: |
         echo "Running Bayesian Rating Calculator..."
-        python backend/rating_calculator.py database/v1/films.json
+        if [ -f backend/previous_films.json ]; then
+            python backend/rating_calculator.py database/v1/films.json --history-file backend/previous_films.json
+        else
+            python backend/rating_calculator.py database/v1/films.json
+        fi
         python backend/rating_calculator.py database/v1/series.json
 
 
