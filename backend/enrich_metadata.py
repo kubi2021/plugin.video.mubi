@@ -111,6 +111,29 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
                 logger.error(f"Error processing film index {idx}: {e}")
 
     logger.info(f"Enrichment complete. Updated {updated_count} films.")
+    
+    # --- Global Stats Report ---
+    stats = {
+        "no_tmdb_id": 0,
+        "no_tmdb_rating": 0,
+        "no_imdb_rating": 0
+    }
+    
+    for film in items:
+        if not film.get("tmdb_id"):
+            stats["no_tmdb_id"] += 1
+            
+        ratings = film.get("ratings", [])
+        has_tmdb_rating = any(r.get("source") == "tmdb" for r in ratings)
+        has_imdb_rating = any(r.get("source") == "imdb" for r in ratings)
+        
+        if not has_tmdb_rating:
+            stats["no_tmdb_rating"] += 1
+        if not has_imdb_rating:
+            stats["no_imdb_rating"] += 1
+
+    generate_report(stats, omdb_provider, total_films, updated_count)
+
     # 4. Save
     if updated_count > 0:
         data['items'] = items
@@ -122,6 +145,43 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
         logger.info(f"Enrichment complete. Updated {updated_count} films in {duration}.")
     else:
         logger.info("Enrichment complete. No new metadata found.")
+
+def generate_report(stats: Dict[str, int], omdb_provider: Optional[OMDBProvider], total: int, updated: int):
+    """Log a comprehensive stats report."""
+    if total == 0:
+        return
+
+    def pct(count, total):
+        if total == 0: return "0 (0.0%)"
+        return f"{count} ({count/total*100:.1f}%)"
+
+    logger.info("=" * 60)
+    logger.info(f"GLOBAL STATS REPORT ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
+    logger.info("=" * 60)
+    logger.info(f"Total Films:      {total}")
+    logger.info(f"Updated this run: {updated}")
+    logger.info("-" * 60)
+    logger.info(f"NO TMDB ID Found:      {pct(stats['no_tmdb_id'], total)}")
+    logger.info(f"NO TMDB Rating:        {pct(stats['no_tmdb_rating'], total)}")
+    logger.info(f"NO IMDB Rating:        {pct(stats['no_imdb_rating'], total)}")
+    logger.info("-" * 60)
+    
+    if omdb_provider:
+        try:
+            failed_keys = omdb_provider.get_failed_keys()
+            if failed_keys:
+                logger.warning(f"FAILED OMDB KEYS ({len(failed_keys)}):")
+                for k in failed_keys:
+                    masked = f"...{k[-4:]}" if len(k) > 4 else "***"
+                    logger.warning(f"  - Key ending in {masked}")
+            else:
+                logger.info("OMDB Keys: All healthy (or none used).")
+        except AttributeError:
+             logger.info("OMDB Provider: Does not support key reporting.")
+    else:
+        logger.info("OMDB Provider: Disabled/Not initialized.")
+        
+    logger.info("=" * 60)
 
     # Validation
     # ...

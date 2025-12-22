@@ -198,3 +198,8 @@ class OMDBProvider:
         """Test connection (using a known ID)."""
         res = self.get_details("tt0111161") # Shawshank Redemption
         return res.success
+
+    def get_failed_keys(self) -> List[str]:
+        """Return a list of keys that failed with 401."""
+        with self._lock:
+            return list(self._bad_keys)
