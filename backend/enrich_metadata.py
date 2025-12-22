@@ -21,6 +21,7 @@ except ImportError:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.tmdb_provider import TMDBProvider
+from backend.omdb_provider import OMDBProvider
 
 def enrich_metadata(films_path='films.json', content_type='movie'):
     # 1. Load Environment & Config
@@ -32,7 +33,27 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
     provider = TMDBProvider(api_key=api_key)
     if not provider.test_connection():
         logger.error("Failed to connect to TMDB API. Check your API key.")
-        sys.exit(1)
+    # Load OMDB keys from environment
+    # Support single variable with comma-separated keys (OMDB_API_KEYS)
+    # Also support legacy single key (OMDB_API_KEY) for backward compatibility
+    omdb_keys = []
+    
+    env_keys = os.environ.get('OMDB_API_KEYS')
+    if env_keys:
+        omdb_keys.extend([k.strip() for k in env_keys.split(',') if k.strip()])
+        
+    # Fallback/Additional check for single key
+    single_key = os.environ.get('OMDB_API_KEY')
+    if single_key and single_key not in omdb_keys:
+        omdb_keys.append(single_key)
+            
+    if not omdb_keys:
+        # Fallback for local dev if needed, or raise warning
+        logger.warning("No OMDB_API_KEYS found in environment. OMDB enrichment will be skipped or limited.")
+        # We can pass a dummy key to prevent crash, but it won't work.
+        omdb_keys = ["placeholder_key"]
+        
+    omdb_provider = OMDBProvider(api_keys=omdb_keys)
 
     # 2. Load Films
     if not os.path.exists(films_path):
@@ -75,7 +96,7 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
-        futures = {executor.submit(process_film, film, provider, idx, total_films, content_type): idx for idx, film in items_to_process}
+        futures = {executor.submit(process_film, film, provider, omdb_provider, idx, total_films, content_type): idx for idx, film in items_to_process}
         
         completed_so_far = 0
         
@@ -106,7 +127,7 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
     # Validation
     # ...
 
-def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: int, media_type: str = "movie") -> bool:
+def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: OMDBProvider, idx: int, total: int, media_type: str = "movie") -> bool:
     """
     Process a single film to fetch external metadata.
     Returns True if updated, False otherwise.
@@ -150,6 +171,13 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: 
                 "score_over_10": result.vote_average,
                 "voters": result.vote_count or 0
             })
+        
+        # 3. OMDB Enrichment
+        imdb_id = film.get('imdb_id')
+        if imdb_id:
+            omdb_result = omdb_provider.get_details(imdb_id)
+            if omdb_result.success and hasattr(omdb_result, 'extra_ratings'):
+                ratings.extend(omdb_result.extra_ratings)
         
         if ratings:
             film['ratings'] = ratings
