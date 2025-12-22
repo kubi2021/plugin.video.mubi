@@ -28,17 +28,28 @@ jobs:
 
     - name: Run Scraper (Deep Mode)
       run: |
-        # Download previous database for Bayesian Warm Start
-        wget https://raw.githubusercontent.com/kubi2021/plugin.video.mubi/database/v1/films.json.gz -O backend/previous_films.json.gz || echo "No previous database found."
-        if [ -f backend/previous_films.json.gz ]; then
-          gzip -d backend/previous_films.json.gz
-        fi
-        
         # Create output directory
         mkdir -p database/v1
         
         # Run scraper in DEEP mode
         python backend/scraper.py --mode deep --output database/v1/films.json --series-output database/v1/series.json
+        
+    - name: Checkout Database Branch (History)
+      uses: actions/checkout@v4
+      with:
+        ref: database
+        path: backend/history
+        fetch-depth: 1
+        
+    - name: Prepare History File
+      run: |
+        if [ -f backend/history/v1/films.json.gz ]; then
+          echo "Found previous database. preparing for warm start..."
+          cp backend/history/v1/films.json.gz backend/previous_films.json.gz
+          gzip -d backend/previous_films.json.gz
+        else
+          echo "No previous database found in branch."
+        fi
         
     - name: Enrich Metadata (Add IMDB/TMDB IDs)
       env:

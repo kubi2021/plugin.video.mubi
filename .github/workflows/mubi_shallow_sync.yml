@@ -26,18 +26,33 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
 
-    - name: Run Scraper (Shallow Mode)
+    - name: Checkout Database Branch (Input)
+      uses: actions/checkout@v4
+      with:
+        ref: database
+        path: backend/history
+        fetch-depth: 1
+
+    - name: Prepare Input Files
       run: |
         # Create database directory
         mkdir -p database/v1
         
-        # Fetch films.json (gzipped) from database branch to use as input for greedy algorithm
-        # We need to decompress it first because the scraper expects raw JSON
-        wget https://raw.githubusercontent.com/${{ github.repository }}/database/v1/films.json.gz -O backend/previous_films.json.gz
-        gzip -d backend/previous_films.json.gz
+        # Fetch films.json (gzipped) from downloaded branch history
+        if [ -f backend/history/v1/films.json.gz ]; then
+            cp backend/history/v1/films.json.gz backend/previous_films.json.gz
+            gzip -d backend/previous_films.json.gz
+        else
+            echo "CRITICAL: No films.json found in database branch!"
+            exit 1
+        fi
         
-        wget https://raw.githubusercontent.com/${{ github.repository }}/database/v1/series.json.gz -O database/v1/series.json.gz
-        gzip -d database/v1/series.json.gz
+        if [ -f backend/history/v1/series.json.gz ]; then
+            cp backend/history/v1/series.json.gz database/v1/series.json.gz
+            gzip -d database/v1/series.json.gz
+        else
+             echo "Warning: series.json not found."
+        fi
 
         # Run scraper in SHALLOW mode with input
         # Note: series input is inferred from --series-output existence
