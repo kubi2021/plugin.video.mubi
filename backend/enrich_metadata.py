@@ -53,7 +53,10 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
         has_imdb = bool(film.get('imdb_id'))
         has_tmdb = bool(film.get('tmdb_id'))
         
-        if not (has_imdb and has_tmdb):
+        if has_tmdb:
+            continue
+            
+        if not has_imdb:
             items_to_process.append((i, film))
 
     total_films = len(items)
@@ -117,7 +120,9 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, idx: int, total: 
     if not title:
         return False
 
-    result = provider.get_imdb_id(title, original_title=original_title, year=year, media_type=media_type)
+    tmdb_id = film.get('tmdb_id')
+    
+    result = provider.get_imdb_id(title, original_title=original_title, year=year, media_type=media_type, tmdb_id=tmdb_id)
     
     if result.success:
         if result.imdb_id:

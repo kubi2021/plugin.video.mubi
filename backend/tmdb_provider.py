@@ -43,12 +43,26 @@ class TMDBProvider:
         title: str,
         original_title: Optional[str] = None,
         year: Optional[int] = None,
-        media_type: str = "movie"
+        media_type: str = "movie",
+        tmdb_id: Optional[int] = None
     ) -> ExternalMetadataResult:
         """
         Fetch IMDB ID and TMDB ID from TMDB.
         Tries Movie search first, then TV search.
+        If tmdb_id is provided, skips search and fetches details directly.
         """
+        
+        # Optimization: Use existing TMDB ID if provided
+        if tmdb_id:
+            try:
+                tid = int(tmdb_id)
+                if media_type == "movie":
+                    return self._get_movie_details(tid)
+                else:
+                    return self._get_tv_details(tid)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid TMDB ID provided: {tmdb_id}. Falling back to search.")
+
 
         # Generate search candidates
         search_candidates = self.title_normalizer.generate_title_variants(title, original_title)
