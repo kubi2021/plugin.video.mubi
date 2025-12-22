@@ -35,6 +35,7 @@ class OMDBProvider:
             raise ValueError("At least one OMDB API key must be provided.")
             
         self._key_cycle = itertools.cycle(self.api_keys)
+        self._bad_keys = set()
         self._lock = threading.Lock()
         
         self.retry_strategy = RetryStrategy(
@@ -49,120 +50,149 @@ class OMDBProvider:
         
     def _get_next_key(self) -> str:
         with self._lock:
-            return next(self._key_cycle)
+            # Try to find a non-bad key
+            # We iterate at most len(api_keys) * 2 to prevent infinite loop if all bad
+            for _ in range(len(self.api_keys) * 2):
+                k = next(self._key_cycle)
+                if k not in self._bad_keys:
+                    return k
+            # If all are bad, just return the last one (it will likely fail again, but we can't do magic)
+            return k
+            
+    def _mark_key_bad(self, key: str):
+        with self._lock:
+            self._bad_keys.add(key)
     
     def get_details(self, imdb_id: str) -> ExternalMetadataResult:
         """
         Fetch details from OMDB using IMDB ID.
+        Retries with valid keys if a 401 Invalid Key error occurs.
         """
-        current_key = self._get_next_key()
         
-        params = {
-            "apikey": current_key,
-            "i": imdb_id,
-            "plot": "short", # We only need ratings, shorten payload
-            "r": "json"
-        }
+        # We allow trying up to the number of keys we have + 1 (for good measure)
+        # to ensure we cycle through all potential candidates if needed.
+        max_attempts = len(self.api_keys) + 1
         
-        def do_request() -> ExternalMetadataResult:
-            response = requests.get(self.BASE_URL, params=params, timeout=10)
-            response.raise_for_status()
+        last_error = None
+        
+        for attempt in range(max_attempts):
+            current_key = self._get_next_key()
             
-            data = response.json()
+            params = {
+                "apikey": current_key,
+                "i": imdb_id,
+                "plot": "short",
+                "r": "json"
+            }
             
-            if data.get("Response") != "True":
-                error_msg = data.get("Error", "Unknown error")
-                return ExternalMetadataResult(
-                    success=False, 
-                    source_provider=self.provider_name,
-                    error_message=error_msg
-                )
-             
-            # Extract Ratings
-            ratings_data = [] # List of dicts {source, score, voters}
-            
-            # Helper to parse votes string "139,037" -> 139037
-            def parse_votes(v_str):
-                try:
-                    return int(v_str.replace(",", ""))
-                except (ValueError, AttributeError):
-                    return 0
+            try:
+                response = requests.get(self.BASE_URL, params=params, timeout=10)
+                
+                # Check directly for 401 (Invalid Key)
+                if response.status_code == 401:
+                    logger.warning(f"OMDB: Key ending in ...{current_key[-4:]} failed (401 Unauthorized). Marking as bad.")
+                    self._mark_key_bad(current_key)
+                    last_error = "401 Unauthorized (All keys invalid?)"
+                    continue # Retry loop will get a new key
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("Response") != "True":
+                    error_msg = data.get("Error", "Unknown error")
+                    # Some OMDB errors (like "Request limit reached!") might simpler be handled by rotation too?
+                    # But "Movie not found" should NOT rotate.
+                    if "limit" in error_msg.lower():
+                        logger.warning(f"OMDB: Limit reached for key ending in ...{current_key[-4:]}. cycling.")
+                        # Maybe don't mark as bad permanently? Just rotate.
+                        # For now, treat as transient failure for this key?
+                        continue
+                        
+                    return ExternalMetadataResult(
+                        success=False, 
+                        source_provider=self.provider_name,
+                        error_message=error_msg
+                    )
+                 
+                # Success - Parse Data
+                return self._parse_response(data, imdb_id)
 
-            # 1. IMDB Rating
-            if data.get("imdbRating") and data.get("imdbRating") != "N/A":
+            except requests.RequestException as e:
+                logger.warning(f"OMDB: Network error with key ...{current_key[-4:]}: {e}")
+                last_error = str(e)
+                # For network errors, we might want to just retry (maybe same key, maybe next).
+                # Continuing loop rotates key, which is fine.
+                continue
+                
+        # If we exit loop, we failed
+        return ExternalMetadataResult(
+            success=False,
+            source_provider=self.provider_name,
+            error_message=f"Exhausted all API keys. Last error: {last_error}"
+        )
+
+    def _parse_response(self, data: Dict[str, Any], imdb_id: str) -> ExternalMetadataResult:
+        """Helper to parse valid OMDB JSON response."""
+        ratings_data = [] 
+        
+        def parse_votes(v_str):
+            try:
+                return int(v_str.replace(",", ""))
+            except (ValueError, AttributeError):
+                return 0
+
+        # 1. IMDB Rating
+        if data.get("imdbRating") and data.get("imdbRating") != "N/A":
+            try:
+                score = float(data["imdbRating"])
+                votes = parse_votes(data.get("imdbVotes", "0"))
+                ratings_data.append({
+                    "source": "imdb",
+                    "score_over_10": score,
+                    "voters": votes
+                })
+            except ValueError:
+                pass
+        
+        # 2. Other Ratings
+        for r in data.get("Ratings", []):
+            source_name = r.get("Source")
+            value = r.get("Value")
+            
+            if source_name == "Internet Movie Database":
+                continue 
+            
+            elif source_name == "Rotten Tomatoes":
                 try:
-                    score = float(data["imdbRating"])
-                    votes = parse_votes(data.get("imdbVotes", "0"))
+                    percentage = int(value.replace("%", ""))
+                    score = percentage / 10.0
                     ratings_data.append({
-                        "source": "imdb",
+                        "source": "rotten_tomatoes",
                         "score_over_10": score,
-                        "voters": votes
+                        "voters": 0
                     })
                 except ValueError:
                     pass
-            
-            # 2. Other Ratings (RT, Metacritic)
-            for r in data.get("Ratings", []):
-                source_name = r.get("Source")
-                value = r.get("Value")
-                
-                if source_name == "Internet Movie Database":
-                    continue # Already handled via top-level fields which are more reliable (votes)
-                
-                elif source_name == "Rotten Tomatoes":
-                    # Format: "73%"
-                    try:
-                        percentage = int(value.replace("%", ""))
-                        score = percentage / 10.0 # Scale to 10
-                        ratings_data.append({
-                            "source": "rotten_tomatoes",
-                            "score_over_10": score,
-                            "voters": 0 # RT doesn't provide voter count in this API
-                        })
-                    except ValueError:
-                        pass
-                        
-                elif source_name == "Metacritic":
-                    # Format: "64/100"
-                    try:
-                        raw_score = int(value.split("/")[0])
-                        score = raw_score / 10.0 # Scale to 10
-                        ratings_data.append({
-                            "source": "metacritic",
-                            "score_over_10": score,
-                            "voters": 0 # Metascore doesn't provide voter count
-                        })
-                    except (ValueError, IndexError):
-                        pass
+                    
+            elif source_name == "Metacritic":
+                try:
+                    raw_score = int(value.split("/")[0])
+                    score = raw_score / 10.0
+                    ratings_data.append({
+                        "source": "metacritic",
+                        "score_over_10": score,
+                        "voters": 0
+                    })
+                except (ValueError, IndexError):
+                    pass
 
-            # We reuse ExternalMetadataResult but attach our ratings list
-            # Since ExternalMetadataResult is a dataclass, we can't easily attach arbitrary fields 
-            # unless it supports it. Let's check metadata_utils.py or just return a dict/custom object?
-            # Looking at tmdb_provider, it returns ExternalMetadataResult.
-            # I should inspect metadata_utils.py to see if I can add a 'ratings' field or if I should just return the result
-            # and let the caller handle it.
-            # For now, I will store these in a dynamic attribute or modify ExternalMetadataResult later.
-            # actually, let's just make this method return the list of ratings directly or a dict.
-            # The interface implies returning ExternalMetadataResult.
-            
-            result = ExternalMetadataResult(
-                success=True,
-                source_provider=self.provider_name,
-                imdb_id=imdb_id
-            )
-            # Monkey-patch info for now, clearer than modifying the class just for this if not needed elsewhere
-            result.extra_ratings = ratings_data
-            return result
-
-        try:
-            return self.retry_strategy.execute(do_request, imdb_id)
-        except Exception as e:
-            logger.error(f"OMDB: Request failed for {imdb_id}: {e}")
-            return ExternalMetadataResult(
-                success=False,
-                source_provider=self.provider_name,
-                error_message=str(e)
-            )
+        result = ExternalMetadataResult(
+            success=True,
+            source_provider=self.provider_name,
+            imdb_id=imdb_id
+        )
+        result.extra_ratings = ratings_data
+        return result
 
     def test_connection(self) -> bool:
         """Test connection (using a known ID)."""

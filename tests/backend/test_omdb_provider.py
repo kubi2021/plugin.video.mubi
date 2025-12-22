@@ -89,5 +89,50 @@ class TestOMDBProvider(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.error_message, "Movie not found!")
 
+    @patch('requests.get')
+    def test_get_details_retry_on_401(self, mock_get):
+        """Test that provider retries with next key on 401 error."""
+        # 1. First call returns 401
+        mock_401 = MagicMock()
+        mock_401.status_code = 401
+        
+        # 2. Second call returns 200 Success
+        mock_200 = MagicMock()
+        mock_200.status_code = 200
+        mock_200.json.return_value = {
+            "Response": "True", 
+            "imdbID": "tt123", 
+            "imdbRating": "8.0"
+        }
+        
+        mock_get.side_effect = [mock_401, mock_200]
+        
+        # We start with 3 keys: key1, key2, key3
+        # First attempt (key1) -> 401
+        # Second attempt (key2) -> 200
+        
+        result = self.provider.get_details("tt123")
+        
+        # Should succeed
+        self.assertTrue(result.success)
+        
+        # Check that we made 2 calls
+        self.assertEqual(mock_get.call_count, 2)
+        
+        # Verify first call used key1
+        args1, kwargs1 = mock_get.call_args_list[0]
+        self.assertIn(kwargs1['params']['apikey'], ['key1', 'key2', 'key3'])
+        bad_key = kwargs1['params']['apikey']
+        
+        # Verify second call used a DIFFERENT key
+        args2, kwargs2 = mock_get.call_args_list[1]
+        good_key = kwargs2['params']['apikey']
+        self.assertNotEqual(bad_key, good_key)
+        
+        # Verify bad key is marked
+        self.assertIn(bad_key, self.provider._bad_keys)
+        # Good key should NOT be bad
+        self.assertNotIn(good_key, self.provider._bad_keys)
+
 if __name__ == '__main__':
     unittest.main()
