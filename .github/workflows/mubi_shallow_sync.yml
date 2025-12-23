@@ -29,25 +29,29 @@ jobs:
     - name: Install VPN Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y wireguard resolvconf
+        sudo apt-get install -y wireguard
 
     - name: Connect to ProtonVPN (WireGuard)
       continue-on-error: true
       run: |
-        echo "Creating WireGuard config..."
+        echo "Processing WireGuard config..."
         echo "${{ secrets.PROTON_WG_CONFIG }}" > wg0.conf
+        # Access DNS line to prevent resolvconf dependency issues in CI
+        sed -i '/^DNS/d' wg0.conf
         chmod 600 wg0.conf
         
         echo "Checking initial IP..."
-        curl -s ifconfig.me || echo "Failed to check IP"
+        curl -s --max-time 10 ifconfig.me || echo "Failed to check IP"
         
         echo "Starting VPN..."
         if sudo wg-quick up ./wg0.conf; then
           echo "✅ VPN Connection SUCCESS"
           echo "Waiting for connection stability..."
           sleep 5
+          echo "Waiting for connection stability..."
+          sleep 5
           echo "Checking VPN IP..."
-          curl -s ifconfig.me || echo "Failed to check IP"
+          curl -s --max-time 10 ifconfig.me || echo "Failed to check IP"
         else
           echo "⚠️ VPN Connection FAILED - Proceeding without VPN"
           exit 1
