@@ -26,36 +26,23 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
 
-    - name: Install VPN Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wireguard
+
 
     - name: Connect to ProtonVPN (WireGuard)
+      uses: egor-tensin/setup-wireguard@v1
+      continue-on-error: true
+      with:
+        private_key: ${{ secrets.WIREGUARD_PRIVATE_KEY }}
+        endpoint_public_key: ${{ secrets.WIREGUARD_PUBLIC_KEY }}
+        endpoint: ${{ secrets.WIREGUARD_ENDPOINT }}
+        ips: ${{ secrets.WIREGUARD_ADDRESS }}
+        allowed_ips: '0.0.0.0/0'
+
+    - name: Verify VPN Connection
       continue-on-error: true
       run: |
-        echo "Processing WireGuard config..."
-        echo "${{ secrets.PROTON_WG_CONFIG }}" > wg0.conf
-        # Access DNS line to prevent resolvconf dependency issues in CI
-        sed -i '/^DNS/d' wg0.conf
-        chmod 600 wg0.conf
-        
-        echo "Checking initial IP..."
-        curl -s --max-time 10 ifconfig.me || echo "Failed to check IP"
-        
-        echo "Starting VPN..."
-        if sudo wg-quick up ./wg0.conf; then
-          echo "✅ VPN Connection SUCCESS"
-          echo "Waiting for connection stability..."
-          sleep 5
-          echo "Waiting for connection stability..."
-          sleep 5
-          echo "Checking VPN IP..."
-          curl -s --max-time 10 ifconfig.me || echo "Failed to check IP"
-        else
-          echo "⚠️ VPN Connection FAILED - Proceeding without VPN"
-          exit 1
-        fi
+        echo "Checking public IP..."
+        curl -s --max-time 10 https://ifconfig.me || echo "Failed to fetch IP"
 
     - name: Run Scraper (Deep Mode)
       run: |
