@@ -30,6 +30,33 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
 
+    - name: Install VPN Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wireguard openresolv
+
+    - name: Connect to ProtonVPN (WireGuard)
+      continue-on-error: true
+      run: |
+        echo "Creating WireGuard config..."
+        echo "${{ secrets.PROTON_WG_CONFIG }}" > wg0.conf
+        chmod 600 wg0.conf
+        
+        echo "Checking initial IP..."
+        curl -s ifconfig.me || echo "Failed to check IP"
+        
+        echo "Starting VPN..."
+        if sudo wg-quick up ./wg0.conf; then
+          echo "✅ VPN Connection SUCCESS"
+          echo "Waiting for connection stability..."
+          sleep 5
+          echo "Checking VPN IP..."
+          curl -s ifconfig.me || echo "Failed to check IP"
+        else
+          echo "⚠️ VPN Connection FAILED - Proceeding without VPN"
+          exit 1
+        fi
+
     - name: Run Scraper (Single Country - ${{ inputs.country }})
       continue-on-error: true  # Single-country test won't meet MIN_TOTAL_FILMS threshold
       run: |
