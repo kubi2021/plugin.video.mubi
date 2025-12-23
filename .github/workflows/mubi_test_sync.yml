@@ -32,21 +32,64 @@ jobs:
 
 
 
-    - name: Connect to ProtonVPN (WireGuard)
-      uses: egor-tensin/setup-wireguard@v1
-      continue-on-error: true
-      with:
-        private_key: ${{ secrets.WIREGUARD_PRIVATE_KEY }}
-        endpoint_public_key: ${{ secrets.WIREGUARD_PUBLIC_KEY }}
-        endpoint: ${{ secrets.WIREGUARD_ENDPOINT }}
-        ips: ${{ secrets.WIREGUARD_ADDRESS }}
-        allowed_ips: '0.0.0.0/0'
+    - name: Install VPN Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wireguard-tools openresolv
 
-    - name: Verify VPN Connection
+    - name: Connect to ProtonVPN (WireGuard)
       continue-on-error: true
       run: |
-        echo "Checking public IP..."
+        echo "=== NETWORK DEBUG (BEFORE) ==="
+        ip addr
+        ip route
+        echo "=============================="
+
+        echo "Generating WireGuard config from secrets..."
+        cat <<EOF > wg0.conf
+        [Interface]
+        PrivateKey = ${{ secrets.WIREGUARD_PRIVATE_KEY }}
+        Address = ${{ secrets.WIREGUARD_ADDRESS }}
+        # DNS = 10.2.0.1  <-- Commented out to prevent resolvconf issues
+
+        [Peer]
+        PublicKey = ${{ secrets.WIREGUARD_PUBLIC_KEY }}
+        AllowedIPs = 0.0.0.0/0
+        Endpoint = ${{ secrets.WIREGUARD_ENDPOINT }}
+        PersistentKeepalive = 25
+        EOF
+        
+        chmod 600 wg0.conf
+        
+        echo "Checking initial IP..."
         curl -s --max-time 10 https://ifconfig.me || echo "Failed to fetch IP"
+        
+        echo "Starting VPN..."
+        if sudo wg-quick up ./wg0.conf; then
+          echo "✅ VPN Interface Returned Success"
+          
+          echo "=== NETWORK DEBUG (VPN UP) ==="
+          sudo wg show
+          ip addr
+          ip route
+          echo "Ping Test (1.1.1.1):"
+          ping -c 2 1.1.1.1 || echo "Ping failed"
+          echo "=============================="
+          
+          echo "Waiting for connection stability..."
+          sleep 5
+          
+          echo "Checking VPN IP..."
+          if curl -v --max-time 10 https://ifconfig.me; then
+             echo "✅ IP Check Success"
+          else
+             echo "❌ IP Check Failed"
+             exit 1 
+          fi
+        else
+          echo "⚠️ VPN Connection FAILED - Proceeding without VPN"
+          exit 1
+        fi
 
     - name: Run Scraper (Single Country - ${{ inputs.country }})
       continue-on-error: true  # Single-country test won't meet MIN_TOTAL_FILMS threshold
