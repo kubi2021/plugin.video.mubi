@@ -63,3 +63,4 @@ MagicMock/
 !backend/schemas/*.json
 !tests/fixtures/*.json
 backend/.env
+.env
