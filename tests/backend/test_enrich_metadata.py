@@ -31,7 +31,7 @@ class TestEnrichMetadata(unittest.TestCase):
         initial_data = {
             'items': [
                 {'mubi_id': 1, 'title': 'Test Movie', 'year': 2020}, # Missing IDs
-                {'mubi_id': 2, 'title': 'Known Movie', 'imdb_id': 'tt123', 'tmdb_id': '456'} # Has IDs
+                {'mubi_id': 2, 'title': 'Known Movie', 'imdb_id': 'tt123', 'tmdb_id': '456', 'ratings': [{'source': 'imdb', 'score_over_10': 7.5}]} # Has IDs and Rating
             ]
         }
         with open(self.films_path, 'w') as f:
