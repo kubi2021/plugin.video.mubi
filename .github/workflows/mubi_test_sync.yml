@@ -33,7 +33,7 @@ jobs:
     - name: Install VPN Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y wireguard openresolv
+        sudo apt-get install -y wireguard resolvconf
 
     - name: Connect to ProtonVPN (WireGuard)
       continue-on-error: true
