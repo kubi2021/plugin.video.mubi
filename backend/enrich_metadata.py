@@ -73,10 +73,18 @@ def enrich_metadata(films_path='films.json', content_type='movie'):
         has_imdb = bool(film.get('imdb_id'))
         has_tmdb = bool(film.get('tmdb_id'))
         
-        if has_tmdb:
+        # Check if we need OMDB enrichment
+        needs_omdb = False
+        if has_imdb:
+            ratings = film.get('ratings', [])
+            has_imdb_rating = any(r.get('source') == 'imdb' for r in ratings)
+            if not has_imdb_rating:
+                needs_omdb = True
+
+        if has_tmdb and not needs_omdb:
             continue
             
-        if not has_imdb:
+        if not has_tmdb or needs_omdb:
             items_to_process.append((i, film))
 
     total_films = len(items)
