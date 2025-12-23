@@ -7,7 +7,10 @@ import requests
 from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy
 
 # Configure logging
+# Configure logging
 logger = logging.getLogger(__name__)
+
+
 
 class TMDBProvider:
     """
@@ -34,6 +37,10 @@ class TMDBProvider:
             multiplier=self.config.get("backoff_multiplier", 1.5),
         )
         
+        # Determine genres dynamically to avoid hardcoding IDs
+        self.movie_genres = self._fetch_genres("movie")
+        self.tv_genres = self._fetch_genres("tv")
+        
     @property
     def provider_name(self) -> str:
         return "TMDB"
@@ -46,7 +53,9 @@ class TMDBProvider:
         media_type: str = "movie",
         tmdb_id: Optional[int] = None,
         mubi_directors: Optional[list] = None,
-        mubi_runtime: Optional[int] = None
+        mubi_runtime: Optional[int] = None,
+        mubi_genres: Optional[list] = None,
+        mubi_id: Optional[int] = None
     ) -> ExternalMetadataResult:
         """
         Fetch IMDB ID and TMDB ID from TMDB.
@@ -56,6 +65,8 @@ class TMDBProvider:
         Args:
             mubi_directors: List of director names from Mubi for disambiguation.
             mubi_runtime: Runtime in minutes from Mubi for disambiguation.
+            mubi_original_title: Original title from Mubi.
+            mubi_genres: List of genres from Mubi.
         """
         
         # Optimization: Use existing TMDB ID if provided
@@ -95,26 +106,38 @@ class TMDBProvider:
                 if m_type == "movie":
                     found_id = self._search_movie(candidate, year, 
                                                    mubi_directors=mubi_directors, 
-                                                   mubi_runtime=mubi_runtime)
-                    if found_id: return self._get_movie_details(found_id)
+                                                   mubi_runtime=mubi_runtime,
+                                                   mubi_original_title=original_title,
+                                                   mubi_genres=mubi_genres,
+                                                   mubi_id=mubi_id)
+                    if found_id and found_id.success: return self._get_movie_details(int(found_id.tmdb_id))
                 else:
                     found_id = self._search_tv(candidate, year,
                                                 mubi_directors=mubi_directors,
-                                                mubi_runtime=mubi_runtime)
-                    if found_id: return self._get_tv_details(found_id)
+                                                mubi_runtime=mubi_runtime,
+                                                mubi_original_title=original_title,
+                                                mubi_genres=mubi_genres,
+                                                mubi_id=mubi_id)
+                    if found_id and found_id.success: return self._get_tv_details(int(found_id.tmdb_id))
                 
                 # B. Fuzzy year search (if year provided)
                 if year:
                     if m_type == "movie":
                         found_id = self._search_movie(candidate, year=None, target_year=year,
                                                        mubi_directors=mubi_directors,
-                                                       mubi_runtime=mubi_runtime)
-                        if found_id: return self._get_movie_details(found_id)
+                                                       mubi_runtime=mubi_runtime,
+                                                       mubi_original_title=original_title,
+                                                       mubi_genres=mubi_genres,
+                                                       mubi_id=mubi_id)
+                        if found_id and found_id.success: return self._get_movie_details(int(found_id.tmdb_id))
                     else:
                         found_id = self._search_tv(candidate, year=None, target_year=year,
                                                     mubi_directors=mubi_directors,
-                                                    mubi_runtime=mubi_runtime)
-                        if found_id: return self._get_tv_details(found_id)
+                                                    mubi_runtime=mubi_runtime,
+                                                    mubi_original_title=original_title,
+                                                    mubi_genres=mubi_genres,
+                                                    mubi_id=mubi_id)
+                        if found_id and found_id.success: return self._get_tv_details(int(found_id.tmdb_id))
         
         return ExternalMetadataResult(
             success=False,
@@ -124,17 +147,23 @@ class TMDBProvider:
 
 
     def _search_movie(self, title: str, year: Optional[int], target_year: Optional[int] = None,
-                      mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None) -> Optional[int]:
+                      mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None,
+                      mubi_original_title: Optional[str] = None, mubi_genres: Optional[list] = None,
+                      mubi_id: Optional[int] = None) -> ExternalMetadataResult:
         """Search for a movie."""
-        return self._search_generic("movie", title, year, target_year, mubi_directors, mubi_runtime)
+        return self._search_generic("movie", title, year, target_year, mubi_directors, mubi_runtime, mubi_original_title, mubi_genres, mubi_id)
 
     def _search_tv(self, title: str, year: Optional[int], target_year: Optional[int] = None,
-                   mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None) -> Optional[int]:
+                   mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None,
+                   mubi_original_title: Optional[str] = None, mubi_genres: Optional[list] = None,
+                   mubi_id: Optional[int] = None) -> ExternalMetadataResult:
         """Search for a TV show."""
-        return self._search_generic("tv", title, year, target_year, mubi_directors, mubi_runtime)
+        return self._search_generic("tv", title, year, target_year, mubi_directors, mubi_runtime, mubi_original_title, mubi_genres, mubi_id)
 
     def _search_generic(self, media_type: str, title: str, year: Optional[int], target_year: Optional[int] = None,
-                        mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None) -> Optional[int]:
+                        mubi_directors: Optional[list] = None, mubi_runtime: Optional[int] = None,
+                        mubi_original_title: Optional[str] = None, mubi_genres: Optional[list] = None,
+                        mubi_id: Optional[int] = None) -> ExternalMetadataResult:
         """
         Generic search for movie or tv.
         media_type: 'movie' or 'tv'
@@ -142,6 +171,8 @@ class TMDBProvider:
         When multiple results are returned, uses scoring to disambiguate:
         - Director match: +10 points
         - Runtime match (±3 min): +5 points
+        - Original Title match: +8 points
+        - Genre match: +3 points
         """
         endpoint = f"search/{media_type}"
         params = {
@@ -177,7 +208,7 @@ class TMDBProvider:
                 )
             
             # Multiple results: apply scoring if disambiguation signals available
-            if mubi_directors or mubi_runtime:
+            if mubi_directors or mubi_runtime or mubi_original_title or mubi_genres:
                 scored_results = []
                 for item in results:
                     score = 0
@@ -203,21 +234,47 @@ class TMDBProvider:
                             score += 5
                             logger.debug(f"Runtime match for TMDB {tmdb_id} ({tmdb_runtime}min): +5")
                     
+                    # C. Original Title match (+8 pts)
+                    if mubi_original_title:
+                        tmdb_og_title = item.get("original_title") if media_type == "movie" else item.get("original_name")
+                        if tmdb_og_title and tmdb_og_title.lower() == mubi_original_title.lower():
+                            score += 8
+                            logger.debug(f"Original title match for TMDB {tmdb_id}: +8")
+                            
+                    # D. Genre match (+3 pts)
+                    if mubi_genres and item.get("genre_ids"):
+                        tmdb_genre_map = self.movie_genres if media_type == "movie" else self.tv_genres
+                        
+                        item_genres = {tmdb_genre_map[gid] for gid in item["genre_ids"] if gid in tmdb_genre_map}
+                        mubi_genres_lower = {g.lower() for g in mubi_genres}
+                        
+                        # Check intersection
+                        common = item_genres.intersection(mubi_genres_lower)
+                        if common:
+                            score += 3
+                            logger.debug(f"Genre match for TMDB {tmdb_id} ({common}): +3")
+                    
                     scored_results.append((score, item))
                 
                 # Sort by score descending
                 scored_results.sort(key=lambda x: -x[0])
                 best_score, best_item = scored_results[0]
                 
-                if best_score >= 10:
-                    logger.info(f"Disambiguated '{title}' by director match -> TMDB ID {best_item['id']}")
-                elif best_score >= 5:
-                    logger.info(f"Disambiguated '{title}' by runtime match -> TMDB ID {best_item['id']}")
-                elif best_score > 0:
-                    logger.info(f"Partial disambiguation for '{title}' (score={best_score}) -> TMDB ID {best_item['id']}")
-                else:
-                    logger.warning(f"'{title}': {len(results)} candidates, no strong signal. Using first result.")
+                log_prefix = f"[MubiID:{mubi_id}] " if mubi_id else ""
                 
+                if best_score >= 10:
+                    logger.info(f"{log_prefix}Disambiguated '{title}' by director match -> TMDB ID {best_item['id']}")
+                elif best_score >= 8:
+                    logger.info(f"{log_prefix}Disambiguated '{title}' by original title match -> TMDB ID {best_item['id']}")
+                elif best_score >= 5: # Runtime or just strong overlap
+                    logger.info(f"{log_prefix}Disambiguated '{title}' by runtime/strong signal (score={best_score}) -> TMDB ID {best_item['id']}")
+                elif best_score >= 3:
+                     logger.info(f"{log_prefix}Disambiguated '{title}' by genre match (score={best_score}) -> TMDB ID {best_item['id']}")
+                if best_score < 3:
+                    logger.warning(f"{log_prefix}'{title}': {len(results)} candidates, no strong signal (best_score={best_score}). Skipping.")
+                    return ExternalMetadataResult(success=False, source_provider=self.provider_name)
+                    
+                # Success
                 return ExternalMetadataResult(
                     success=True,
                     tmdb_id=str(best_item["id"]),
@@ -249,13 +306,10 @@ class TMDBProvider:
             )
 
         try:
-            result = self.retry_strategy.execute(do_search, title)
-            if result.success and result.tmdb_id:
-                return int(result.tmdb_id)
-            return None
+            return self.retry_strategy.execute(do_search, title)
         except Exception as e:
             logger.warning(f"TMDB: {media_type.upper()} search failed for '{title}': {e}")
-            return None
+            return ExternalMetadataResult(success=False, source_provider=self.provider_name, error_message=str(e))
 
     def _get_movie_details(self, tmdb_id: int) -> ExternalMetadataResult:
         return self._get_details_generic(tmdb_id, "movie")
@@ -348,4 +402,23 @@ class TMDBProvider:
             return response.status_code == 200
         except Exception:
             return False
+            
+    def _fetch_genres(self, media_type: str) -> Dict[int, str]:
+        """
+        Fetch genre mapping from TMDB API to avoid hardcoded IDs.
+        Returns: Dict {id: name}
+        """
+        try:
+            url = f"{self.BASE_URL}/genre/{media_type}/list"
+            params = {"api_key": self.api_key}
+            response = requests.get(url, params=params, timeout=10)
+            if response.ok:
+                data = response.json()
+                # {"genres": [{"id": 28, "name": "Action"}, ...]}
+                return {g["id"]: g["name"].lower() for g in data.get("genres", [])}
+        except Exception as e:
+            logger.warning(f"Failed to fetch {media_type} genres: {e}")
+        
+        # Fallback to empty if fails (safe default, just won't get bonus points)
+        return {}
 

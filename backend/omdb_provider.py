@@ -56,7 +56,10 @@ class OMDBProvider:
                 k = next(self._key_cycle)
                 if k not in self._bad_keys:
                     return k
-            # If all are bad, just return the last one (it will likely fail again, but we can't do magic)
+            # If all are bad, raise exception to stop trying
+            if len(self._bad_keys) >= len(self.api_keys):
+                raise Exception("All OMDB API keys are marked as bad.")
+            
             return k
             
     def _mark_key_bad(self, key: str):
@@ -90,10 +93,17 @@ class OMDBProvider:
                 
                 # Check directly for 401 (Invalid Key)
                 if response.status_code == 401:
-                    logger.warning(f"OMDB: Key ending in ...{current_key[-4:]} failed (401 Unauthorized). Marking as bad.")
+                    logger.warning(f"OMDB: Key ending in ...{current_key[-4:]} failed (401 Unauthorized). Response: {response.text.strip()}. Marking as bad.")
                     self._mark_key_bad(current_key)
-                    last_error = "401 Unauthorized (All keys invalid?)"
+                    last_error = f"401 Unauthorized: {response.text.strip()}"
                     continue # Retry loop will get a new key
+                
+                # Check for 403 (Forbidden - sometimes used for limits)
+                if response.status_code == 403:
+                    logger.warning(f"OMDB: Key ending in ...{current_key[-4:]} failed (403 Forbidden). Response: {response.text.strip()}. Marking as bad.")
+                    self._mark_key_bad(current_key)
+                    last_error = f"403 Forbidden: {response.text.strip()}"
+                    continue
                 
                 response.raise_for_status()
                 data = response.json()
@@ -116,7 +126,13 @@ class OMDBProvider:
                 # Success - Parse Data
                 return self._parse_response(data, imdb_id)
 
-            except requests.RequestException as e:
+            except Exception as e:
+                # Catch internal exhaustion exception or request errors
+                if "All OMDB API keys are marked as bad" in str(e):
+                    logger.warning(f"OMDB: Aborting request. {e}")
+                    last_error = str(e)
+                    break 
+                
                 logger.warning(f"OMDB: Network error with key ...{current_key[-4:]}: {e}")
                 last_error = str(e)
                 # For network errors, we might want to just retry (maybe same key, maybe next).

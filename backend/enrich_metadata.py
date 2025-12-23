@@ -196,8 +196,11 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: Op
     year = film.get('year')
     directors = film.get('directors', [])
     duration = film.get('duration')
+    genres = film.get('genres', [])
     
-    logger.info(f"[{idx+1}/{total}] Fetching metadata for '{title}' ({year})...")
+    mubi_id = film.get('mubi_id')
+    
+    logger.info(f"[{idx+1}/{total}] Fetching metadata for '{title}' ({year}) [MubiID:{mubi_id}]...")
     
     if not title:
         return False
@@ -211,7 +214,9 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: Op
         media_type=media_type, 
         tmdb_id=tmdb_id,
         mubi_directors=directors,
-        mubi_runtime=duration
+        mubi_runtime=duration,
+        mubi_genres=genres,
+        mubi_id=mubi_id
     )
     
     if result.success:
@@ -253,10 +258,10 @@ def process_film(film: Dict[str, Any], provider: TMDBProvider, omdb_provider: Op
         if ratings:
             film['ratings'] = ratings
         
-        logger.info(f"Found match: IMDB={result.imdb_id}, TMDB={result.tmdb_id}")
+        logger.info(f"Found match [MubiID:{mubi_id}]: IMDB={result.imdb_id}, TMDB={result.tmdb_id}")
         return True
     else:
-        logger.warning(f"No match found for '{title}' ({year})")
+        logger.warning(f"No match found for '{title}' ({year}) [MubiID:{mubi_id}]")
         return False
     
 
