@@ -88,8 +88,12 @@ class OMDBProvider:
                 "r": "json"
             }
             
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
+            }
+            
             try:
-                response = requests.get(self.BASE_URL, params=params, timeout=10)
+                response = requests.get(self.BASE_URL, params=params, headers=headers, timeout=10)
                 
                 # Check directly for 401 (Invalid Key)
                 if response.status_code == 401:
