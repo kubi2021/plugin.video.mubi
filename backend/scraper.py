@@ -264,6 +264,31 @@ class MubiScraper:
             
             data['artworks'] = pruned_artworks
 
+    def _enrich_genres(self, film_data):
+        """
+        Enriches genres with 'LGBTQ+' if keywords are found in synopsis or editorial.
+        """
+        keys_to_check = ['short_synopsis', 'default_editorial']
+        keywords = ['queer', 'lgbt', 'lesbian']
+        
+        found = False
+        for key in keys_to_check:
+            text = film_data.get(key)
+            if text and isinstance(text, str):
+                lower_text = text.lower()
+                for keyword in keywords:
+                    if keyword in lower_text:
+                        found = True
+                        break
+            if found:
+                break
+        
+        if found:
+            genres = film_data.get('genres') or []
+            if 'LGBTQ+' not in genres:
+                genres.append('LGBTQ+')
+                film_data['genres'] = genres
+
     def run(self, output_path='films.json', series_path='series.json', mode='deep', input_path=None):
         all_films = {} # id -> film_data
         all_series = {} # id -> series_data
@@ -436,6 +461,9 @@ class MubiScraper:
                         
                         # Prune unnecessary fields from film data
                         self._prune_film_data(new_data)
+                        
+                        # Enrich genres (LGBTQ+ tagging)
+                        self._enrich_genres(new_data)
 
                         # --- DISTINGUISH SERIES VS FILM ---
                         is_series = False
