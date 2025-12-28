@@ -42,7 +42,6 @@ jobs:
       run: |
         pytest tests/ --cov=repo/plugin_video_mubi --cov=backend --cov-config=.coveragerc --cov-report=term-missing --cov-fail-under=65
       continue-on-error: false
-      continue-on-error: false
 
     - name: Test Summary
       if: always()
