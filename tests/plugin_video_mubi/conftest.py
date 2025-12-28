@@ -29,6 +29,7 @@ sys.path.insert(0, str(repo_path))
 # Mock requests globally by default for SPEED and SAFETY
 # We will opt-out in integration tests.
 requests_mock = MagicMock()
+requests_mock.__file__ = None
 
 # Create proper exception classes
 class MockRequestException(Exception): pass
@@ -41,16 +42,22 @@ class MockHTTPError(MockRequestException):
         self.response.status_code = kwargs.get('status_code', 500)
 
 requests_mock.exceptions = MagicMock()
+requests_mock.exceptions.__file__ = None
 requests_mock.exceptions.HTTPError = MockHTTPError
 requests_mock.exceptions.RequestException = MockRequestException
 requests_mock.exceptions.ConnectionError = MockConnectionError
 requests_mock.exceptions.Timeout = MockTimeout
 
 requests_mock.adapters = MagicMock()
+requests_mock.adapters.__file__ = None
 requests_mock.packages = MagicMock()
+requests_mock.packages.__file__ = None
 requests_mock.packages.urllib3 = MagicMock()
+requests_mock.packages.urllib3.__file__ = None
 requests_mock.packages.urllib3.util = MagicMock()
+requests_mock.packages.urllib3.util.__file__ = None
 requests_mock.packages.urllib3.util.retry = MagicMock()
+requests_mock.packages.urllib3.util.retry.__file__ = None
 
 # Apply to sys.modules immediately
 sys.modules['requests'] = requests_mock
@@ -63,17 +70,25 @@ sys.modules['requests.packages.urllib3.util.retry'] = requests_mock.packages.url
 
 # Mock dateutil/webbrowser/time
 sys.modules['dateutil'] = MagicMock()
+sys.modules['dateutil'].__file__ = None
 sys.modules['dateutil.parser'] = MagicMock()
+sys.modules['dateutil.parser'].__file__ = None
 sys.modules['webbrowser'] = MagicMock()
+sys.modules['webbrowser'].__file__ = None
 sys.modules['time'] = MagicMock()
+sys.modules['time'].__file__ = None
 
 # Mock xbmc and related modules
 sys.modules['xbmc'] = MagicMock()
+sys.modules['xbmc'].__file__ = None
 sys.modules['xbmcaddon'] = MagicMock()
+sys.modules['xbmcaddon'].__file__ = None
 sys.modules['xbmcaddon'].Addon.return_value.getAddonInfo.return_value = "/tmp/mock_addon_path"
 sys.modules['xbmcaddon'].Addon.return_value.getSetting.return_value = ""
 sys.modules['xbmcgui'] = MagicMock()
+sys.modules['xbmcgui'].__file__ = None
 sys.modules['xbmcplugin'] = MagicMock()
+sys.modules['xbmcplugin'].__file__ = None
 
 # Mock xbmcvfs
 class MockFile:
@@ -87,6 +102,7 @@ class MockFile:
     def write(self, content): self.content = content
 
 xbmcvfs_mock = MagicMock()
+xbmcvfs_mock.__file__ = None
 xbmcvfs_mock.File = MockFile
 xbmcvfs_mock.translatePath.return_value = "/tmp/mock_kodi"
 xbmcvfs_mock.exists.return_value = True
@@ -95,6 +111,7 @@ sys.modules['xbmcvfs'] = xbmcvfs_mock
 
 # Mock inputstreamhelper
 sys.modules['inputstreamhelper'] = MagicMock()
+sys.modules['inputstreamhelper'].__file__ = None
 
 # Configure xbmc constants
 xbmc_mock = sys.modules['xbmc']
