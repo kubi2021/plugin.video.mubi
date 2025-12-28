@@ -452,7 +452,9 @@ class TestNavigationHandler:
         mock_film = Mock()
         mock_film.title = "Watchlist Movie"
         mock_film.available_countries = {"US": {}} # Required for is_film_valid
-        mock_library.films = [mock_film]
+        # Simulating Library.films as a dictionary (key=id, value=film)
+        # This was causing a bug where iteration yielded keys instead of values
+        mock_library.films = {123: mock_film}
         mock_mubi.get_watch_list.return_value = mock_library
 
         with patch.object(navigation_handler, '_add_film_item') as mock_add_film:

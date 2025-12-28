@@ -274,7 +274,7 @@ class NavigationHandler:
 
             library = self.mubi.get_watch_list()
 
-            for film in library.films:
+            for film in library.films.values():
                 self._add_film_item(film)
 
             xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_NONE)
