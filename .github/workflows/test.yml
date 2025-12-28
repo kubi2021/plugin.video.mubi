@@ -38,14 +38,10 @@ jobs:
         pip install -r requirements-test.txt
         if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
 
-    - name: Run tests with pytest
+    - name: Run tests with coverage
       run: |
-        pytest tests/ -v --tb=short --strict-markers
+        pytest tests/ --cov=repo/plugin_video_mubi --cov=backend --cov-config=.coveragerc --cov-report=term-missing --cov-fail-under=65
       continue-on-error: false
-
-    - name: Generate test coverage report
-      run: |
-        pytest tests/ --cov=repo/plugin_video_mubi --cov-config=.coveragerc --cov-report=term-missing --cov-fail-under=65
       continue-on-error: false
 
     - name: Test Summary
