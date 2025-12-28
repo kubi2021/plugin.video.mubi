@@ -6,8 +6,10 @@ import sys
 # Mock modules before import
 if 'xbmcvfs' not in sys.modules:
     sys.modules['xbmcvfs'] = Mock()
+    sys.modules['xbmcvfs'].__file__ = None
 if 'xbmc' not in sys.modules:
     sys.modules['xbmc'] = Mock()
+    sys.modules['xbmc'].__file__ = None
 
 from plugin_video_mubi.resources.lib.local_server import LocalServer
 

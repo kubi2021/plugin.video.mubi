@@ -8,8 +8,10 @@ import os
 # Mock xbmc and xbmcvfs modules
 if 'xbmc' not in sys.modules:
     sys.modules['xbmc'] = Mock()
+    sys.modules['xbmc'].__file__ = None
 if 'xbmcvfs' not in sys.modules:
     sys.modules['xbmcvfs'] = Mock()
+    sys.modules['xbmcvfs'].__file__ = None
 
 from plugin_video_mubi.resources.lib.mpd_patcher import MPDPatcher
 
