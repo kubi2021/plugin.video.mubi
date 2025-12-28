@@ -6,8 +6,17 @@ from backend.omdb_provider import OMDBProvider
 class TestOMDBProvider(unittest.TestCase):
 
     def setUp(self):
+        # Force reload modules to ensure we get fresh state/mocks and avoid global mock pollution
+        import sys
+        import importlib
+        if 'backend.omdb_provider' in sys.modules:
+            importlib.reload(sys.modules['backend.omdb_provider'])
+            
+        from backend.omdb_provider import OMDBProvider
+        self.provider_cls = OMDBProvider
+        
         self.api_keys = ["key1", "key2", "key3"]
-        self.provider = OMDBProvider(api_keys=self.api_keys)
+        self.provider = self.provider_cls(api_keys=self.api_keys)
 
     def test_init_single_key(self):
         p = OMDBProvider(api_keys="single_key")

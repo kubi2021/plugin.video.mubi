@@ -10,16 +10,26 @@ from unittest.mock import MagicMock
 # Mock xbmc modules BEFORE importing plugin code
 sys.modules['xbmc'] = MagicMock()
 sys.modules['xbmc'].__file__ = None
+sys.modules['xbmc'].__path__ = None
+sys.modules['xbmc'].__spec__ = None
 sys.modules['xbmc'].LOGINFO = 1
 sys.modules['xbmc'].LOGERROR = 2
 sys.modules['xbmcgui'] = MagicMock()
 sys.modules['xbmcgui'].__file__ = None
+sys.modules['xbmcgui'].__path__ = None
+sys.modules['xbmcgui'].__spec__ = None
 sys.modules['xbmcvfs'] = MagicMock()
 sys.modules['xbmcvfs'].__file__ = None
+sys.modules['xbmcvfs'].__path__ = None
+sys.modules['xbmcvfs'].__spec__ = None
 sys.modules['xbmcaddon'] = MagicMock()
 sys.modules['xbmcaddon'].__file__ = None
+sys.modules['xbmcaddon'].__path__ = None
+sys.modules['xbmcaddon'].__spec__ = None
 sys.modules['xbmcplugin'] = MagicMock()
 sys.modules['xbmcplugin'].__file__ = None
+sys.modules['xbmcplugin'].__path__ = None
+sys.modules['xbmcplugin'].__spec__ = None
 
 # Add repo to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../repo/plugin_video_mubi/resources/lib')))

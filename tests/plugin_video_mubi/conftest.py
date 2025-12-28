@@ -68,27 +68,49 @@ sys.modules['requests.packages.urllib3'] = requests_mock.packages.urllib3
 sys.modules['requests.packages.urllib3.util'] = requests_mock.packages.urllib3.util
 sys.modules['requests.packages.urllib3.util.retry'] = requests_mock.packages.urllib3.util.retry
 
-# Mock dateutil/webbrowser/time
+# Mock dateutil/webbrowser
 sys.modules['dateutil'] = MagicMock()
 sys.modules['dateutil'].__file__ = None
+sys.modules['dateutil'].__path__ = None
+sys.modules['dateutil'].__spec__ = None
 sys.modules['dateutil.parser'] = MagicMock()
 sys.modules['dateutil.parser'].__file__ = None
+sys.modules['dateutil.parser'].__path__ = None
+sys.modules['dateutil.parser'].__spec__ = None
 sys.modules['webbrowser'] = MagicMock()
 sys.modules['webbrowser'].__file__ = None
-sys.modules['time'] = MagicMock()
-sys.modules['time'].__file__ = None
+sys.modules['webbrowser'].__path__ = None
+sys.modules['webbrowser'].__spec__ = None
+# Removed sys.modules['time'] to avoid coverage/sqlite crash.
+# Instead, we will patch time.sleep using a fixture to ensure tests remain fast.
+
+@pytest.fixture(autouse=True)
+def mock_sleep(mocker):
+    """
+    Globally mock time.sleep to avoid real waits during tests.
+    This replaces the unsafe sys.modules['time'] = MagicMock().
+    """
+    return mocker.patch('time.sleep')
 
 # Mock xbmc and related modules
 sys.modules['xbmc'] = MagicMock()
 sys.modules['xbmc'].__file__ = None
+sys.modules['xbmc'].__path__ = None
+sys.modules['xbmc'].__spec__ = None
 sys.modules['xbmcaddon'] = MagicMock()
 sys.modules['xbmcaddon'].__file__ = None
+sys.modules['xbmcaddon'].__path__ = None
+sys.modules['xbmcaddon'].__spec__ = None
 sys.modules['xbmcaddon'].Addon.return_value.getAddonInfo.return_value = "/tmp/mock_addon_path"
 sys.modules['xbmcaddon'].Addon.return_value.getSetting.return_value = ""
 sys.modules['xbmcgui'] = MagicMock()
 sys.modules['xbmcgui'].__file__ = None
+sys.modules['xbmcgui'].__path__ = None
+sys.modules['xbmcgui'].__spec__ = None
 sys.modules['xbmcplugin'] = MagicMock()
 sys.modules['xbmcplugin'].__file__ = None
+sys.modules['xbmcplugin'].__path__ = None
+sys.modules['xbmcplugin'].__spec__ = None
 
 # Mock xbmcvfs
 class MockFile:
@@ -112,6 +134,8 @@ sys.modules['xbmcvfs'] = xbmcvfs_mock
 # Mock inputstreamhelper
 sys.modules['inputstreamhelper'] = MagicMock()
 sys.modules['inputstreamhelper'].__file__ = None
+sys.modules['inputstreamhelper'].__path__ = None
+sys.modules['inputstreamhelper'].__spec__ = None
 
 # Configure xbmc constants
 xbmc_mock = sys.modules['xbmc']

@@ -7,9 +7,13 @@ import sys
 if 'xbmcvfs' not in sys.modules:
     sys.modules['xbmcvfs'] = Mock()
     sys.modules['xbmcvfs'].__file__ = None
+    sys.modules['xbmcvfs'].__path__ = None
+    sys.modules['xbmcvfs'].__spec__ = None
 if 'xbmc' not in sys.modules:
     sys.modules['xbmc'] = Mock()
     sys.modules['xbmc'].__file__ = None
+    sys.modules['xbmc'].__path__ = None
+    sys.modules['xbmc'].__spec__ = None
 
 from plugin_video_mubi.resources.lib.local_server import LocalServer
 
