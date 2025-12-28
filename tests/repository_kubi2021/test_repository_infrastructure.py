@@ -23,11 +23,11 @@ class TestIndexPageValidation:
     def test_index_page_exists_when_file_present(self, mocker):
         """Test that index.html validation passes when file exists."""
         # Arrange
-        mock_path = mocker.patch('pathlib.Path')
-        mock_path.return_value.exists.return_value = True
+        mocker.patch('pathlib.Path.exists', return_value=True)
 
         # Act
-        result = mock_path.return_value.exists()
+        from pathlib import Path
+        result = Path("index.html").exists()
 
         # Assert
         assert result is True
@@ -35,12 +35,12 @@ class TestIndexPageValidation:
     def test_index_page_missing_raises_assertion_error(self, mocker):
         """Test that missing index.html raises appropriate error."""
         # Arrange
-        mock_path = mocker.patch('pathlib.Path')
-        mock_path.return_value.exists.return_value = False
+        mocker.patch('pathlib.Path.exists', return_value=False)
 
         # Act & Assert
         with pytest.raises(AssertionError, match="index.html file must exist"):
-            path_exists = mock_path.return_value.exists()
+            from pathlib import Path
+            path_exists = Path("index.html").exists()
             assert path_exists, "index.html file must exist at repository root"
 
     def test_index_page_contains_repository_link(self, mocker):
@@ -104,8 +104,7 @@ class TestRepositoryZipValidation:
     def test_repository_zip_exists_happy_path(self, mocker):
         """Test that repository zip validation passes when file exists."""
         # Arrange
-        mock_path = mocker.patch('pathlib.Path')
-        mock_path.return_value.exists.return_value = True
+        mocker.patch('pathlib.Path.exists', return_value=True)
 
         # Act
         from pathlib import Path
@@ -117,8 +116,7 @@ class TestRepositoryZipValidation:
     def test_repository_zip_missing_fails_validation(self, mocker):
         """Test that missing repository zip fails validation."""
         # Arrange
-        mock_path = mocker.patch('pathlib.Path')
-        mock_path.return_value.exists.return_value = False
+        mocker.patch('pathlib.Path.exists', return_value=False)
 
         # Act & Assert
         with pytest.raises(AssertionError, match="repository.kubi2021-2.zip must exist"):
