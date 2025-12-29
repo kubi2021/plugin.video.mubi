@@ -30,7 +30,7 @@ class TestEnrichMetadata(unittest.TestCase):
         # Setup initial JSON
         initial_data = {
             'items': [
-                {'mubi_id': 1, 'title': 'Test Movie', 'year': 2020}, # Missing IDs
+                {'mubi_id': 1, 'title': 'Test Movie', 'year': 2020, 'directors': ['Test Director']}, # Missing IDs
                 {'mubi_id': 2, 'title': 'Known Movie', 'imdb_id': 'tt123', 'tmdb_id': '456', 'ratings': [{'source': 'imdb', 'score_over_10': 7.5}]} # Has IDs and Rating
             ]
         }
@@ -51,7 +51,7 @@ class TestEnrichMetadata(unittest.TestCase):
         mock_resp_search = MagicMock()
         mock_resp_search.status_code = 200
         mock_resp_search.json.return_value = {
-            'results': [{'id': 999, 'release_date': '2020-01-01'}]
+            'results': [{'id': 999, 'release_date': '2020-01-01', 'title': 'Test Movie', 'original_title': 'Test Movie'}]
         }
         
         # 3. Details response (with IMDB)
@@ -62,7 +62,12 @@ class TestEnrichMetadata(unittest.TestCase):
             'id': 999,
             'runtime': 120,
             'vote_average': 8.0,
-            'vote_count': 500
+            'vote_count': 500,
+            'title': 'Test Movie',
+            'original_title': 'Test Movie',
+            'credits': {
+                'crew': [{'job': 'Director', 'name': 'Test Director'}]
+            }
         }
         
         # 0. Genre fetch responses (movie, tv) for __init__
@@ -123,7 +128,7 @@ class TestEnrichMetadata(unittest.TestCase):
     def test_enrich_metadata_no_match(self, mock_get):
         """Test behavior when no match is found."""
         initial_data = {
-            'items': [{'mubi_id': 1, 'title': 'Unknown Movie'}]
+            'items': [{'mubi_id': 1, 'title': 'Unknown Movie', 'directors': ['Unknown Director']}]
         }
         with open(self.films_path, 'w') as f:
             json.dump(initial_data, f)
@@ -172,6 +177,7 @@ class TestEnrichMetadata(unittest.TestCase):
                 'mubi_id': 1,
                 'title': 'Test Movie',
                 'year': 2020,
+                'directors': ['Test Director'],
                 'average_rating_out_of_ten': 7.5,
                 'number_of_ratings': 1000
             }]
@@ -186,7 +192,7 @@ class TestEnrichMetadata(unittest.TestCase):
         mock_resp_search = MagicMock()
         mock_resp_search.status_code = 200
         mock_resp_search.json.return_value = {
-            'results': [{'id': 999, 'release_date': '2020-01-01'}]
+            'results': [{'id': 999, 'release_date': '2020-01-01', 'title': 'Test Movie', 'original_title': 'Test Movie'}]
         }
         
         # Details response with rating data
@@ -197,7 +203,12 @@ class TestEnrichMetadata(unittest.TestCase):
             'id': 999,
             'runtime': 120,
             'vote_average': 8.0,
-            'vote_count': 500
+            'vote_count': 500,
+            'title': 'Test Movie',
+            'original_title': 'Test Movie',
+            'credits': {
+                'crew': [{'job': 'Director', 'name': 'Test Director'}]
+            }
         }
         
         mock_resp_genres = MagicMock()
@@ -246,7 +257,8 @@ class TestEnrichMetadata(unittest.TestCase):
             'items': [{
                 'mubi_id': 1,
                 'title': 'Test Movie',
-                'year': 2020
+                'year': 2020,
+                'directors': ['Test Director']
             }]
         }
         with open(self.films_path, 'w') as f:
@@ -257,7 +269,7 @@ class TestEnrichMetadata(unittest.TestCase):
         mock_resp_config.status_code = 200
         mock_resp_search = MagicMock()
         mock_resp_search.status_code = 200
-        mock_resp_search.json.return_value = {'results': [{'id': 999, 'release_date': '2020-01-01'}]}
+        mock_resp_search.json.return_value = {'results': [{'id': 999, 'release_date': '2020-01-01', 'title': 'Test Movie', 'original_title': 'Test Movie'}]}
         mock_resp_details = MagicMock()
         mock_resp_details.status_code = 200
         mock_resp_details.json.return_value = {
@@ -265,7 +277,12 @@ class TestEnrichMetadata(unittest.TestCase):
             'id': 999,
             'runtime': 120,
             'vote_average': 8.0, 
-            'vote_count': 500
+            'vote_count': 500,
+            'title': 'Test Movie',
+            'original_title': 'Test Movie',
+            'credits': {
+                'crew': [{'job': 'Director', 'name': 'Test Director'}]
+            }
         }
         mock_resp_genres = MagicMock()
         mock_resp_genres.status_code = 200
