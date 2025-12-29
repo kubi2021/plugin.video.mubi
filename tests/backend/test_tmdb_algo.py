@@ -26,7 +26,7 @@ def test_phase_i_search_adult_true(tmdb_provider):
 
 def test_phase_ii_temporal_filtering(tmdb_provider):
     """Test that candidates outside the year window are filtered."""
-    mubi_data = {"title": "Test", "year": 2023}
+    mubi_data = {"title": "Test", "year": 2023, "directors": ["Nolan"]}
     
     # Candidate 1: 2023 (Match)
     # Candidate 2: 2020 (Borderline? Delta=3, <=3 allowed for obscure but let's see default)
@@ -34,15 +34,21 @@ def test_phase_ii_temporal_filtering(tmdb_provider):
     
     candidates = [
         {"id": 1, "title": "Test", "release_date": "2023-01-01"},
-        {"id": 2, "title": "Test", "release_date": "2027-01-01"}, # Delta 4 -> Fail
+        {"id": 2, "title": "Test II", "release_date": "2027-01-01"}, # Delta 4 -> Fail + No Exact Title match
     ]
     
     with patch.object(tmdb_provider, '_search_api', return_value=candidates):
         with patch.object(tmdb_provider, '_get_details_with_credits') as mock_details:
              # Only candidate 1 should trigger detail fetch
-             mock_details.return_value = {"id": 1, "title": "Test", "external_ids": {"imdb_id": "tt1"}}
+             # We must provide a director match so Strategy B succeeds immediately
+             mock_details.return_value = {
+                 "id": 1, 
+                 "title": "Test", 
+                 "external_ids": {"imdb_id": "tt1"},
+                 "credits": {"crew": [{"job": "Director", "name": "Christopher Nolan"}]}
+             }
              
-             tmdb_provider.get_imdb_id(title="Test", year=2023)
+             tmdb_provider.get_imdb_id(title="Test", year=2023, mubi_directors=["Nolan"])
              
              # Check that we only fetched details for valid candidates
              # ID 2 should be skipped before detail fetch
@@ -104,3 +110,96 @@ def test_score_threshold_fail(tmdb_provider):
             
             assert result.success is False
             assert "No match met confidence threshold" in result.error_message
+
+def test_director_token_overlap(tmdb_provider):
+    """Ref: 'Svet-Ake'. Test that distinct names with token overlap (and correct title) are accepted."""
+    # Mubi: Aktan Abdykalykov
+    # TMDB: Aktan Arym Kubat
+    # Overlap: "Aktan" matches.
+    
+    candidates = [{"id": 300, "title": "Svet-Ake", "release_date": "2010-01-01"}]
+    details = {
+        "id": 300,
+        "title": "Svet-Ake",
+        "external_ids": {"imdb_id": "tt300"},
+        "credits": {"crew": [{"job": "Director", "name": "Aktan Arym Kubat"}]}
+    }
+    
+    with patch.object(tmdb_provider, '_search_api', return_value=candidates):
+        with patch.object(tmdb_provider, '_get_details_with_credits', return_value=details):
+            result = tmdb_provider.get_imdb_id(title="Svet-Ake", year=2010, mubi_directors=["Aktan Abdykalykov"])
+            
+            assert result.success is True
+            assert result.match_score >= 80
+
+def test_title_accent_normalization(tmdb_provider):
+    """Ref: 'Lâl'. Test that accented titles match unaccented counterparts."""
+    candidates = [{"id": 400, "title": "Lal", "release_date": "2015-01-01"}]
+    details = {
+        "id": 400, "title": "Lal", "external_ids": {"imdb_id": "tt400"},
+        "credits": {"crew": [{"job": "Director", "name": "Semir Aslanyürek"}]}
+    }
+    
+    with patch.object(tmdb_provider, '_search_api', return_value=candidates):
+        with patch.object(tmdb_provider, '_get_details_with_credits', return_value=details):
+            result = tmdb_provider.get_imdb_id(title="Lâl", year=2015, mubi_directors=["Semir Aslanyürek"])
+            assert result.success is True
+
+def test_split_title_search(tmdb_provider):
+    """Ref: 'Metrobranding'. Test that 'Title: Subtitle' falls back to searching 'Title'."""
+    candidates_split = [{"id": 500, "title": "Metrobranding", "release_date": "2010-01-01"}]
+    details = {
+        "id": 500, "title": "Metrobranding", "external_ids": {"imdb_id": "tt500"},
+        "credits": {"crew": [{"job": "Director", "name": "Ana Vlad"}]}
+    }
+    
+    def search_side_effect(query, media_type, year=None, **kwargs):
+        if "Love Story" in query: return []
+        if query == "Metrobranding": return candidates_split
+        return []
+
+    with patch.object(tmdb_provider, '_search_api', side_effect=search_side_effect) as mock_search:
+        with patch.object(tmdb_provider, '_get_details_with_credits', return_value=details):
+            result = tmdb_provider.get_imdb_id(title="Metrobranding: A Love Story", year=2010, mubi_directors=["Ana Vlad"])
+            
+            assert result.success is True
+            assert result.tmdb_id == "500"
+            mock_search.assert_any_call("Metrobranding", "movie", year=2010)
+
+def test_underscore_sanitization(tmdb_provider):
+    """Ref: 'Hoax_Canular'. Test that underscores are replaced with spaces in search query."""
+    with patch("backend.tmdb_provider.requests.get") as mock_req:
+        mock_resp = MagicMock()
+        mock_resp.ok = True
+        mock_resp.json.return_value = {"results": []}
+        mock_req.return_value = mock_resp
+        
+        tmdb_provider.get_imdb_id(title="Hoax_Canular", year=2013)
+        
+        call_args = mock_req.call_args
+        if call_args:
+             params = call_args[1].get('params', {})
+             assert params.get('query') == "Hoax Canular"
+
+def test_year_gap_allowed_with_strong_match(tmdb_provider):
+    """Ref: 'Ashes of Time'. Test that large year delta is allowed if Director & Title match strongly."""
+    candidates = [{"id": 600, "title": "Ashes of Time", "release_date": "1994-01-01"}]
+    details = {
+        "id": 600, "title": "Ashes of Time", "external_ids": {"imdb_id": "tt600"},
+        "credits": {"crew": [{"job": "Director", "name": "Wong Kar-wai"}]}
+    }
+    
+    # This exposes the "Pre-Filtering" regression on Remasters.
+    # We added an "Exact Title Bypass" to the pre-filter to handle this.
+    # We must ensure it matches as a MOVIE, not falling back to TV.
+    
+    def search_side_effect(query, media_type, year=None, **kwargs):
+        if media_type == "movie": return candidates
+        return []
+        
+    with patch.object(tmdb_provider, '_search_api', side_effect=search_side_effect):
+        with patch.object(tmdb_provider, '_get_details_with_credits', return_value=details):
+             result = tmdb_provider.get_imdb_id(title="Ashes of Time", year=2008, mubi_directors=["Wong Kar-wai"])
+             
+             assert result.success is True 
+             assert result.tmdb_id == "600"

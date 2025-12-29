@@ -11,6 +11,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from backend.tmdb_provider import TMDBProvider
+from backend.omdb_provider import OMDBProvider
 from thefuzz import fuzz
 
 # Setup logging
@@ -18,12 +19,27 @@ logging.basicConfig(level=logging.WARNING, format='%(message)s') # WARNING to re
 logger = logging.getLogger(__name__)
 
 def evaluate_matching(input_path, output_csv):
-    api_key = os.environ.get('TMDB_API_KEY')
-    if not api_key:
+    tmdb_key = os.environ.get('TMDB_API_KEY')
+    if not tmdb_key:
         print("Error: TMDB_API_KEY not set.")
         sys.exit(1)
         
-    provider = TMDBProvider(api_key=api_key)
+    # Get OMDB Keys
+    omdb_keys = []
+    env_keys = os.environ.get('OMDB_API_KEYS')
+    if env_keys:
+        omdb_keys.extend([k.strip() for k in env_keys.split(',') if k.strip()])
+    single_key = os.environ.get('OMDB_API_KEY')
+    if single_key and single_key not in omdb_keys:
+        omdb_keys.append(single_key)
+        
+    if not omdb_keys:
+        print("Warning: OMDB_API_KEYS not set. OMDB evaluation will be skipped.")
+        omdb_provider = None
+    else:
+        omdb_provider = OMDBProvider(api_keys=omdb_keys)
+        
+    provider = TMDBProvider(api_key=tmdb_key)
     if not provider.test_connection():
         print("Error: Could not connect to TMDB.")
         sys.exit(1)
@@ -41,28 +57,28 @@ def evaluate_matching(input_path, output_csv):
         print(f"Error: {input_path} not found.")
         sys.exit(1)
     
+    # Optimize with Multi-threading
     items = all_items
-    print(f"Evaluating ALL {len(items)} films...")
+    print(f"Evaluating ALL {len(items)} films with 10 threads...")
     
     results = []
     
     # Track stats
     matched_count = 0
+    omdb_attempted = 0
+    omdb_found = 0
     
-    for i, film in enumerate(items):
+    import concurrent.futures
+
+    def process_item(idx, film):
         mubi_id = film.get('mubi_id')
         title = film.get('title')
         year = film.get('year')
         
-        # Log progress every 10 items
-        if i % 10 == 0:
-            print(f"Processing {i+1}/{len(items)}: {title} ({year}) [MubiID: {mubi_id}] - Matches so far: {matched_count}")
-            
         mubi_directors = film.get('directors', [])
         mubi_rating = film.get('average_rating_out_of_ten')
         
         # Perform Match
-        # Note: We rely on TMDBProvider's robust logging for debug details
         result = provider.get_imdb_id(
             title=title,
             original_title=film.get('original_title'),
@@ -74,10 +90,28 @@ def evaluate_matching(input_path, output_csv):
             mubi_id=mubi_id
         )
         
-        if result.success:
-            matched_count += 1
+        # OMDB Evaluation
+        imdb_id = result.imdb_id if result.success else None
+        omdb_success = "SKIPPED"
+        omdb_error = ""
+        omdb_ratings = {}
+        omdb_res_success = False
         
-        # Risk Analysis for Manual Review
+        if imdb_id and omdb_provider:
+             # Thread-safe? Request itself is thread-safe. OMDBProvider has a lock on key rotation.
+            omdb_res = omdb_provider.get_details(imdb_id)
+            if omdb_res.success:
+                omdb_success = "YES"
+                omdb_res_success = True
+                # Parse extra ratings
+                if hasattr(omdb_res, 'extra_ratings'):
+                    for r in omdb_res.extra_ratings:
+                        omdb_ratings[r['source']] = r['score_over_10']
+            else:
+                omdb_success = "NO"
+                omdb_error = omdb_res.error_message
+        
+        # Risk Analysis
         risk_flags = []
         if result.success:
             if result.matched_year and year and abs(result.matched_year - year) > 1:
@@ -86,14 +120,7 @@ def evaluate_matching(input_path, output_csv):
                 risk_flags.append(f"TitleMismatch:{fuzz.ratio(title, result.matched_title)}")
             if result.match_score < 85:
                 risk_flags.append("LowScore")
-            # Check director mismatch if directors exist
-            if mubi_directors and result.matched_directors:
-                # Simple check: is any mubi director part of tmdb directors?
-                # We can reuse the provider's normalization logic or just fuzzy search
-                # For summary, just checking exact substring might be enough or assume provider did its job
-                # But we want to flag "Relaxed Overlap" cases
-                pass
-                
+
         film_data = {
             # Mubi Base Data
             "mubi_id": mubi_id,
@@ -105,46 +132,80 @@ def evaluate_matching(input_path, output_csv):
             
             # TMDB Matched Data
             "tmdb_id": result.tmdb_id if result.success else "NO MATCH",
+            "imdb_id": imdb_id if imdb_id else "",
             "tmdb_title": result.matched_title if result.success else "",
             "tmdb_original_title": result.matched_original_title if result.success else "",
             "tmdb_year": result.matched_year if result.success else "",
             "tmdb_directors": ", ".join(result.matched_directors) if result.success and result.matched_directors else "",
-            "tmdb_rating": result.vote_average if result.success else "",
+            "tmdb_vote_avg": result.vote_average if result.success else "",
             
-            # Metrics
+            # Match Metrics
             "match_score": result.match_score if result.success else 0,
             "title_similarity": fuzz.ratio(title, result.matched_title) if result.success and result.matched_title else 0,
-            "year_delta": (result.matched_year - year) if result.success and result.matched_year and year else "",
-            "tmdb_votes": result.vote_count if result.success else "",
-            "error_msg": result.error_message if not result.success else "",
+            
+            # OMDB Data
+            "omdb_success": omdb_success,
+            "omdb_error": omdb_error,
+            "omdb_imdb_rating": omdb_ratings.get('imdb', ''),
+            "omdb_metacritic": omdb_ratings.get('metacritic', ''),
+            "omdb_rotten_tomatoes": omdb_ratings.get('rotten_tomatoes', ''),
             
             # Heuristics
             "risk_flags": "; ".join(risk_flags)
         }
-        results.append(film_data)
         
-    # Generate CSV
-    print("Generating CSV report...")
-    if not results:
-        print("No results to save.")
-        return
+        return film_data, result.success, (imdb_id is not None and omdb_provider is not None), omdb_res_success
 
-    keys = list(results[0].keys())
+    # Sort of random order due to threads, but acceptable for evaluation
+    
+    # Prepare CSV
+    fieldnames = [
+        "mubi_id", "mubi_title", "mubi_original_title", "mubi_year", "mubi_directors", "mubi_rating",
+        "tmdb_id", "imdb_id", "tmdb_title", "tmdb_original_title", "tmdb_year", "tmdb_directors", "tmdb_vote_avg",
+        "match_score", "title_similarity",
+        "omdb_success", "omdb_error", "omdb_imdb_rating", "omdb_metacritic", "omdb_rotten_tomatoes",
+        "risk_flags"
+    ]
     
     with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=keys)
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(results)
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(process_item, i, film): i for i, film in enumerate(items)}
             
-    print(f"Report saved to {output_csv}")
+            count = 0
+            for future in concurrent.futures.as_completed(futures):
+                count += 1
+                idx = futures[future]
+                try:
+                    f_data, is_match, tried_omdb, found_omdb = future.result()
+                    
+                    writer.writerow(f_data)
+                    csvfile.flush() # Ensure written to disk
+                    
+                    if is_match: matched_count += 1
+                    if tried_omdb: omdb_attempted += 1
+                    if found_omdb: omdb_found += 1
+                    
+                    if count % 20 == 0:
+                         print(f"Processed {count}/{len(items)}... Matches: {matched_count}, OMDB: {omdb_found}")
+
+                except Exception as e:
+                    print(f"Error processing item index {idx}: {e}")
+    
+    print(f"Report saved incrementally to {output_csv}")
     
     # Summary
     print(f"\n=== SUMMARY ===")
-    print(f"Total: {len(results)}")
-    print(f"Matched: {matched_count} ({100*matched_count/len(results):.1f}%)")
-    print(f"No Match: {len(results) - matched_count}")
+    print(f"Total Films: {len(results)}")
+    print(f"TMDB Matches: {matched_count} ({100*matched_count/len(results):.1f}%)")
+    if omdb_attempted > 0:
+        print(f"OMDB Success Rate: {omdb_found}/{omdb_attempted} ({100*omdb_found/omdb_attempted:.1f}%)")
+    else:
+        print("OMDB: Not attempted (no keys or no IMDB IDs)")
 
 if __name__ == "__main__":
     input_file = "films_clean.json"
-    output_file = "evaluation_results.csv" # Standardizing output name
+    output_file = "evaluation_results.csv"
     evaluate_matching(input_file, output_file)

@@ -297,12 +297,24 @@ class TMDBProvider:
         best_match = None
         highest_confidence = 0
         
-        # Limit to top 5 purely by relevance to save API calls? 
-        # Or should we trust the caller has filtered?
-        # Caller (search phase) filters 20 results. 
-        # But for fallback, we might have many. Let's process all provided.
+        target_year = mubi_data.get("year")
         
         for item in candidates:
+            # Phase II: Temporal Pre-Filtering
+            # Check year before fetching expensive details
+            # If search result has a release date, checks if it's within a plausible window.
+            if target_year:
+                cand_year = self._extract_year(item.get("release_date") if tmdb_media_type == "movie" else item.get("first_air_date"))
+                if cand_year:
+                    year_delta = abs(cand_year - target_year)
+                    # Allow up to 3 years delta, UNLESS title is an exact match (handle Remasters/Re-releases)
+                    # e.g. "Ashes of Time" (2008) vs (1994)
+                    is_exact_title = (item.get("title", "").lower().strip() == mubi_data.get("title", "").lower().strip())
+                    
+                    if year_delta > 3 and not is_exact_title:
+                         # logger.debug(f"Skipping candidate {item.get('id')} ({item.get('title')}) - Year {cand_year} vs {target_year} delta too large")
+                         continue
+
              # Fetch full details
             details = self._get_details_with_credits(item["id"], media_type=tmdb_media_type) # Changed from _get_details
             if not details: continue
