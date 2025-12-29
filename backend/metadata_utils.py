@@ -23,6 +23,14 @@ class ExternalMetadataResult:
     # Rating data from provider
     vote_average: Optional[float] = None
     vote_count: Optional[int] = None
+    
+    # Verification / Evaluation Data
+    matched_title: Optional[str] = None
+    matched_original_title: Optional[str] = None
+    matched_year: Optional[int] = None
+    matched_directors: List[str] = None
+    match_score: int = 0
+    match_details: dict = None  # To store raw discrepancies (year delta, score breakdown)
 
 class TitleNormalizer:
     """Utilities for normalizing titles and generating spelling variants."""

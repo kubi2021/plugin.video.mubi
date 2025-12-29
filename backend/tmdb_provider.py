@@ -172,6 +172,42 @@ class TMDBProvider:
                 highest_confidence = confidence_score
                 best_match = details
 
+        # --- Fallback Strategy ---
+        if highest_confidence < 80 and mubi_data.get("year"):
+            # If confidence is low, try specific year searches (year, year+1, year-1)
+            # This handles cases like "About Love" where generic search fails
+            logger.debug(f"{log_prefix}Low confidence ({highest_confidence}). Attempting fallback year searches...")
+            base_year = mubi_data["year"]
+            fallback_years = [base_year, base_year + 1, base_year - 1]
+            fallback_candidates = []
+            
+            seen_ids = {c["id"] for c in candidates}
+            
+            for fy in fallback_years:
+                q = mubi_data.get("original_title") or mubi_data.get("title")
+                results = self._search_api(q, media_type, year=fy, include_adult=True)
+                for r in results:
+                    if r["id"] not in seen_ids:
+                        fallback_candidates.append(r)
+                        seen_ids.add(r["id"])
+                        
+            if fallback_candidates:
+                # Re-run verification on new candidates
+                # Filter first (temporal filter +/- 3 years)
+                valid_fallback = []
+                for item in fallback_candidates:
+                    tmdb_date = item.get("release_date") if media_type == "movie" else item.get("first_air_date")
+                    t_year = self._extract_year(tmdb_date)
+                    if t_year and abs(t_year - base_year) <= 3:
+                        valid_fallback.append(item)
+                        
+                if valid_fallback:
+                    fb_best, fb_score = self._verify_candidates(mubi_data, valid_fallback, tmdb_media_type="movie" if media_type == "movie" else "tv")
+                    if fb_score > highest_confidence:
+                        logger.info(f"{log_prefix}Fallback search improved score from {highest_confidence} to {fb_score}")
+                        best_match = fb_best
+                        highest_confidence = fb_score
+
         # --- Decision ---
         # "If not certain, then do not match anything" -> Threshold 80
         if highest_confidence >= 80 and best_match:
@@ -179,6 +215,9 @@ class TMDBProvider:
             
             # Format result
             external_ids = best_match.get("external_ids", {})
+            tmdb_crew = best_match.get("credits", {}).get("crew", [])
+            tmdb_directors = [p["name"] for p in tmdb_crew if p.get("job") == "Director"]
+            
             return ExternalMetadataResult(
                 success=True,
                 tmdb_id=str(best_match["id"]),
@@ -186,7 +225,17 @@ class TMDBProvider:
                 imdb_url=f"https://www.imdb.com/title/{external_ids.get('imdb_id')}/" if external_ids.get("imdb_id") else None,
                 source_provider=self.provider_name,
                 vote_average=best_match.get("vote_average"),
-                vote_count=best_match.get("vote_count")
+                vote_count=best_match.get("vote_count"),
+                # Verification Data
+                matched_title=best_match.get("title"),
+                matched_original_title=best_match.get("original_title"),
+                matched_year=self._extract_year(best_match.get("release_date") if media_type == "movie" else best_match.get("first_air_date")),
+                matched_directors=tmdb_directors,
+                match_score=highest_confidence,
+                match_details={
+                    "year_delta": abs(int(best_match.get("release_date", "").split("-")[0]) - mubi_data["year"]) if mubi_data.get("year") and best_match.get("release_date") else None,
+                    # We could add more details here if needed by the evaluator script
+                }
             )
         else:
             logger.info(f"{log_prefix}No match met threshold (Best: {highest_confidence}). Returning None.")
@@ -196,24 +245,7 @@ class TMDBProvider:
                 error_message="No match met confidence threshold"
             )
 
-    def _search_api(self, query: str, media_type: str) -> list:
-        """Perform a search query against TMDB. No year filter."""
-        endpoint = f"search/{media_type}"
-        params = {
-            "api_key": self.api_key,
-            "query": query,
-            "include_adult": "true", # Important for arthouse
-            "page": 1
-        }
-        
-        try:
-            response = requests.get(f"{self.BASE_URL}/{endpoint}", params=params, timeout=10)
-            if response.ok:
-                return response.json().get("results", [])
-        except Exception as e:
-            logger.warning(f"TMDB Search failed for {query}: {e}")
-            
-        return []
+
 
     def _get_details_with_credits(self, tmdb_id: int, media_type: str) -> dict:
         """Fetch details with append_to_response=credits,external_ids."""
@@ -230,6 +262,58 @@ class TMDBProvider:
             logger.warning(f"Failed to fetch details for {tmdb_id}: {e}")
         return {}
         
+    def _verify_candidates(self, mubi_data: dict, candidates: list, tmdb_media_type: str) -> tuple[Optional[dict], int]:
+        """Helper to run deep verification on a list of candidates."""
+        best_match = None
+        highest_confidence = 0
+        
+        # Limit to top 5 purely by relevance to save API calls? 
+        # Or should we trust the caller has filtered?
+        # Caller (search phase) filters 20 results. 
+        # But for fallback, we might have many. Let's process all provided.
+        
+        for item in candidates:
+             # Fetch full details
+            details = self._get_details_with_credits(item["id"], media_type=tmdb_media_type) # Changed from _get_details
+            if not details: continue
+            
+            tmdb_year = self._extract_year(item.get("release_date") if tmdb_media_type == "movie" else item.get("first_air_date"))
+            confidence_score = self._calculate_final_score(mubi_data, details, tmdb_year)
+            
+            # logger.debug(f"Candidate {item['id']} ('{item.get('title')}'): Score={confidence_score}")
+            
+            if confidence_score > highest_confidence:
+                highest_confidence = confidence_score
+                best_match = details
+                
+        return best_match, highest_confidence
+
+    def _search_api(self, query: str, media_type: str, year: Optional[int] = None, include_adult: bool = True) -> list:
+        """Internal wrapper for search API to handle year filtering."""
+        endpoint = "search/movie" if media_type == "movie" else "search/tv"
+        params = {
+            "api_key": self.api_key,
+            "query": query,
+            "include_adult": str(include_adult).lower(),
+            "language": "en-US",
+            "page": 1
+        }
+        if year:
+             params["year"] = year # strict primary release year filter for movies
+             # For TV it is first_air_date_year
+             if media_type != "movie":
+                 del params["year"]
+                 params["first_air_date_year"] = year
+
+        url = f"{self.BASE_URL}/{endpoint}"
+        try:
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            return resp.json().get("results", [])
+        except Exception as e:
+            logger.error(f"Search API error: {e}")
+            return []
+
     def _calculate_final_score(self, mubi_data: dict, tmdb_details: dict, tmdb_year: Optional[int]) -> int:
         """Calculate the confidence score based on the Tri-Vector weights."""
         score = 0
@@ -252,7 +336,7 @@ class TMDBProvider:
         if mubi_directors and tmdb_directors:
             for md in mubi_directors:
                 for td in tmdb_directors:
-                    if self.fuzz.token_set_ratio(md, td) > 85:
+                    if self.fuzz.WRatio(md, td) > 85:
                         director_match = True
                         break
                 if director_match: break
