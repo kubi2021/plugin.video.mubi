@@ -9,6 +9,8 @@ import time
 import re
 from typing import Optional, List
 from .external_metadata import MetadataProviderFactory
+from datetime import datetime, timezone
+
 
 class Film:
     def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata,
@@ -35,6 +37,48 @@ class Film:
         if not isinstance(other, Film):
             return False
         return self.mubi_id == other.mubi_id
+
+    def is_playable(self) -> bool:
+        """
+        Check if the film is currently available to play in at least one country.
+        
+        Logic:
+        - Iterates through available_countries.
+        - Checks if current UTC time is within the availability window:
+          available_at <= now <= availability_ends_at
+        - Ignores 'availability' string status.
+        
+        :return: True if playable in at least one country, False otherwise.
+        """
+        if not self.available_countries:
+            return False
+            
+        now = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        
+        for details in self.available_countries.values():
+            if not details:
+                continue
+                
+            available_at = details.get('available_at')
+            availability_ends_at = details.get('availability_ends_at')
+            
+            # If available_at is missing, assume not started yet (safe default)
+            if not available_at:
+                continue
+                
+            # Check start time
+            if now < available_at:
+                continue
+                
+            # Check end time (if present)
+            if availability_ends_at and now > availability_ends_at:
+                continue
+                
+            # If we got here, it's valid for this country
+            return True
+            
+        return False
+
 
     def __hash__(self):
         return hash(self.mubi_id)
@@ -336,6 +380,70 @@ class Film:
             xbmc.log(f"Failed to update NFO file for '{self.title}': {e}", xbmc.LOGERROR)
             return False
 
+    def is_rating_synced(self, nfo_file: Path) -> bool:
+        """
+        Check if the rating in the NFO file matches the current film metadata.
+        This is used to detect if an update is needed (e.g., switching from MUBI to Bayesian rating).
+        
+        :param nfo_file: Path to the existing NFO file.
+        :return: True if synced (no update needed), False if mismatch (update needed).
+        """
+        if not nfo_file.exists():
+            return False
+            
+        try:
+            tree = ET.parse(nfo_file)
+            root = tree.getroot()
+            
+            # Find rating elements
+            # XML path: movie -> ratings -> rating
+            ratings_node = root.find("ratings")
+            if ratings_node is None:
+                # No ratings in NFO, but we might have data -> mismatched
+                return False
+                
+            rating_nodes = ratings_node.findall("rating")
+            
+            # Logic:
+            # 1. If we have Bayesian rating in metadata, we expect a 'bayesian' rating in NFO.
+            # 2. If we DON'T have Bayesian rating, we expect a 'MUBI' rating.
+            
+            has_bayesian_metadata = hasattr(self.metadata, 'bayesian_rating') and self.metadata.bayesian_rating is not None
+            
+            found_matching_rating = False
+            
+            for r_node in rating_nodes:
+                name = r_node.get("name")
+                value_node = r_node.find("value")
+                if value_node is None: continue
+                
+                try:
+                    value = float(value_node.text)
+                except (ValueError, TypeError):
+                    continue
+                    
+                if has_bayesian_metadata:
+                    if name == "bayesian":
+                        # Check if value matches (close enough floating point comparison)
+                        if abs(value - float(self.metadata.bayesian_rating)) < 0.01:
+                            found_matching_rating = True
+                            break
+                else:
+                    if name == "MUBI":
+                        if abs(value - float(self.metadata.rating)) < 0.01:
+                            found_matching_rating = True
+                            break
+                            
+            if not found_matching_rating:
+                xbmc.log(f"Rating mismatch for '{self.title}'. Metadata has Bayesian={has_bayesian_metadata}. Triggering update.", xbmc.LOGDEBUG)
+                
+            return found_matching_rating
+
+        except Exception as e:
+            xbmc.log(f"Error checking rating sync for '{self.title}': {e}", xbmc.LOGWARNING)
+            return False
+
+
     def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_id: str, tmdb_id: str = "", artwork_paths: dict = None) -> bytes:
         """Generate the NFO XML tree structure, including IMDb ID if available."""
         if not metadata.title:
@@ -348,11 +456,22 @@ class Film:
         ET.SubElement(movie, "originaltitle").text = self._sanitize_xml_content(metadata.originaltitle)
 
         ratings = ET.SubElement(movie, "ratings")
-        rating = ET.SubElement(ratings, "rating")
-        rating.set("name", "MUBI")
-        rating.set("max", "10")  # Specify 10-point scale for Kodi
-        ET.SubElement(rating, "value").text = str(metadata.rating)
-        ET.SubElement(rating, "votes").text = str(metadata.votes)
+        
+        # Check for Bayesian rating (indicates GitHub sync/enhanced data)
+        # Assuming if we have a bayesian_rating, we want to use THAT exclusively
+        if hasattr(metadata, 'bayesian_rating') and metadata.bayesian_rating is not None:
+            rating = ET.SubElement(ratings, "rating")
+            rating.set("name", "bayesian")
+            rating.set("max", "10")
+            ET.SubElement(rating, "value").text = str(metadata.bayesian_rating)
+            ET.SubElement(rating, "votes").text = str(metadata.bayesian_votes if metadata.bayesian_votes else 0)
+        else:
+            # Fallback to standard Mubi rating (Legacy/API sync)
+            rating = ET.SubElement(ratings, "rating")
+            rating.set("name", "MUBI")
+            rating.set("max", "10")  # Specify 10-point scale for Kodi
+            ET.SubElement(rating, "value").text = str(metadata.rating)
+            ET.SubElement(rating, "votes").text = str(metadata.votes)
 
         ET.SubElement(movie, "plot").text = self._sanitize_xml_content(metadata.plot)
         ET.SubElement(movie, "outline").text = self._sanitize_xml_content(metadata.plotoutline)

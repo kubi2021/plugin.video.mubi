@@ -223,6 +223,10 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 
 ## Changelog
 
+### Dec 30th, 2025 - Bayesian Ratings & Smarter Availability 🧠🎯
+- **Bayesian Ratings (Beta)**: Introduced Bayesian composite ratings for the new Fast Sync mode. This provides a more balanced and reliable scoring system by weighing ratings from multiple sources.
+- **Refined Availability Logic**: Fixed an issue where "upcoming" movies could appear in your library before they were actually playable. Now, films will only show up when they are truly available to watch.
+
 ### Dec 22nd, 2025 - Bayesian Ratings & OMDB 🧠
 - **Bayesian Composite Ratings**: Implemented a smart rating system that fuses scores from Mubi, TMDB, and IMDB into a single, reliable 0-10 score. This "Bayesian Average" prevents movies with few votes from skewing the rankings. This is currently not showing in the plugin, only in the backend.
 - **OMDB Backend Integration**: The backend scraper now directly queries OMDB for additional ratings (IMDb, Rotten Tomatoes, Metacritic) during the enrichment phase.

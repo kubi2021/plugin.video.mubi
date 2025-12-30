@@ -484,6 +484,7 @@ class TestFilm:
 
         # Set a specific rating to test and ensure mpaa is a string
         mock_metadata.rating = 7.6
+        mock_metadata.bayesian_rating = None
         mock_metadata.mpaa = ""  # Ensure mpaa is a string, not a Mock
 
         nfo_tree = film._get_nfo_tree(

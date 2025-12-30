@@ -28,7 +28,9 @@ class Metadata:
         premiered: Optional[str] = "",
         content_warnings: Optional[List[str]] = None,
         tagline: Optional[str] = "",
-        audio_channels: Optional[List[str]] = None
+        audio_channels: Optional[List[str]] = None,
+        bayesian_rating: Optional[float] = None,
+        bayesian_votes: Optional[int] = None
     ):
         try:
             self.title = title
@@ -55,6 +57,8 @@ class Metadata:
             self.content_warnings = content_warnings or []  # Content warnings as library tags
             self.tagline = tagline or ""  # Press quote as tagline
             self.audio_channels = audio_channels or []  # Audio channel info (e.g., "5.1", "stereo")
+            self.bayesian_rating = bayesian_rating
+            self.bayesian_votes = bayesian_votes
         except Exception as e:
             xbmc.log(f"Error initializing Metadata object: {e}", xbmc.LOGERROR)
 
@@ -95,7 +99,9 @@ class Metadata:
                 'premiered': self.premiered,
                 'content_warnings': self.content_warnings,
                 'tagline': self.tagline,
-                'audio_channels': self.audio_channels
+                'audio_channels': self.audio_channels,
+                'bayesian_rating': self.bayesian_rating,
+                'bayesian_votes': self.bayesian_votes
             }
         except Exception as e:
             xbmc.log(f"Error converting Metadata to dict: {e}", xbmc.LOGERROR)
