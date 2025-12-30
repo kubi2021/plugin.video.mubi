@@ -150,9 +150,42 @@ class Library:
             # Trigger individual updates for modified ratings
             if films_to_kodi_update:
                 xbmc.log(f"Triggering metadata refresh for {len(films_to_kodi_update)} films...", xbmc.LOGINFO)
-                xbmc.log(f"Triggering metadata refresh for {len(films_to_kodi_update)} films...", xbmc.LOGINFO)
+                
+                # OPTIMIZATION: Fetch all Mubi movies in one go to avoid N RPC calls
+                movie_lookup = {}
+                try:
+                    # Filter by the plugin's userdata path to get only Mubi films
+                    folder_filter = str(plugin_userdata_path)
+                    rpc_query = {
+                        "jsonrpc": "2.0",
+                        "method": "VideoLibrary.GetMovies",
+                        "params": {
+                            "filter": {"field": "path", "operator": "contains", "value": folder_filter},
+                            "properties": ["file"]
+                        },
+                        "id": "mubi_lookup"
+                    }
+                    rpc_res = json.loads(xbmc.executeJSONRPC(json.dumps(rpc_query)))
+                    if "result" in rpc_res and "movies" in rpc_res["result"]:
+                        for m in rpc_res["result"]["movies"]:
+                            movie_lookup[m["file"]] = m["movieid"]
+                except Exception as e:
+                    xbmc.log(f"Failed to pre-fetch movie IDs: {e}", xbmc.LOGWARNING)
+
+                refresh_count = 0
+                total_to_refresh = len(films_to_kodi_update)
+                
                 for strm_path in films_to_kodi_update:
-                    self.refresh_film_metadata(strm_path)
+                    refresh_count += 1
+                    # Update progress UI for the refresh phase
+                    if not pDialog.iscanceled():
+                        p_percent = int((refresh_count / total_to_refresh) * 100)
+                        p_msg = f"Refreshing Kodi metadata ({refresh_count}/{total_to_refresh}):\n{strm_path.name}"
+                        pDialog.update(p_percent, p_msg)
+                    
+                    # Pass the pre-fetched movie_id if available
+                    m_id = movie_lookup.get(str(strm_path))
+                    self.refresh_film_metadata(strm_path, movie_id=m_id)
             
             # Log results
             xbmc.log(
@@ -305,62 +338,60 @@ class Library:
 
         return obsolete_folders_count
 
-    def refresh_film_metadata(self, strm_path: Path):
+    def refresh_film_metadata(self, strm_path: Path, movie_id: Optional[int] = None):
         """
         Force a metadata refresh for a specific film using JSON-RPC.
         This is more reliable than UpdateLibrary for existing items where only metadata changed.
         
         :param strm_path: Absolute path to the .strm file of the film.
+        :param movie_id: Optional pre-fetched Kodi movieid.
         """
         try:
-            # 1. Find the movieid using VideoLibrary.GetMovies filtering by file path
-            # We must use the string path.
+            # 1. Use provided movie_id or find it using VideoLibrary.GetMovies
             path_str = str(strm_path)
             
-            # Construct JSON-RPC request to find the movie
-            # We filter by 'file' to find the specific item
-            find_req = {
-                "jsonrpc": "2.0", 
-                "method": "VideoLibrary.GetMovies", 
-                "params": {
-                    "filter": {"field": "file", "operator": "is", "value": path_str},
-                    "properties": ["title"] 
-                }, 
-                "id": 1
-            }
-            
-            find_resp_str = xbmc.executeJSONRPC(json.dumps(find_req))
-            find_resp = json.loads(find_resp_str)
-            
-            movie_id = None
-            if "result" in find_resp and "movies" in find_resp["result"]:
-                movies = find_resp["result"]["movies"]
-                if movies:
-                    movie_id = movies[0].get("movieid")
-            
-            # 2. Fallback: Search by filename if exact path match failed
             if not movie_id:
-                xbmc.log(f"Exact path match failed for '{path_str}', trying filename match...", xbmc.LOGDEBUG)
-                filename = strm_path.name
-                find_req_fallback = {
+                # Construct JSON-RPC request to find the movie
+                # We filter by 'file' to find the specific item
+                find_req = {
                     "jsonrpc": "2.0", 
                     "method": "VideoLibrary.GetMovies", 
                     "params": {
-                        "filter": {"field": "filename", "operator": "is", "value": filename},
-                        "properties": ["title", "file"] 
+                        "filter": {"field": "file", "operator": "is", "value": path_str},
+                        "properties": ["title"] 
                     }, 
-                    "id": 2
+                    "id": 1
                 }
-                find_resp_str_fallback = xbmc.executeJSONRPC(json.dumps(find_req_fallback))
-                find_resp_fallback = json.loads(find_resp_str_fallback)
                 
-                if "result" in find_resp_fallback and "movies" in find_resp_fallback["result"]:
-                    movies = find_resp_fallback["result"]["movies"]
+                find_resp_str = xbmc.executeJSONRPC(json.dumps(find_req))
+                find_resp = json.loads(find_resp_str)
+                
+                if "result" in find_resp and "movies" in find_resp["result"]:
+                    movies = find_resp["result"]["movies"]
                     if movies:
-                        # If multiple matches, we should be careful. 
-                        # But typically filename contains Title (Year) so it's unique.
                         movie_id = movies[0].get("movieid")
-                        xbmc.log(f"Found movieid {movie_id} via filename match for '{filename}'", xbmc.LOGINFO)
+                
+                # 2. Fallback: Search by filename if exact path match failed
+                if not movie_id:
+                    xbmc.log(f"Exact path match failed for '{path_str}', trying filename match...", xbmc.LOGDEBUG)
+                    filename = strm_path.name
+                    find_req_fallback = {
+                        "jsonrpc": "2.0", 
+                        "method": "VideoLibrary.GetMovies", 
+                        "params": {
+                            "filter": {"field": "filename", "operator": "is", "value": filename},
+                            "properties": ["title", "file"] 
+                        }, 
+                        "id": 2
+                    }
+                    find_resp_str_fallback = xbmc.executeJSONRPC(json.dumps(find_req_fallback))
+                    find_resp_fallback = json.loads(find_resp_str_fallback)
+                    
+                    if "result" in find_resp_fallback and "movies" in find_resp_fallback["result"]:
+                        movies = find_resp_fallback["result"]["movies"]
+                        if movies:
+                            movie_id = movies[0].get("movieid")
+                            xbmc.log(f"Found movieid {movie_id} via filename match for '{filename}'", xbmc.LOGINFO)
 
             if movie_id:
                 xbmc.log(f"Found movieid {movie_id} for '{path_str}'. Refreshing...", xbmc.LOGDEBUG)

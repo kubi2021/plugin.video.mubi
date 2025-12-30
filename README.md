@@ -224,7 +224,7 @@ Week 3: Manual release v7 → "Audio improvements and login fixes"
 ## Changelog
 
 ### Dec 30th, 2025 - Bayesian Ratings & Smarter Availability 🧠🎯
-- **Bayesian Ratings (Beta)**: Introduced Bayesian composite ratings for the new Fast Sync mode. This provides a more balanced and reliable scoring system by weighing ratings from multiple sources.
+- **Bayesian Ratings**: Introduced Bayesian composite ratings for the Fast Sync mode (currently in beta). This provides a more balanced and reliable scoring system by weighing ratings from multiple sources.
 - **Refined Availability Logic**: Fixed an issue where "upcoming" movies could appear in your library before they were actually playable. Now, films will only show up when they are truly available to watch.
 
 ### Dec 22nd, 2025 - Bayesian Ratings & OMDB 🧠
