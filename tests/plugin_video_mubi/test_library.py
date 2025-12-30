@@ -14,8 +14,22 @@ from unittest.mock import Mock, patch, call
 from pathlib import Path
 from plugin_video_mubi.resources.lib.film import Film
 from plugin_video_mubi.resources.lib.library import Library
-import pytest
 import os
+from datetime import datetime, timedelta, timezone
+
+# Helper for creating valid playable country data
+NOW = datetime.now(timezone.utc)
+PAST = (NOW - timedelta(days=365)).isoformat().replace('+00:00', 'Z')
+FUTURE = (NOW + timedelta(days=365)).isoformat().replace('+00:00', 'Z')
+
+VALID_COUNTRY_DATA = {
+    "US": {
+        "available_at": PAST,
+        "availability_ends_at": FUTURE,
+        "availability": "live"
+    }
+}
+
 
 # Mock Metadata class for testing
 class MockMetadata:
@@ -49,7 +63,8 @@ def test_add_valid_film():
         title="Sample Movie",
         artwork="http://example.com/art.jpg",
         web_url="http://example.com",
-        metadata=metadata
+        metadata=metadata,
+        available_countries=VALID_COUNTRY_DATA
     )
 
     # Act
@@ -67,14 +82,16 @@ def test_library_len():
         title="Film One",
         artwork="http://example.com/art1.jpg",
         web_url="http://example.com/film1",
-        metadata=MockMetadata(2021)
+        metadata=MockMetadata(2021),
+        available_countries=VALID_COUNTRY_DATA
     )
     film2 = Film(
         mubi_id="456",
         title="Film Two",
         artwork="http://example.com/art2.jpg",
         web_url="http://example.com/film2",
-        metadata=MockMetadata(2022)
+        metadata=MockMetadata(2022),
+        available_countries=VALID_COUNTRY_DATA
     )
 
     # Act
@@ -261,7 +278,7 @@ def test_remove_obsolete_files():
         # Create a film and add it to the library
         library = Library()
         metadata = MockMetadata(year=2023)
-        film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg", web_url="http://example.com", metadata=metadata)
+        film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg", web_url="http://example.com", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
         library.add_film(film)
 
         # Create the folder for the current film to simulate an existing folder
@@ -342,7 +359,8 @@ def test_remove_obsolete_files_preserves_current_artwork():
             title="Current Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com",
-            metadata=metadata
+            metadata=metadata,
+            available_countries=VALID_COUNTRY_DATA
         )
         library.add_film(current_film)
 
@@ -384,9 +402,9 @@ def test_sync_locally(mock_remove_obsolete, mock_prepare_files, mock_dialog_prog
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
         film1 = Film(mubi_id="123", title="Sample Movie 1", artwork="http://example.com/art1.jpg",
-                     web_url="http://example.com/film1", metadata=metadata, available_countries={"US": {"valid": True}})
+                     web_url="http://example.com/film1", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
         film2 = Film(mubi_id="456", title="Sample Movie 2", artwork="http://example.com/art2.jpg",
-                     web_url="http://example.com/film2", metadata=metadata, available_countries={"US": {"valid": True}})
+                     web_url="http://example.com/film2", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
         library.add_film(film1)
         library.add_film(film2)
 
@@ -437,9 +455,9 @@ def test_sync_locally_user_cancellation(mock_xbmc, mock_remove_obsolete, mock_pr
         # Create Film objects and add them to the library
         metadata = MockMetadata(year=2023)
         film1 = Film(mubi_id="123", title="Sample Movie 1", artwork="http://example.com/art1.jpg",
-                     web_url="http://example.com/film1", metadata=metadata, available_countries={"US": {"valid": True}})
+                     web_url="http://example.com/film1", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
         film2 = Film(mubi_id="456", title="Sample Movie 2", artwork="http://example.com/art2.jpg",
-                     web_url="http://example.com/film2", metadata=metadata, available_countries={"US": {"valid": True}})
+                     web_url="http://example.com/film2", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
         library.add_film(film1)
         library.add_film(film2)
 
@@ -537,7 +555,7 @@ def test_remove_obsolete_files_no_obsolete():
         library = Library()
         metadata = MockMetadata(year=2023)
         film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg",
-                    web_url="http://example.com", metadata=metadata)
+                    web_url="http://example.com", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
         library.add_film(film)
 
         # Create the folder for the current film to simulate an existing folder
@@ -557,7 +575,7 @@ def test_remove_obsolete_files_nonexistent_path():
     library = Library()
     metadata = MockMetadata(year=2023)
     film = Film(mubi_id="123456", title="Current Film", artwork="http://example.com/art.jpg",
-                web_url="http://example.com", metadata=metadata)
+                web_url="http://example.com", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
     library.add_film(film)
 
     # Attempt to remove obsolete files
@@ -690,7 +708,7 @@ def test_sync_locally_large_library(mock_remove_obsolete, mock_prepare_files, mo
                 artwork=f"http://example.com/art{i}.jpg",
                 web_url=f"http://example.com/film{i}",
                 metadata=metadata,
-                available_countries={"US": {"valid": True}}
+                available_countries=VALID_COUNTRY_DATA
             )
             library.add_film(film)
 
@@ -713,7 +731,7 @@ def test_add_duplicate_film():
     library = Library()
     metadata = MockMetadata(year=2023)
     film = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg",
-                web_url="http://example.com", metadata=metadata)
+                web_url="http://example.com", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
     library.add_film(film)
     library.add_film(film)
     assert len(library) == 1, "Library should contain only one instance of the film."
@@ -721,11 +739,11 @@ def test_add_duplicate_film():
 def test_film_equality():
     metadata = MockMetadata(year=2023)
     film1 = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg",
-                 web_url="http://example.com", metadata=metadata)
+                 web_url="http://example.com", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
     film2 = Film(mubi_id="123456", title="Sample Movie", artwork="http://example.com/art.jpg",
-                 web_url="http://example.com", metadata=metadata)
+                 web_url="http://example.com", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
     film3 = Film(mubi_id="654321", title="Another Movie", artwork="http://example.com/art2.jpg",
-                 web_url="http://example.com", metadata=metadata)
+                 web_url="http://example.com", metadata=metadata, available_countries=VALID_COUNTRY_DATA)
 
     assert film1 == film2, "Films with the same mubi_id should be equal."
     assert film1 != film3, "Films with different mubi_id should not be equal."
@@ -752,14 +770,16 @@ class TestLibrarySyncEdgeCases:
             title="Test Movie",
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/film",
-            metadata=metadata
+            metadata=metadata,
+            available_countries=VALID_COUNTRY_DATA
         )
         film2 = Film(
             mubi_id="123",  # Same ID
             title="Test Movie Updated",
             artwork="http://example.com/art2.jpg",
             web_url="http://example.com/film",
-            metadata=metadata
+            metadata=metadata,
+            available_countries=VALID_COUNTRY_DATA
         )
 
         library.add_film(film1)
@@ -780,7 +800,7 @@ class TestLibrarySyncEdgeCases:
             artwork="",
             web_url="",
             metadata=metadata,
-            available_countries={'US': {}}
+            available_countries={'US': VALID_COUNTRY_DATA['US']}
         )
         # Same film from FR (duplicate by mubi_id)
         film_fr = Film(
@@ -789,7 +809,7 @@ class TestLibrarySyncEdgeCases:
             artwork="",
             web_url="",
             metadata=metadata,
-            available_countries={'FR': {}}
+            available_countries={'FR': VALID_COUNTRY_DATA['US']}
         )
 
         library.add_film(film_us)
@@ -860,3 +880,66 @@ class TestRegressionTests:
 
         # Unknown country returns None
         assert get_country_name('XX') is None
+
+    def test_remove_obsolete_files_removes_unavailable_films(self):
+        """
+        Test that films present in the library object but NOT valid/playable 
+        are treated as obsolete and their files are removed.
+        
+        Specific regression test for 'Night on Earth' issue where upcoming 
+        films were persisting in the library.
+        """
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            plugin_userdata_path = Path(tmpdirname)
+
+            # Create upcoming film data mirroring the 'Night on Earth' JSON data found
+            # "available_at": "2026-01-01T23:00:00Z"
+            future_available_at = "2026-01-01T23:00:00Z"
+            upcoming_country_data = {
+                "AT": {
+                    "available_at": future_available_at, 
+                    "availability": "upcoming",
+                    "availability_ends_at": "2026-12-31T23:00:00Z"
+                }
+            }
+
+            library = Library()
+            metadata = MockMetadata(year=1991)
+            upcoming_film = Film(
+                mubi_id="12345_night_on_earth", 
+                title="Night on Earth", 
+                artwork="http://example.com/art.jpg", 
+                web_url="http://example.com/film", 
+                metadata=metadata, 
+                available_countries=upcoming_country_data
+            )
+            
+            # Add to library (simulating how mubi.py adds everything before validation)
+            library.add_film(upcoming_film)
+            
+            # Verify it is NOT playable/valid (Crucial check: is_playable must return False)
+            assert not library.is_film_valid(upcoming_film)
+
+            # Create the folder for this film to simulate it existing from a previous sync
+            # This simulates the state where the user had the folder and it wasn't being removed
+            film_folder = plugin_userdata_path / upcoming_film.get_sanitized_folder_name()
+            film_folder.mkdir()
+            (film_folder / "movie.nfo").touch()
+
+            # Create a valid film too (to ensure we don't just delete everything)
+            valid_film = Film(
+                mubi_id="valid_film_id", title="Valid Film", artwork="", web_url="", metadata=metadata,
+                available_countries=VALID_COUNTRY_DATA
+            )
+            library.add_film(valid_film)
+            valid_folder = plugin_userdata_path / valid_film.get_sanitized_folder_name()
+            valid_folder.mkdir()
+
+            # Remove obsolete files
+            # Expectation: "Night on Earth" folder should be removed because it's invalid
+            removed_count = library.remove_obsolete_files(plugin_userdata_path)
+
+            # Assertions
+            assert removed_count == 1, f"Expected 1 remove, got {removed_count}"
+            assert not film_folder.exists(), "Night on Earth folder should have been removed."
+            assert valid_folder.exists(), "Valid film folder should be preserved."

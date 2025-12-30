@@ -17,6 +17,36 @@ import sys
 import json
 import shutil
 import os
+from datetime import datetime, timedelta, timezone
+
+# Helper for creating valid playable country data
+NOW = datetime.now(timezone.utc)
+PAST = (NOW - timedelta(days=365)).isoformat().replace('+00:00', 'Z')
+FUTURE = (NOW + timedelta(days=365)).isoformat().replace('+00:00', 'Z')
+
+VALID_COUNTRY_DATA = {
+    "US": {
+        "available_at": PAST,
+        "availability_ends_at": FUTURE,
+        "availability": "live"
+    },
+    "GB": {
+        "available_at": PAST,
+        "availability_ends_at": FUTURE,
+        "availability": "live"
+    },
+    "DE": {
+        "available_at": PAST,
+        "availability_ends_at": FUTURE,
+        "availability": "live"
+    },
+    "CH": {
+        "available_at": PAST,
+        "availability_ends_at": FUTURE,
+        "availability": "live"
+    }
+}
+
 
 
 # Import real components (not mocked)
@@ -72,7 +102,7 @@ class TestRealComponentIntegration:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_film_metadata,
-            available_countries={"US": {"valid": True}}
+            available_countries=VALID_COUNTRY_DATA
         )
 
     def test_session_manager_device_id_persistence(self, real_session_manager):
@@ -414,7 +444,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"US": {"valid": True}, "GB": {"valid": True}, "DE": {"valid": True}}  # Film available in 3 countries
+            available_countries=VALID_COUNTRY_DATA  # Film available in 3 countries
         )
 
         # Add film to library
@@ -521,7 +551,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"CH": {"valid": True}, "DE": {"valid": True}, "GB": {"valid": True}}  # Film is available in 3 countries
+            available_countries=VALID_COUNTRY_DATA  # Film is available in 3 countries
         )
 
         library.add_film(existing_film)
@@ -641,7 +671,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=current_metadata,
-            available_countries={"US": {"valid": True}}
+            available_countries=VALID_COUNTRY_DATA
         )
 
         library.add_film(current_film)
@@ -719,7 +749,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"US": {"valid": True}}
+            available_countries=VALID_COUNTRY_DATA
         )
 
         library.add_film(problematic_film)
@@ -802,7 +832,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=comprehensive_metadata,
-            available_countries={"US": {"valid": True}}
+            available_countries=VALID_COUNTRY_DATA
         )
 
         library.add_film(comprehensive_film)
@@ -908,7 +938,7 @@ class TestEndToEndWorkflows:
             artwork="http://example.com/art.jpg",
             web_url="http://example.com/movie",
             metadata=sample_metadata,
-            available_countries={"US": {"valid": True}}
+            available_countries=VALID_COUNTRY_DATA
         )
 
         library.add_film(network_test_film)
@@ -1117,7 +1147,7 @@ class TestEndToEndFlows:
             artwork="http://example.com/art.jpg",
             web_url="http://mubi.com/films/test",
             metadata=metadata,
-            available_countries={'US': {'valid': True}, 'FR': {'valid': True}, 'DE': {'valid': True}}
+            available_countries=VALID_COUNTRY_DATA
         )
         library.add_film(film)
 

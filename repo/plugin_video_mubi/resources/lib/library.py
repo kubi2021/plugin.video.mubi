@@ -180,9 +180,8 @@ class Library:
         if not film.available_countries:
             return False
             
-        # Ensure at least one country has valid consumable data (truthy value)
-        has_valid_country = any(data for data in film.available_countries.values() if data)
-        return has_valid_country
+        # Ensure film is actually playable based on date ranges
+        return film.is_playable()
 
     def prepare_files_for_film(
         self, film: Film, base_url: str, plugin_userdata_path: Path, skip_external_metadata: bool = False
@@ -292,7 +291,7 @@ class Library:
         :return: The number of obsolete film folders removed.
         """
         # Get a set of sanitized folder names for the current films in the library
-        current_film_folders = {film.get_sanitized_folder_name() for film in self.films.values()}
+        current_film_folders = {film.get_sanitized_folder_name() for film in self.films.values() if self.is_film_valid(film)}
 
         # Track obsolete folder count
         obsolete_folders_count = 0

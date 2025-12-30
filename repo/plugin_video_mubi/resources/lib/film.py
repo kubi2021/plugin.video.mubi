@@ -9,6 +9,8 @@ import time
 import re
 from typing import Optional, List
 from .external_metadata import MetadataProviderFactory
+from datetime import datetime, timezone
+
 
 class Film:
     def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata,
@@ -35,6 +37,48 @@ class Film:
         if not isinstance(other, Film):
             return False
         return self.mubi_id == other.mubi_id
+
+    def is_playable(self) -> bool:
+        """
+        Check if the film is currently available to play in at least one country.
+        
+        Logic:
+        - Iterates through available_countries.
+        - Checks if current UTC time is within the availability window:
+          available_at <= now <= availability_ends_at
+        - Ignores 'availability' string status.
+        
+        :return: True if playable in at least one country, False otherwise.
+        """
+        if not self.available_countries:
+            return False
+            
+        now = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        
+        for details in self.available_countries.values():
+            if not details:
+                continue
+                
+            available_at = details.get('available_at')
+            availability_ends_at = details.get('availability_ends_at')
+            
+            # If available_at is missing, assume not started yet (safe default)
+            if not available_at:
+                continue
+                
+            # Check start time
+            if now < available_at:
+                continue
+                
+            # Check end time (if present)
+            if availability_ends_at and now > availability_ends_at:
+                continue
+                
+            # If we got here, it's valid for this country
+            return True
+            
+        return False
+
 
     def __hash__(self):
         return hash(self.mubi_id)
