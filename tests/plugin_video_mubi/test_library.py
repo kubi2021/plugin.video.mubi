@@ -169,7 +169,17 @@ def test_prepare_files_for_film_nfo_exists_availability_updated(mock_update_avai
 
         # Simulate existing NFO file (availability will be updated)
         film_path.mkdir(parents=True, exist_ok=True)
-        nfo_file.write_text("<movie><title>Existing Movie</title></movie>")
+        # NFO must match metadata rating (MUBI: 7.5) to be considered synced
+        nfo_content = """<movie>
+            <title>Existing Movie</title>
+            <ratings>
+                <rating name="MUBI" max="10">
+                    <value>7.5</value>
+                    <votes>1000</votes>
+                </rating>
+            </ratings>
+        </movie>"""
+        nfo_file.write_text(nfo_content)
 
         # Mock update_nfo_availability to return True
         mock_update_availability.return_value = True

@@ -967,6 +967,17 @@ class Mubi:
                     if isinstance(warning, dict) and warning.get('name'):
                         content_warnings.append(warning['name'])
 
+            # Extract Bayesian rating (if available from GitHub sync)
+            bayesian_rating = None
+            bayesian_votes = None
+            ratings = film_info.get('ratings', [])
+            if isinstance(ratings, list):
+                for r in ratings:
+                    if isinstance(r, dict) and r.get('source') == 'bayesian':
+                        bayesian_rating = r.get('score_over_10')
+                        bayesian_votes = r.get('voters')
+                        break
+
             metadata = Metadata(
                 title=film_info.get('title', ''),
                 director=[d['name'] for d in film_info.get('directors', [])],
@@ -989,7 +1000,9 @@ class Mubi:
                 media_features=media_features,  # Media features (4K, stereo, 5.1, etc.)
                 premiered=premiered,  # MUBI premiere date
                 content_warnings=content_warnings,  # Content warnings as library tags
-                tagline=press_quote  # Press quote as tagline
+                tagline=press_quote,  # Press quote as tagline
+                bayesian_rating=bayesian_rating,
+                bayesian_votes=bayesian_votes
             )
 
             return Film(

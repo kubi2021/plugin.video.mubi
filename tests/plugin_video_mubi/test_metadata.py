@@ -198,7 +198,9 @@ class TestMetadata:
             'premiered': "",
             'content_warnings': [],
             'tagline': "",
-            'audio_channels': []
+            'audio_channels': [],
+            'bayesian_rating': None,
+            'bayesian_votes': None
         }
 
         assert result_dict == expected_dict

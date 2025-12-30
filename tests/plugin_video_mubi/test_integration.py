@@ -534,7 +534,15 @@ class TestEndToEndWorkflows:
         strm_file = film_folder / f"{existing_film.get_sanitized_folder_name()}.strm"
 
         # Original NFO without mubi_availability
-        nfo_file.write_text("<movie><title>Existing Movie</title></movie>")
+        nfo_file.write_text("""<movie>
+            <title>Existing Movie</title>
+            <ratings>
+                <rating name="MUBI" max="10">
+                    <value>7.0</value>
+                    <votes>500</votes>
+                </rating>
+            </ratings>
+        </movie>""")
         strm_file.write_text("plugin://plugin.video.mubi/?action=play&film_id=67890")
 
         original_strm_content = strm_file.read_text()
