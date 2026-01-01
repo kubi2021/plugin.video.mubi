@@ -64,3 +64,6 @@ MagicMock/
 !tests/fixtures/*.json
 backend/.env
 .env
+
+# Temporary output files
+tmp/
