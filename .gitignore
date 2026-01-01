@@ -67,3 +67,7 @@ backend/.env
 
 # Temporary output files
 tmp/
+
+# Node modules (React Email project)
+node_modules/
+backend/emails/node_modules/
