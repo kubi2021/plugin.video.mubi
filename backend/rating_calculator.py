@@ -92,19 +92,21 @@ class BayesianRatingCalculator:
         # Start with default C
         c_val = self.DEFAULT_C
         
-        # Calculate m from Mubi votes
-        total_mubi_votes = 0
-        count = 0
+        # Calculate m from Mubi votes (Use Median)
+        mubi_votes_list = []
         for item in self.items:
             mubi_rating = self._get_rating_by_source(item, 'mubi')
             if mubi_rating:
                 votes = mubi_rating.get('voters', 0)
-                total_mubi_votes += votes
-                count += 1
+                mubi_votes_list.append(votes)
                 
-        m_val = total_mubi_votes / count if count > 0 else 0
+        if mubi_votes_list:
+            import statistics
+            m_val = statistics.median(mubi_votes_list)
+        else:
+            m_val = 0
         
-        logger.info(f"Cold Start: Calculated m={m_val} (from {count} films), using Default C={c_val}")
+        logger.info(f"Cold Start: Calculated m={m_val} (Median of {len(mubi_votes_list)} films), using Default C={c_val}")
         return c_val, m_val
 
     def _get_rating_by_source(self, item: Dict[str, Any], source: str) -> Optional[Dict[str, Any]]:
@@ -158,6 +160,8 @@ class BayesianRatingCalculator:
         count_r = 0
         count_mubi = 0
         
+        all_mubi_votes = []
+        
         for item in self.items:
             # Re-calculate these on the fly or could assume they are fresh
             r_raw, _ = self.calculate_raw_metrics(item)
@@ -168,11 +172,17 @@ class BayesianRatingCalculator:
             mubi_rating = self._get_rating_by_source(item, 'mubi')
             if mubi_rating:
                  votes = mubi_rating.get('voters', 0)
-                 total_mubi_votes += votes
+                 all_mubi_votes.append(votes)
                  count_mubi += 1
         
         new_c = total_r_raw / count_r if count_r > 0 else self.DEFAULT_C
-        new_m = total_mubi_votes / count_mubi if count_mubi > 0 else 0.0
+        
+        # Use Median for m to avoid skew from blockbusters
+        if all_mubi_votes:
+            import statistics
+            new_m = statistics.median(all_mubi_votes)
+        else:
+            new_m = 0.0
         
         return new_c, new_m
 

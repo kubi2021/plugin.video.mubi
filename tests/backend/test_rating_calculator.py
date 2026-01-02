@@ -137,6 +137,25 @@ class TestBayesianRatingCalculator(unittest.TestCase):
         self.assertEqual(stats['global_mean_C'], 7.0)
         self.assertEqual(stats['mubi_confidence_m'], 10.0)
 
+    def test_median_calculation(self):
+        """Test that m is calculated using median, not mean."""
+        # Scenario: 3 films with votes [1, 1, 100]
+        # Mean = 34
+        # Median = 1
+        items = [
+             {'ratings': [{'source': 'mubi', 'voters': 1, 'score_over_10': 8.0}]},
+             {'ratings': [{'source': 'mubi', 'voters': 1, 'score_over_10': 8.0}]},
+             {'ratings': [{'source': 'mubi', 'voters': 100, 'score_over_10': 8.0}]},
+        ]
+        self.create_dummy_data(items)
+        
+        calc = BayesianRatingCalculator(self.films_path)
+        calc.load_data()
+        
+        C, m = calc.get_constants()
+        
+        self.assertEqual(m, 1.0, "m should be the median (1), not the mean (34)")
+
     def test_formula_scenarios(self):
         """
         Verify Bayesian formula output against varied scenarios.
