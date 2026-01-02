@@ -126,6 +126,10 @@ class BayesianRatingCalculator:
         total_votes = 0
         
         for r in ratings:
+            # Skip existing bayesian ratings to avoid double counting / recursion
+            if r.get('source') == 'bayesian':
+                continue
+
             try:
                 score = float(r.get('score_over_10', 0))
                 votes = int(r.get('voters', 0))

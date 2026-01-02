@@ -137,5 +137,44 @@ class TestBayesianRatingCalculator(unittest.TestCase):
         self.assertEqual(stats['global_mean_C'], 7.0)
         self.assertEqual(stats['mubi_confidence_m'], 10.0)
 
+    def test_formula_scenarios(self):
+        """
+        Verify Bayesian formula output against varied scenarios.
+        Formula: W = (v / (v + m)) * R + (m / (v + m)) * C
+        """
+        scenarios = [
+            # description, v, R, C, m, expected
+            ("Equal Weight", 100, 8.0, 6.0, 100.0, 7.0),
+            ("Low Confidence (Msg)", 10, 10.0, 5.0, 90.0, 5.5),
+            ("High Confidence (Msg)", 90, 10.0, 5.0, 10.0, 9.5),
+            ("Extreme Zero Score", 50, 0.0, 10.0, 50.0, 5.0),
+        ]
+
+        for desc, v, R, C, m, expected in scenarios:
+            with self.subTest(msg=desc, v=v, R=R, C=C, m=m):
+                # Setup data
+                stats = {'global_mean_C': C, 'mubi_confidence_m': m}
+                items = [{
+                    'title': 'Test',
+                    'ratings': [{'source': 'test', 'voters': v, 'score_over_10': R}]
+                }]
+                self.create_dummy_data(items, stats)
+                
+                # Run
+                calc = BayesianRatingCalculator(self.films_path)
+                calc.run()
+                
+                # Verify
+                with open(self.films_path, 'r') as f:
+                    data = json.load(f)
+                
+                item = data['items'][0]
+                # Find bayesian rating
+                bayes = next((r for r in item['ratings'] if r['source'] == 'bayesian'), None)
+                
+                self.assertIsNotNone(bayes, f"Bayesian rating missing for {desc}")
+                self.assertAlmostEqual(bayes['score_over_10'], expected, places=1)
+                self.assertEqual(bayes['voters'], v)
+
 if __name__ == '__main__':
     unittest.main()
