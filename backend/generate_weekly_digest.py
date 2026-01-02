@@ -121,14 +121,15 @@ def format_rating_line(film: dict) -> str:
     return " | ".join(parts) if parts else "No ratings available"
 
 
-def main():
-    print(f"Loading data from {INPUT_FILE}...")
+def generate_digest(input_file: Path, output_file: Path) -> None:
+    """Main logic to generate the digest."""
+    print(f"Loading data from {input_file}...")
     
-    if not INPUT_FILE.exists():
-        print(f"Error: {INPUT_FILE} not found.")
+    if not input_file.exists():
+        print(f"Error: {input_file} not found.")
         sys.exit(1)
     
-    with open(INPUT_FILE, 'r', encoding='utf-8') as f:
+    with open(input_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
     items = data.get('items', [])
@@ -255,14 +256,14 @@ def main():
         md_lines.append("\n---")
 
     # Write Markdown
-    print(f"Writing Markdown to {OUTPUT_FILE}...")
+    print(f"Writing Markdown to {output_file}...")
     # Ensure tmp dir exists
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_file, 'w', encoding='utf-8') as f:
         f.write('\n'.join(md_lines))
         
     # Write JSON
-    json_output_file = REPO_ROOT / 'tmp' / 'weekly_digest.json'
+    json_output_file = output_file.with_suffix('.json')
     print(f"Writing JSON to {json_output_file}...")
     
     json_data = {
@@ -278,6 +279,18 @@ def main():
         json.dump(json_data, f, indent=2, ensure_ascii=False)
     
     print("Done.")
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate weekly digest.")
+    parser.add_argument("--input", type=Path, default=INPUT_FILE, help="Path to input films.json")
+    parser.add_argument("--output", type=Path, default=OUTPUT_FILE, help="Path to output Markdown/JSON file")
+    
+    args = parser.parse_args()
+    
+    generate_digest(args.input, args.output)
+
 
 if __name__ == "__main__":
     main()
