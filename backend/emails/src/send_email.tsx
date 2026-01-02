@@ -29,16 +29,59 @@ async function main() {
     const emailHtml = await render(<WeeklyDigestEmail digestData={digestData} />);
 
     try {
-        const data = await resend.emails.send({
-            from: 'Mubi Digest <noreply@kubi.icu>', // Update this with your verified domain
-            to: ['kubi.ui@gmail.com'], // Update recipient or use env var
-            subject: `Mubi Weekly Digest - ${digestData.newArrivals.length} New Arrivals`,
-            html: emailHtml,
-        });
+        // 1. Get the Audience ID
+        const audiences = await resend.audiences.list();
+        if (!audiences.data || audiences.data.length === 0) {
+            console.error("Error: No audiences found in Resend.");
+            process.exit(1);
+        }
+        const audienceId = audiences.data[0].id;
+        console.log(`Using Audience: ${audiences.data[0].name} (${audienceId})`);
 
-        console.log('Email sent successfully:', data);
+        // 2. Get Contacts
+        const contacts = await resend.contacts.list({ audience_id: audienceId });
+        if (!contacts.data || contacts.data.length === 0) {
+            console.error("Error: No contacts found in audience.");
+            process.exit(1);
+        }
+
+        const activeContacts = contacts.data.filter(c => !c.unsubscribed);
+        if (activeContacts.length === 0) {
+            console.log("No active (subscribed) contacts found.");
+            process.exit(0);
+        }
+
+        console.log(`Found ${activeContacts.length} active contacts.`);
+
+        // 3. Batch Send (max 100 per batch)
+        const BATCH_SIZE = 100;
+        const batches = [];
+        for (let i = 0; i < activeContacts.length; i += BATCH_SIZE) {
+            batches.push(activeContacts.slice(i, i + BATCH_SIZE));
+        }
+
+        for (const batch of batches) {
+            // Construct batch payload
+            const emailbatch = batch.map(contact => ({
+                from: 'Mubi Digest <noreply@kubi.icu>',
+                to: [contact.email],
+                subject: `Mubi Weekly Digest - ${digestData.newArrivals.length} New Arrivals`,
+                html: emailHtml,
+            }));
+
+            const { data, error } = await resend.batch.send(emailbatch);
+
+            if (error) {
+                console.error('Error sending batch:', error);
+                // Continue to next batch? Or exit?
+                // process.exit(1);
+            } else {
+                console.log(`Batch sent successfully: ${data?.data?.length} emails.`);
+            }
+        }
+
     } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('Error in email sending process:', error);
         process.exit(1);
     }
 }
