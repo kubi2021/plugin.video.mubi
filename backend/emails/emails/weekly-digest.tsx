@@ -56,8 +56,7 @@ const loadDigestData = (): DigestData => {
     }
 };
 
-const digestData = loadDigestData();
-console.log("digestData.newArrivals.length =", digestData.newArrivals.length);
+
 
 const formatVoters = (count: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -124,11 +123,11 @@ const formatRatings = (movie: Movie): string => {
     return parts.join(" | ") || "No ratings";
 };
 
-export const WeeklyDigestEmail = ({ data = digestData }: { data?: DigestData }) => {
+export const WeeklyDigestEmail = ({ digestData }: { digestData: DigestData }) => {
     return (
         <Html>
             <Head />
-            <Preview>Kubi Weekly Digest - {data.newArrivals.length} new films this week!</Preview>
+            <Preview>Kubi Weekly Digest - {digestData.newArrivals.length} new films this week!</Preview>
             <Tailwind>
                 <Body className="bg-gray-100 font-sans">
                     <Container className="mx-auto my-[40px] max-w-[600px] rounded-[8px] bg-white p-0">
@@ -138,7 +137,7 @@ export const WeeklyDigestEmail = ({ data = digestData }: { data?: DigestData }) 
                                 Kubi Weekly Digest
                             </Heading>
                             <Text className="m-0 mt-[8px] text-[16px] text-gray-200 font-medium">
-                                Just Added: {formatDateRange(data.generatedAt)}
+                                Just Added: {formatDateRange(digestData.generatedAt)}
                             </Text>
                         </Section>
 
@@ -149,7 +148,7 @@ export const WeeklyDigestEmail = ({ data = digestData }: { data?: DigestData }) 
                                     <tr>
                                         <td className="w-1/2 align-top">
                                             <Text className="m-0 text-left text-[18px] leading-[24px] font-bold tracking-tight text-gray-900 tabular-nums">
-                                                {data.totalMovies.toLocaleString()}
+                                                {digestData.totalMovies.toLocaleString()}
                                             </Text>
                                             <Text className="m-0 text-left text-[12px] leading-[18px] text-gray-500">
                                                 Total Movies
@@ -157,7 +156,7 @@ export const WeeklyDigestEmail = ({ data = digestData }: { data?: DigestData }) 
                                         </td>
                                         <td className="w-1/2 align-top">
                                             <Text className="m-0 text-left text-[18px] leading-[24px] font-bold tracking-tight text-gray-900 tabular-nums">
-                                                {data.newArrivals.length}
+                                                {digestData.newArrivals.length}
                                             </Text>
                                             <Text className="m-0 text-left text-[12px] leading-[18px] text-gray-500">
                                                 New This Week
@@ -239,7 +238,7 @@ export const WeeklyDigestEmail = ({ data = digestData }: { data?: DigestData }) 
 
                         <Hr className="my-[16px] border-gray-300 border-t-2" />
                         <Section className="px-[48px] py-[24px]">
-                            {data.newArrivals.map((movie, index) => (
+                            {digestData.newArrivals.map((movie, index) => (
                                 <Section key={index} className="my-[16px]">
                                     <Heading as="h2" className="text-left">
                                         {index + 1}.{' '}
