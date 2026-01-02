@@ -16,7 +16,8 @@ jobs:
       - name: Fetch films.json.gz from database branch
         run: |
           git fetch origin database:database
-          git checkout database -- films.json.gz
+          git checkout database -- v1/films.json.gz
+          mv v1/films.json.gz .
 
       - name: Unzip films database
         run: gunzip films.json.gz
