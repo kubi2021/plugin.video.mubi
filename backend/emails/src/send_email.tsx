@@ -26,59 +26,41 @@ async function main() {
 
     console.log(`Generating email for ${digestData.newArrivals.length} new arrivals...`);
 
-    const emailHtml = await render(<WeeklyDigestEmail digestData={digestData} />);
+    // note: We removed the 'render' call from above as we pass the component specificly to the broadcast
+    // However, if the user wants to use the 'react' property, we can pass the JSX element directly.
+    // But earlier I had `const emailHtml = await render(...)`. I should remove that line if I use the react prop, 
+    // OR keep it if I use `html` prop. The user example uses `react: NewsletterEmail(...)`.
+    // I will try to use `react` prop.
 
     try {
-        // 1. Get the Audience ID
-        const audiences = await resend.audiences.list();
-        if (!audiences.data || audiences.data.length === 0) {
-            console.error("Error: No audiences found in Resend.");
+        console.log("Creating broadcast draft...");
+
+        // Step 1: Create the Broadcast (Draft)
+        const createResponse = await resend.broadcasts.create({
+            from: 'Mubi Digest <noreply@kubi.icu>',
+            subject: `Mubi Weekly Digest - ${digestData.newArrivals.length} New Arrivals`,
+            audienceId: '4fa9b31c-e20d-4d15-a511-a3c11946c5fb', // Using the provided ID
+            react: <WeeklyDigestEmail digestData={digestData} />,
+        }) as any;
+
+        if (createResponse.error) {
+            console.error("Error creating broadcast:", createResponse.error);
             process.exit(1);
         }
-        const audienceId = audiences.data[0].id;
-        console.log(`Using Audience: ${audiences.data[0].name} (${audienceId})`);
 
-        // 2. Get Contacts
-        const contacts = await resend.contacts.list({ audience_id: audienceId });
-        if (!contacts.data || contacts.data.length === 0) {
-            console.error("Error: No contacts found in audience.");
+        const broadcastId = createResponse.data?.id || createResponse.id;
+        console.log(`Broadcast draft created. ID: ${broadcastId}`);
+
+        // Step 2: Trigger the Send
+        console.log("Sending broadcast...");
+        const sendResponse = await resend.broadcasts.send(broadcastId) as any;
+
+        if (sendResponse.error) {
+            console.error("Error sending broadcast:", sendResponse.error);
             process.exit(1);
         }
 
-        const activeContacts = contacts.data.filter(c => !c.unsubscribed);
-        if (activeContacts.length === 0) {
-            console.log("No active (subscribed) contacts found.");
-            process.exit(0);
-        }
-
-        console.log(`Found ${activeContacts.length} active contacts.`);
-
-        // 3. Batch Send (max 100 per batch)
-        const BATCH_SIZE = 100;
-        const batches = [];
-        for (let i = 0; i < activeContacts.length; i += BATCH_SIZE) {
-            batches.push(activeContacts.slice(i, i + BATCH_SIZE));
-        }
-
-        for (const batch of batches) {
-            // Construct batch payload
-            const emailbatch = batch.map(contact => ({
-                from: 'Mubi Digest <noreply@kubi.icu>',
-                to: [contact.email],
-                subject: `Mubi Weekly Digest - ${digestData.newArrivals.length} New Arrivals`,
-                html: emailHtml,
-            }));
-
-            const { data, error } = await resend.batch.send(emailbatch);
-
-            if (error) {
-                console.error('Error sending batch:', error);
-                // Continue to next batch? Or exit?
-                // process.exit(1);
-            } else {
-                console.log(`Batch sent successfully: ${data?.data?.length} emails.`);
-            }
-        }
+        console.log('Broadcast sent successfully:', sendResponse.data || sendResponse);
 
     } catch (error) {
         console.error('Error in email sending process:', error);
