@@ -370,10 +370,14 @@ export const WeeklyDigestEmail = ({ digestData }: { digestData: DigestData }) =>
                             ))}
                         </Section>
 
-                        {/* Footer */}
                         <Section className="rounded-b-[8px] bg-gray-50 px-[48px] py-[24px] text-center">
                             <Text className="m-0 text-[12px] text-gray-400">
                                 This digest was generated automatically from the Mubi catalog.
+                            </Text>
+                            <Text className="m-0 mt-[8px] text-[12px] text-gray-400">
+                                <Link href="{{{RESEND_UNSUBSCRIBE_URL}}}" className="text-gray-400 underline">
+                                    Unsubscribe
+                                </Link>
                             </Text>
                         </Section>
                     </Container>
