@@ -37,8 +37,8 @@ async function main() {
 
         // Step 1: Create the Broadcast (Draft)
         const createResponse = await resend.broadcasts.create({
-            from: 'Mubi Digest <noreply@kubi.icu>',
-            subject: `Mubi Weekly Digest - ${digestData.newArrivals.length} New Arrivals`,
+            from: 'Kubi Digest <noreply@kubi.icu>',
+            subject: `Kubi Weekly Digest - ${digestData.newArrivals.length} New Arrivals`,
             audienceId: '4fa9b31c-e20d-4d15-a511-a3c11946c5fb', // Using the provided ID
             react: <WeeklyDigestEmail digestData={digestData} />,
         }) as any;
