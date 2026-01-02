@@ -68,6 +68,36 @@ def get_earliest_availability(film: dict) -> Optional[datetime]:
     return earliest_date
 
 
+def get_latest_expiration(film: dict) -> Optional[datetime]:
+    """
+    Get the latest expires_at date across all countries for a film.
+    Returns None if no keys or valid dates found.
+    """
+    available_countries = film.get('available_countries', {})
+    if not available_countries:
+        return None
+    
+    latest_date = None
+    
+    for country_code, country_data in available_countries.items():
+        expires_str = country_data.get('expires_at')
+        if not expires_str:
+            continue
+        
+        try:
+            # Parse ISO format date, handle Z suffix
+            if expires_str.endswith('Z'):
+                expires_str = expires_str[:-1] + '+00:00'
+            expires_dt = datetime.fromisoformat(expires_str)
+            
+            if latest_date is None or expires_dt > latest_date:
+                latest_date = expires_dt
+        except ValueError:
+            continue
+    
+    return latest_date
+
+
 def format_rating_line(film: dict) -> str:
     """Format the ratings line for a film."""
     parts = []
@@ -127,132 +157,127 @@ def main():
     # Sort by Bayesian rating (descending)
     new_movies.sort(key=get_bayesian_score, reverse=True)
     
-    # Generate Markdown
+    # Prepare JSON data structure
+    json_movies = []
+    
+    # Prepare Markdown content
     md_lines = [
-        "# 🎬 Mubi Weekly Digest",
+        "# Mubi Weekly Digest",
         "",
-        f"*Generated on: {now.strftime('%B %d, %Y')}*",
+        f"Generated on: {now.strftime('%Y-%m-%d')}",
         "",
-        "---",
+        "## Global Stats",
+        f"- **Total Movies**: {total_movies}",
+        f"- **New Arrivals (Past 7 Days)**: {len(new_movies)}",
         "",
-        "## 📊 Global Stats",
-        "",
-        f"| Metric | Value |",
-        f"|--------|-------|",
-        f"| Total Movies in Catalog | **{total_movies:,}** |",
-        f"| New Arrivals (Past 7 Days) | **{len(new_movies)}** |",
-        "",
-        "---",
-        "",
-        "## 🆕 New Arrivals",
-        "",
+        "## New Arrivals",
+        ""
     ]
     
     if not new_movies:
-        md_lines.append("*No new movies found in the past 7 days.*")
-    else:
-        md_lines.append(f"*Sorted by Bayesian rating (highest first)*")
-        md_lines.append("")
+        md_lines.append("No new movies found in the past 7 days.")
     
     for i, film in enumerate(new_movies, 1):
         title = film.get('title', 'Unknown Title')
-        year = film.get('year', '')
-        duration = film.get('duration', 0)
+        year = film.get('year')
+        duration = film.get('duration')
         genres = film.get('genres', [])
-        directors = film.get('directors', [])
-        countries = film.get('historic_countries', [])
         synopsis = film.get('short_synopsis', '')
         trailer_url = film.get('trailer_url')
+        historic_countries = film.get('historic_countries', [])
+        directors = film.get('directors', [])
         
-        # Get image URL from stills
-        stills = film.get('stills', {})
+        # Determine image URL
+        stills = film.get('stills') or {}
         image_url = stills.get('medium') or film.get('still_url')
         
-        # Format genres
-        genre_str = ", ".join(genres) if genres else "N/A"
-        country_str = ", ".join(countries) if countries else ""
+        # Ratings
+        bayesian = get_bayesian_score(film)
+        mubi = film.get('average_rating_out_of_ten')
+        imdb = get_rating_value(film, 'imdb')
+        tmdb = get_rating_value(film, 'tmdb')
         
-        # Build movie entry
+        # Expiration
+        latest_expires = get_latest_expiration(film)
+        available_until = latest_expires.isoformat() if latest_expires else None
+        
+        # Build JSON entry
+        json_movies.append({
+            "id": film.get('mubi_id'),
+            "imdbId": film.get('imdb_id'),
+            "tmdbId": film.get('tmdb_id'),
+            "title": title,
+            "year": year,
+            "bayesian": bayesian or None,
+            "bayesianVoters": get_rating_voters(film, 'bayesian'),
+            "mubi": mubi,
+            "mubiVoters": film.get('number_of_ratings'),
+            "imdb": imdb,
+            "imdbVoters": get_rating_voters(film, 'imdb'),
+            "tmdb": tmdb,
+            "tmdbVoters": get_rating_voters(film, 'tmdb'),
+            "genres": genres,
+            "duration": duration,
+            "countries": historic_countries,
+            "directors": directors,
+            "synopsis": synopsis,
+            "imageUrl": image_url,
+            "trailerUrl": trailer_url,
+            "availableUntil": available_until
+        })
+        
+        # Markdown formatting
+        rating_str_parts = []
+        if bayesian: rating_str_parts.append(f"Bayesian: **{bayesian:.1f}**")
+        if mubi: rating_str_parts.append(f"Mubi: {mubi}")
+        if imdb: rating_str_parts.append(f"IMDb: {imdb}")
+        if tmdb: rating_str_parts.append(f"TMDB: {tmdb}")
+        
+        rating_line = " | ".join(rating_str_parts) if rating_str_parts else "No ratings available"
+        genres_str = ", ".join(genres)
+        
         md_lines.append(f"### {i}. {title} ({year})")
-        md_lines.append("")
         
         if image_url:
-            md_lines.append(f"![{title}]({image_url})")
-            md_lines.append("")
-        
-        md_lines.append(f"**{format_rating_line(film)}**")
-        md_lines.append("")
-        md_lines.append(f"🎭 **Genre:** {genre_str} | ⏱️ **Duration:** {duration} min" + (f" | 🌍 **From:** {country_str}" if country_str else ""))
-        md_lines.append("")
-        
-        if directors:
-            director_str = ", ".join(directors)
-            md_lines.append(f"🎬 **Director:** {director_str}")
-            md_lines.append("")
+            md_lines.append(f"\n![{title}]({image_url})")
+            
+        md_lines.append(f"\n**{rating_line}**")
+        md_lines.append(f"\n**Genre**: {genres_str} | **Duration**: {duration} min")
+        if available_until:
+             md_lines.append(f" | **Available until**: {latest_expires.strftime('%Y-%m-%d')}")
         
         if synopsis:
-            md_lines.append(f"> {synopsis}")
-            md_lines.append("")
-        
+             md_lines.append(f"\n> {synopsis}")
+             
         if trailer_url:
-            md_lines.append(f"🎥 [Watch Trailer]({trailer_url})")
-            md_lines.append("")
-        
-        md_lines.append("---")
-        md_lines.append("")
-    
-    # Write markdown output
+            md_lines.append(f"\n[Watch Trailer]({trailer_url})")
+            
+        md_lines.append("\n---")
+
+    # Write Markdown
+    print(f"Writing Markdown to {OUTPUT_FILE}...")
+    # Ensure tmp dir exists
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    output_content = "\n".join(md_lines)
-    
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-        f.write(output_content)
+        f.write('\n'.join(md_lines))
+        
+    # Write JSON
+    json_output_file = REPO_ROOT / 'tmp' / 'weekly_digest.json'
+    print(f"Writing JSON to {json_output_file}...")
     
-    # Write JSON output for React Email template
-    json_output_file = OUTPUT_FILE.parent / 'weekly_digest.json'
     json_data = {
-        "generatedAt": now.strftime('%B %d, %Y'),
+        "generatedAt": now.isoformat(),
         "totalMovies": total_movies,
-        "newArrivals": [
-            {
-                "title": film.get('title', 'Unknown'),
-                "year": film.get('year', 0),
-                "bayesian": get_bayesian_score(film) or None,
-                "bayesianVoters": get_rating_voters(film, 'bayesian'),
-                "mubi": film.get('average_rating_out_of_ten'),
-                "mubiVoters": film.get('number_of_ratings'),
-                "imdb": get_rating_value(film, 'imdb'),
-                "imdbVoters": get_rating_voters(film, 'imdb'),
-                "tmdb": get_rating_value(film, 'tmdb'),
-                "tmdbVoters": get_rating_voters(film, 'tmdb'),
-                "genres": film.get('genres', []),
-                "duration": film.get('duration', 0),
-                "countries": film.get('historic_countries', []),
-                "directors": film.get('directors', []),
-                "synopsis": film.get('short_synopsis', ''),
-                "imageUrl": (film.get('stills', {}) or {}).get('medium') or film.get('still_url'),
-                "trailerUrl": film.get('trailer_url'),
-            }
-            for film in new_movies
-        ]
+        "newArrivals": json_movies
     }
+    
+    # Ensure tmp dir exists
+    json_output_file.parent.mkdir(parents=True, exist_ok=True)
     
     with open(json_output_file, 'w', encoding='utf-8') as f:
         json.dump(json_data, f, indent=2, ensure_ascii=False)
     
-    print(f"\n✅ Report generated: {OUTPUT_FILE}")
-    print(f"   JSON output: {json_output_file}")
-    print(f"   Total new movies: {len(new_movies)}")
-    
-    # Preview first few titles
-    if new_movies:
-        print("\nTop 5 by Bayesian rating:")
-        for film in new_movies[:5]:
-            title = film.get('title', 'Unknown')
-            score = get_bayesian_score(film)
-            print(f"  - {title}: {score:.1f}")
-
+    print("Done.")
 
 if __name__ == "__main__":
     main()
-
