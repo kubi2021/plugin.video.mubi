@@ -1,0 +1,48 @@
+name: Weekly Digest Email
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 15 * * 5' # Every Friday at 15:00 UTC
+
+jobs:
+  generate-and-send:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch films.json.gz from database branch
+        run: |
+          git fetch origin database:database
+          git checkout database -- films.json.gz
+
+      - name: Unzip films database
+        run: gunzip films.json.gz
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate Weekly Digest JSON
+        run: python3 backend/generate_weekly_digest.py --input films.json --output backend/tmp/weekly_digest.md
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Node dependencies
+        working-directory: ./backend/emails
+        run: npm ci
+
+      - name: Send Email
+        working-directory: ./backend/emails
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          # Install tsx to run typescript file
+          npm install -g tsx
+          npx tsx src/send_email.tsx

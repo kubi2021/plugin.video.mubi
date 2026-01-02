@@ -384,4 +384,7 @@ export const WeeklyDigestEmail = ({ data = digestData }: { data?: DigestData }) 
     );
 };
 
-export default WeeklyDigestEmail;
+export default function WeeklyDigestEmailPreview() {
+    const data = loadDigestData();
+    return <WeeklyDigestEmail digestData={data} />;
+}

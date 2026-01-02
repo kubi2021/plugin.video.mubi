@@ -1,0 +1,23 @@
+{
+    "name": "mubi-digest-emails",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "email dev",
+        "build": "email build",
+        "export": "email export"
+    },
+    "dependencies": {
+        "@react-email/components": "^0.0.31",
+        "@responsive-email/react-email": "^0.0.4",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+    },
+    "devDependencies": {
+        "@types/node": "^25.0.3",
+        "@types/react": "^19.2.7",
+        "@types/react-dom": "^19.2.3",
+        "react-email": "^3.0.4",
+        "typescript": "^5.7.2"
+    }
+}
