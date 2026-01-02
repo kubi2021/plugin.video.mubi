@@ -118,10 +118,7 @@ def format_rating_line(film: dict) -> str:
     if tmdb:
         parts.append(f"TMDB: {tmdb:.1f}")
     
-    return " | ".join(parts) if parts else "No ratings available"
-
-
-def generate_digest(input_file: Path, output_file: Path) -> None:
+def generate_digest(input_file: Path, output_file: Path, now_override: Optional[datetime] = None) -> None:
     """Main logic to generate the digest."""
     print(f"Loading data from {input_file}...")
     
@@ -137,7 +134,7 @@ def generate_digest(input_file: Path, output_file: Path) -> None:
     print(f"Total items loaded: {total_movies}")
     
     # Get current time and calculate cutoff
-    now = datetime.now(timezone.utc)
+    now = now_override or datetime.now(timezone.utc)
     cutoff_date = now - timedelta(days=DAYS_LOOKBACK)
     
     print(f"Current time (UTC): {now.isoformat()}")
