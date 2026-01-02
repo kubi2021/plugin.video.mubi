@@ -893,13 +893,16 @@ class TestRegressionTests:
             plugin_userdata_path = Path(tmpdirname)
 
             # Create upcoming film data mirroring the 'Night on Earth' JSON data found
-            # "available_at": "2026-01-01T23:00:00Z"
-            future_available_at = "2026-01-01T23:00:00Z"
+            # Use dynamic future date to prevent test from failing as time passes
+            from datetime import datetime, timedelta, timezone
+            future_date = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat().replace("+00:00", "Z")
+            future_end_date = (datetime.now(timezone.utc) + timedelta(days=730)).isoformat().replace("+00:00", "Z")
+            
             upcoming_country_data = {
                 "AT": {
-                    "available_at": future_available_at, 
+                    "available_at": future_date, 
                     "availability": "upcoming",
-                    "availability_ends_at": "2026-12-31T23:00:00Z"
+                    "availability_ends_at": future_end_date
                 }
             }
 
