@@ -269,7 +269,11 @@ class MubiScraper:
         Enriches genres with 'LGBTQ+' if keywords are found in synopsis or editorial.
         """
         keys_to_check = ['short_synopsis', 'default_editorial']
-        keywords = ['queer', 'lgbt', 'lesbian']
+        keywords = [
+            'queer', 'lgbt', 'lesbian', 'transgender', 'bisexual', 'intersex', 
+            'pansexual', 'transsexual', 'non-binary', 'nonbinary', 'homosexual', 
+            'drag queen', 'drag king', 'same-sex', 'gender identity'
+        ]
         
         found = False
         for key in keys_to_check:

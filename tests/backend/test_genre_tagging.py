@@ -31,7 +31,7 @@ class TestGenreTagging(unittest.TestCase):
 
     def test_enrich_genres_case_insensitive(self):
         """Test that matching is case-insensitive."""
-        keywords = ['Lesbian', 'LESBIAN', 'lgbt', 'QuEeR']
+        keywords = ['Lesbian', 'LESBIAN', 'lgbt', 'QuEeR', 'Transgender', 'Bisexual', 'Non-Binary', 'Drag Queen']
         for kw in keywords:
             film_data = {
                 'title': f'Test Film {kw}',
