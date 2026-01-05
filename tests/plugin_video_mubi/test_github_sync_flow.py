@@ -74,7 +74,8 @@ class TestGithubSyncFlow:
                 dateadded="2022-01-01",
                 content_warnings=[],
                 premiered=None,
-                tagline=None
+                tagline=None,
+                media_features=[]
             )
         )
         # Mock download_all_artwork to avoid network calls
@@ -126,7 +127,8 @@ class TestGithubSyncFlow:
                 dateadded="2022-01-01",
                 content_warnings=[],
                 premiered=None,
-                tagline=None
+                tagline=None,
+                media_features=[]
             )
         )
         film._download_all_artwork = Mock(return_value={})

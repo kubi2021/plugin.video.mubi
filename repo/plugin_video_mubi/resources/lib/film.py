@@ -552,41 +552,105 @@ class Film:
             banner.text = Path(artwork_paths['banner']).name
             xbmc.log(f"Using local banner: {Path(artwork_paths['banner']).name}", xbmc.LOGDEBUG)
 
-        # Audio and subtitle language information using official Kodi structure
-        # Only add fileinfo/streamdetails if we have audio or subtitle data
-        if ((hasattr(metadata, 'audio_languages') and metadata.audio_languages) or
-            (hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages)):
+        ET.SubElement(movie, "dateadded").text = self._sanitize_xml_content(str(metadata.dateadded))
 
-            fileinfo = ET.SubElement(movie, "fileinfo")
+        # Add detailed stream formatting for Media Flags (Resolution, Codec, Audio Channels)
+        # Parse media_features (e.g., ["4k", "5.1", "hdr"]) to guess technical details
+        media_features = [str(f).lower() for f in getattr(metadata, 'media_features', []) if f]
+        
+        # --- VIDEO DETAILS ---
+        # Default to 1080p/h264 if not specified
+        video_width = "1920"
+        video_height = "1080"
+        video_codec = "h264"
+        video_aspect = "1.78" # 16:9 assumption
+        
+        if "4k" in media_features or "uhd" in media_features:
+            video_width = "3840"
+            video_height = "2160"
+            video_codec = "h265" # Assume HEVC for 4K
+        elif "720p" in media_features:
+            video_width = "1280"
+            video_height = "720"
+            
+        # Audio and subtitle language information using official Kodi structure
+        # Only add fileinfo/streamdetails if we have data to write
+        if ((hasattr(metadata, 'audio_languages') and metadata.audio_languages) or
+            (hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages) or
+            True): # Always create streamdetails for Video flags now
+
+            fileinfo = root_node_check = ET.SubElement(movie, "fileinfo")
             streamdetails = ET.SubElement(fileinfo, "streamdetails")
 
+            # Add Video Stream
+            video_elem = ET.SubElement(streamdetails, "video")
+            ET.SubElement(video_elem, "codec").text = video_codec
+            ET.SubElement(video_elem, "aspect").text = video_aspect
+            ET.SubElement(video_elem, "width").text = video_width
+            ET.SubElement(video_elem, "height").text = video_height
+            # Add duration in seconds (optional but good for flags)
+            if metadata.duration:
+                 ET.SubElement(video_elem, "durationinseconds").text = str(metadata.duration * 60) # duration is usually in mins
+            
+            # Add HDR flag if present
+            if "hdr" in media_features or "dolby vision" in media_features:
+                 # "hdr10" or "dolbyvision" usually triggers flags
+                 hdr_type = "hdr10"
+                 if "dolby vision" in media_features:
+                     hdr_type = "dolbyvision"
+                 ET.SubElement(video_elem, "hdrtype").text = hdr_type
+
+            # --- AUDIO DETAILS ---
             # Audio streams - create separate <audio> element for each language
-            # Include channel information if available
+            # Includes channel information mapped from media_features or audio_channels
             if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
-                audio_channels = getattr(metadata, 'audio_channels', [])
+                audio_channels_list = getattr(metadata, 'audio_channels', [])
+                
+                # Check for global audio features if per-track info isn't specific enough
+                global_channels = "2"
+                global_codec = "aac"
+                
+                if "5.1" in media_features:
+                    global_channels = "6"
+                    global_codec = "eac3" # DD+ is standard for 5.1 streaming
+                elif "7.1" in media_features:
+                    global_channels = "8"
+                    global_codec = "eac3"
+                elif "atmos" in media_features:
+                    global_channels = "8" # Atmos usually piggybacks on 7.1 eac3
+                    global_codec = "eac3"
+                
                 for i, lang in enumerate(metadata.audio_languages):
                     if lang and str(lang).strip():  # Skip empty/None values
                         audio_elem = ET.SubElement(streamdetails, "audio")
                         audio_lang = ET.SubElement(audio_elem, "language")
-                        # SECURITY FIX: Sanitize language content
+                        
+                        # Fix Media Flags: Convert full language name to ISO 639-2 code
+                        # User Request: Default back to sanitizing raw input instead of converting
                         audio_lang.text = self._sanitize_xml_content(str(lang).strip())
 
-                        # Add channel info if available (convert "5.1" -> 6, "stereo" -> 2)
-                        if i < len(audio_channels) and audio_channels[i]:
-                            channel_str = str(audio_channels[i]).strip().lower()
-                            channels_elem = ET.SubElement(audio_elem, "channels")
-                            # Convert channel format to number
+                        # Determine channels for this specific track
+                        channels_text = global_channels
+                        codec_text = global_codec
+                        
+                        # Override with specific track info if available
+                        if i < len(audio_channels_list) and audio_channels_list[i]:
+                            channel_str = str(audio_channels_list[i]).strip().lower()
                             if channel_str == '5.1':
-                                channels_elem.text = '6'
+                                channels_text = '6'
+                                codec_text = 'eac3'
                             elif channel_str == '7.1':
-                                channels_elem.text = '8'
+                                channels_text = '8'
+                                codec_text = 'eac3'
                             elif channel_str in ('stereo', '2.0'):
-                                channels_elem.text = '2'
+                                channels_text = '2'
+                                codec_text = 'aac'
                             elif channel_str in ('mono', '1.0'):
-                                channels_elem.text = '1'
-                            else:
-                                # Keep original value if not a recognized format
-                                channels_elem.text = self._sanitize_xml_content(channel_str)
+                                channels_text = '1'
+                                codec_text = 'aac'
+                            
+                        ET.SubElement(audio_elem, "channels").text = channels_text
+                        ET.SubElement(audio_elem, "codec").text = codec_text
 
             # Subtitle streams - create separate <subtitle> element for each language
             if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
@@ -594,7 +658,8 @@ class Film:
                     if lang and str(lang).strip():  # Skip empty/None values
                         subtitle_elem = ET.SubElement(streamdetails, "subtitle")
                         subtitle_lang = ET.SubElement(subtitle_elem, "language")
-                        # SECURITY FIX: Sanitize language content
+                        # Fix Media Flags: Convert full language name to ISO 639-2 code
+                        # User Request: Default back to sanitizing raw input instead of converting
                         subtitle_lang.text = self._sanitize_xml_content(str(lang).strip())
 
         ET.SubElement(movie, "dateadded").text = self._sanitize_xml_content(str(metadata.dateadded))
