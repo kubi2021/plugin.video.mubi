@@ -75,6 +75,9 @@ def full_valid_film():
             "description": "Contains mature themes.",
             "icon_url": None
         },
+        "mpaa": {
+            "US": "PG-13"
+        },
         "content_warnings": [
             {"id": 1, "name": "violence", "key": "violence"}
         ],
@@ -204,6 +207,30 @@ class TestNestedObjects:
             "icon_url": None
         }
         jsonschema.validate(minimal_valid_film, v1_schema)
+
+    def test_mpaa_structure(self, v1_schema, minimal_valid_film):
+        """mpaa must have correct structure."""
+        minimal_valid_film["mpaa"] = {
+            "US": "R"
+        }
+        jsonschema.validate(minimal_valid_film, v1_schema)
+
+        minimal_valid_film["mpaa"] = {
+            "US": None
+        }
+        jsonschema.validate(minimal_valid_film, v1_schema)
+
+        minimal_valid_film["mpaa"] = None
+        jsonschema.validate(minimal_valid_film, v1_schema)
+
+    def test_mpaa_rejects_extra_fields(self, v1_schema, minimal_valid_film):
+        """mpaa should reject extra fields."""
+        minimal_valid_film["mpaa"] = {
+            "US": "R",
+            "UK": "18" # UK not yet supported in schema
+        }
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(minimal_valid_film, v1_schema)
 
     def test_content_rating_rejects_extra_fields(self, v1_schema, minimal_valid_film):
         """content_rating should reject extra fields."""

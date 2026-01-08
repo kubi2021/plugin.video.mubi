@@ -224,5 +224,63 @@ class TestScraperLogic(unittest.TestCase):
         self.assertEqual(film['mubi_id'], 1)
         self.assertEqual(sorted(film['available_countries'].keys()), ['GB', 'US'], "New country GB should be appended to existing US")
 
+    def test_mpaa_enrichment_logic(self):
+        """
+        Verify that Mubi ratings (e.g. MATURE) are enriched into US MPAA ratings (e.g. R).
+        """
+        # 1. Setup existing data (empty)
+        with open(self.films_json_path, 'w') as f:
+            json.dump({'items': []}, f)
+            
+        # 2. Mock scraper retrieval of a film with content_rating
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            'films': [
+                {
+                    'id': 100, 
+                    'title': 'Mature Film',
+                    'year': 2020,
+                    'content_rating': {'rating_code': 'MATURE'},
+                    'consumable': {'status': 'live'}
+                },
+                {
+                    'id': 101, 
+                    'title': 'General Film',
+                    'year': 2020,
+                    'content_rating': {'rating_code': 'GENERAL'},
+                    'consumable': {'status': 'live'}
+                },
+                 {
+                    'id': 102, 
+                    'title': 'Unknown Film',
+                    'year': 2020,
+                    'content_rating': {'rating_code': 'UNKNOWN_CODE'},
+                    'consumable': {'status': 'live'}
+                }
+            ],
+            'meta': {'next_page': None}
+        }
+        self.scraper.session.get.return_value = mock_resp
+        
+        # 3. Run sync (shallow or deep doesn't matter for this logic)
+        with patch('backend.scraper.MubiScraper.COUNTRIES', ['US']):
+            self.scraper.run(output_path=self.films_json_path, series_path=self.series_json_path, mode='deep')
+            
+        # 4. Assertions
+        with open(self.films_json_path, 'r') as f:
+            data = json.load(f)
+            
+        films = {item['mubi_id']: item for item in data['items']}
+        
+        # Check MATURE -> R
+        self.assertEqual(films[100]['mpaa']['US'], 'R')
+        
+        # Check GENERAL -> G
+        self.assertEqual(films[101]['mpaa']['US'], 'G')
+        
+        # Check UNKNOWN -> None
+        self.assertIsNone(films[102]['mpaa'])
+
 if __name__ == '__main__':
     unittest.main()

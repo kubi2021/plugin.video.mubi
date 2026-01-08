@@ -28,6 +28,24 @@ class MubiScraper:
     # Dynamically generate full country list
     COUNTRIES = [country.alpha_2 for country in pycountry.countries]
 
+    # Mubi to US MPAA Mapping Table
+    MUBI_TO_MPAA_MAP = {
+        "GENERAL": "G",
+        "AL": "G",
+        "A10": "PG",
+        "12": "PG-13",
+        "A12": "PG-13",
+        "14": "PG-13",
+        "A14": "PG-13",
+        "CAUTION": "PG-13",
+        "16": "R",
+        "A16": "R",
+        "MATURE": "R",
+        "18": "NC-17",
+        "A18": "NC-17",
+        "ADULT": "NC-17"
+    }
+
     def __init__(self):
         self.session = self._create_session()
 
@@ -438,6 +456,8 @@ class MubiScraper:
                             
                             # Content rating & warnings
                             'content_rating': item.get('content_rating'),
+                            # Scraper-derived MPAA
+                            'mpaa': None,
                             'content_warnings': item.get('content_warnings', []),
                             
                             # Imagery & artwork
@@ -468,6 +488,20 @@ class MubiScraper:
                         
                         # Enrich genres (LGBTQ+ tagging)
                         self._enrich_genres(new_data)
+
+                        # Calculate MPAA Rating
+                        content_rating = new_data.get('content_rating')
+                        if content_rating:
+                            # Use rating_code as primary, fallback to label
+                            rating_code = content_rating.get('rating_code', '')
+                            rating_label = content_rating.get('label', '')
+                            
+                            # Check rating_code first, then label
+                            key = str(rating_code).upper() if rating_code else str(rating_label).upper()
+                            
+                            # Look up in the map
+                            if key in self.MUBI_TO_MPAA_MAP:
+                                new_data['mpaa'] = {'US': self.MUBI_TO_MPAA_MAP[key]}
 
                         # --- DISTINGUISH SERIES VS FILM ---
                         is_series = False

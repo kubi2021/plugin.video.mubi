@@ -156,6 +156,21 @@
             },
             "additionalProperties": false
         },
+        "mpaa": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "properties": {
+                "US": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
         "content_warnings": {
             "type": "array",
             "items": {
