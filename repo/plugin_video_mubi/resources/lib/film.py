@@ -478,8 +478,8 @@ class Film:
         ET.SubElement(movie, "runtime").text = str(metadata.duration)
 
         # Add content rating (age rating)
-        if metadata.mpaa:
-            ET.SubElement(movie, "mpaa").text = self._sanitize_xml_content(metadata.mpaa)
+        if hasattr(metadata, 'mpaa') and metadata.mpaa and metadata.mpaa.get('US'):
+            ET.SubElement(movie, "mpaa").text = self._sanitize_xml_content(metadata.mpaa['US'])
 
         # Add tagline from press_quote (if available)
         if hasattr(metadata, 'tagline') and metadata.tagline:

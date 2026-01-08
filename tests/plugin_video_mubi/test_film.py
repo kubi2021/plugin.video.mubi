@@ -131,7 +131,7 @@ class TestFilm:
         film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Set mpaa rating on metadata
-        mock_metadata.mpaa = "PG-13 - Some material may be inappropriate for children under 13"
+        mock_metadata.mpaa = {'US': "PG-13 - Some material may be inappropriate for children under 13"}
 
         nfo_tree = film._get_nfo_tree(
             mock_metadata,
@@ -152,7 +152,7 @@ class TestFilm:
         film = Film("123", "Test Movie", "", "", mock_metadata)
 
         # Ensure mpaa is empty
-        mock_metadata.mpaa = ""
+        mock_metadata.mpaa = None
 
         nfo_tree = film._get_nfo_tree(
             mock_metadata,
@@ -410,7 +410,7 @@ class TestFilm:
         mock_metadata.audio_languages = ["English", "French"]
         mock_metadata.subtitle_languages = ["English", "French", "Spanish"]
         mock_metadata.media_features = ["4K", "HDR", "Dolby Atmos"]
-        mock_metadata.mpaa = "PG-13 - Some material may be inappropriate"
+        mock_metadata.mpaa = {'US': "PG-13 - Some material may be inappropriate"}
 
         artwork_paths = {
             'thumb': '/nonexistent/path/thumb.jpg',  # Non-existent path
@@ -524,22 +524,30 @@ class TestFilm:
         assert audio.find("codec").text == "aac"
 
     def test_nfo_tree_generation_mpaa_with_country(self, mock_metadata):
-        """Test NFO XML tree generation for MPAA rating with country prefix."""
+        """Test NFO XML tree generation for MPAA rating with nested structure."""
         # Arrange
         film = Film("123", "MPAA Test", "", "", mock_metadata)
         mock_metadata.audio_channels = []
         
-        # Test MATURE -> R (mapped)
-        film.metadata.mpaa = "R"
+        # Test nested structure: {'US': 'R'}
+        # Note: In real usage, this comes from backend sync. 
+        # mubi.py no longer calculates it manually.
+        mock_metadata.mpaa = {'US': 'R'}
+        
         nfo_tree = film._get_nfo_tree(mock_metadata, "", "", None)
         root = ET.fromstring(nfo_tree)
-        assert root.find("mpaa").text == "R"
+        
+        # Verify <mpaa> tag contains the US rating
+        mpaa_node = root.find("mpaa")
+        assert mpaa_node is not None
+        assert mpaa_node.text == "R"
 
-        # Test fallback when country missing but historic countries exist (requires deeper mock if logic is in mubi.py)
-        # However, film.py just takes metadata.mpaa which is already formatted by mubi.py
-        # So this test mainly confirms film.py passes the string through, which it does.
-        # The formatting logic is in mubi.py, so we should test mubi.py if possible, 
-        # but mubi.py tests might be separate. For now, we trust mubi.py works and film.py writes it.
+        # Test ignoring non-US or empty
+        mock_metadata.mpaa = {'UK': '15'} # Should be ignored based on current hardcoded logic
+        nfo_tree_gb = film._get_nfo_tree(mock_metadata, "", "", None)
+        root_gb = ET.fromstring(nfo_tree_gb)
+        assert root_gb.find("mpaa") is None
+
 
     def test_nfo_tree_generation_edge_cases(self, mock_metadata):
         """Test NFO XML tree generation with edge case metadata values."""
@@ -583,7 +591,7 @@ class TestFilm:
         # Set a specific rating to test and ensure mpaa is a string
         mock_metadata.rating = 7.6
         mock_metadata.bayesian_rating = None
-        mock_metadata.mpaa = ""  # Ensure mpaa is a string, not a Mock
+        mock_metadata.mpaa = None
 
         nfo_tree = film._get_nfo_tree(
             mock_metadata,
@@ -1260,7 +1268,7 @@ class TestFilmNfoAvailability:
             dateadded="2023-01-01",
             trailer="",
             image="",
-            mpaa="",
+            mpaa={'US': "PG-13"},
             artwork_urls={},
             audio_languages=[],
             subtitle_languages=[],
@@ -1372,7 +1380,7 @@ class TestFilmSanitizationEdgeCases:
             dateadded="2023-01-01",
             trailer="",
             image="",
-            mpaa="",
+            mpaa={'US': "PG-13"},
             artwork_urls={},
             audio_languages=[],
             subtitle_languages=[],

@@ -27,7 +27,7 @@ class TestMultiCountrySync:
         metadata.rating = 8.0
         metadata.votes = 100
         metadata.image = "http://example.com/image.jpg"
-        metadata.mpaa = "PG"
+        metadata.mpaa = {'US': "PG"}
         metadata.originaltitle = "Original Title"
         metadata.tagline = "This is a tagline"
         metadata.dateadded = "2025-12-19"

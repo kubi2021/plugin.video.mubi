@@ -699,7 +699,7 @@ class TestDirectoryHandling:
                 dateadded="2023-01-01",
                 trailer="http://example.com/trailer",
                 image="http://example.com/image.jpg",
-                mpaa="PG-13"
+                mpaa={'US': "PG-13"}
             )
 
             nfo_content = film._get_nfo_tree(

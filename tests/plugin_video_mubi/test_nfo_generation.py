@@ -5,7 +5,7 @@ from plugin_video_mubi.resources.lib.film import Film
 class MockMetadata:
     def __init__(self, title="Test Film", originaltitle="Original Test Film", 
                  plot="Plot", plotoutline="Outline", rating=8.0, votes=100, 
-                 duration=120, mpaa="PG", country=None, genre=None, director=None, 
+                 duration=120, mpaa={'US': "PG"}, country=None, genre=None, director=None, 
                  year=2023, dateadded="2023-01-01", image="http://image.com"):
         self.title = title
         self.originaltitle = originaltitle

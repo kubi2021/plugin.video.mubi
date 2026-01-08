@@ -100,6 +100,10 @@ class Film(BaseModel):
     tmdb_id: Optional[int] = None
     imdb_id: Optional[str] = None
     
+    # Extended metadata
+    mpaa: Optional[Dict[str, Optional[str]]] = None
+    imdb_id: Optional[str] = None
+    
     # Basic metadata
     title: str
     original_title: Optional[str] = None

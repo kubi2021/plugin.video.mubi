@@ -910,41 +910,8 @@ class Mubi:
 
             short_outline = short_synopsis  # Keep short synopsis for outline
 
-            # Extract content rating for age ratings
-            # Extract content rating for age ratings
-            content_rating_info = film_info.get('content_rating', {})
-            mpaa_rating = ''
-            
-            # Mubi to US MPAA Mapping Table
-            MUBI_TO_MPAA_MAP = {
-                "GENERAL": "G",
-                "AL": "G",
-                "A10": "PG",
-                "12": "PG-13",
-                "A12": "PG-13",
-                "14": "PG-13",
-                "A14": "PG-13",
-                "CAUTION": "PG-13",
-                "16": "R",
-                "A16": "R",
-                "MATURE": "R",
-                "18": "NC-17",
-                "A18": "NC-17",
-                "ADULT": "NC-17"
-            }
-
-            if content_rating_info:
-                # Use rating_code as primary, fallback to label
-                rating_code = content_rating_info.get('rating_code', '')
-                rating_label = content_rating_info.get('label', '')
-                
-                # Check rating_code first, then label
-                key = str(rating_code).upper() if rating_code else str(rating_label).upper()
-                
-                # Look up in the map
-                if key in MUBI_TO_MPAA_MAP:
-                    mpaa_rating = MUBI_TO_MPAA_MAP[key]
-                # If not in table, mapped to nothing (empty string) as requested
+            # Legacy manual MPAA mapping removed. Plugin now consumes 'mpaa' field from backend sync.
+            mpaa_rating = None
 
             # Enhanced rating precision: Use 10-point scale if available, fallback to 5-point
             rating_10_point = film_info.get('average_rating_out_of_ten', 0)
@@ -1011,7 +978,7 @@ class Mubi:
                 dateadded=datetime.date.today().strftime('%Y-%m-%d'),
                 trailer=self._get_best_trailer_url(film_info),
                 image=self._get_best_thumbnail_url(film_info),
-                mpaa=mpaa_rating,  # Add content rating
+                mpaa=film_info.get('mpaa'),  # Use pre-calculated mpaa from sync (if available)
                 artwork_urls=artwork_urls,  # Add all artwork URLs
                 audio_languages=audio_languages,  # Available audio languages
                 subtitle_languages=subtitle_languages,  # Available subtitle languages
