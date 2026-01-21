@@ -83,10 +83,13 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, su
     """
     try:
         # Determine the streaming protocol from the URL
-        if stream_url.endswith('.mpd'):
+        from urllib.parse import urlparse
+        path = urlparse(stream_url).path
+        
+        if path.endswith('.mpd'):
             protocol = "mpd"  # MPEG-DASH
             mime_type = 'application/dash+xml'
-        elif stream_url.endswith('.m3u8'):
+        elif path.endswith('.m3u8'):
             protocol = "hls"  # HLS
             mime_type = 'application/vnd.apple.mpegurl'
         else:
