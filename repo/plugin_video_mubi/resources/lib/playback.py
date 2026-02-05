@@ -130,18 +130,10 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, su
                     xbmc.log(f"Using patched manifest via local server: {local_url} (file: {patched_path})", xbmc.LOGINFO)
                     stream_url = local_url
                     
-                    # For the manifest request (localhost), we don't want headers
-                    headers_str = "" 
-                    # Note: Segments will still be fetched from remote (absolute BaseURL), 
-                    # avoiding the need for headers here usually working because of cookie/session persistence or URL tokens?
-                    # Actually, we might need headers for segments if they are not in the URL.
-                    # But we can't easily pass headers for segments but NOT for manifest in ISA current config if using 'stream_headers'.
-                    # However, Mubi usually uses URL-based tokens (cf generate_drm_license_key) or cookies.
-                    # Wait, stream_headers in ISA applies to EVERYTHING. 
-                    # If we set it to empty, segments might fail if they need headers.
-                    # BUT, if we keep it, ISA uses it for the manifest request to localhost, failing because of Host header mismatch or similar?
-                    # Actually, simple python http server ignores headers mostly.
-                    # Let's try EMPTY headers first. If segments fail, we have a different problem.
+                    # We MUST pass headers even for local playback, because the segments 
+                    # are still fetched from the remote CDN and require authentication.
+                    # The LocalServer (SimpleHTTPRequestHandler) will safely ignore these headers.
+                    pass
             except Exception as e:
                 xbmc.log(f"MPD Patching failed, falling back to original URL: {e}", xbmc.LOGWARNING)
 
