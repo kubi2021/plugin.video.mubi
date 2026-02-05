@@ -11,12 +11,19 @@ Coverage: Happy path, edge cases, and error handling
 
 import sys
 import pytest
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 from pathlib import Path
 
 # Add the repo directory to Python path so we can import from repo.plugin.video.mubi
 repo_path = Path(__file__).parent.parent.parent / "repo"
 sys.path.insert(0, str(repo_path))
+
+# -----------------------------------------------------------------------------
+# TEST CONSTANTS
+# These constants are used across addon tests for consistency.
+# -----------------------------------------------------------------------------
+MOCK_HANDLE = 123
+MOCK_BASE_URL = "plugin://plugin.video.mubi/"
 
 
 
@@ -323,3 +330,79 @@ def temp_directory():
     temp_dir = tempfile.mkdtemp()
     yield Path(temp_dir)
     shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def addon_test_mocks():
+    """
+    Shared fixture for addon.py tests with all common mocks.
+    
+    Consolidates the duplicate mocking patterns across TestAddon, TestErrorHandling,
+    TestClientCountryAutoDetection, TestSyncLocally, TestSyncWorldwideOptimization,
+    and TestMissingActions.
+    
+    Returns a dict with all mock instances for easy access in tests.
+    """
+    with patch('plugin_video_mubi.addon.SessionManager') as mock_session_manager, \
+         patch('plugin_video_mubi.addon.NavigationHandler') as mock_nav_handler, \
+         patch('plugin_video_mubi.addon.Mubi') as mock_mubi, \
+         patch('xbmcaddon.Addon') as mock_addon, \
+         patch('plugin_video_mubi.addon.is_first_run') as mock_is_first_run, \
+         patch('plugin_video_mubi.addon.add_mubi_source') as mock_add_source, \
+         patch('plugin_video_mubi.addon.mark_first_run') as mock_mark_first_run, \
+         patch('plugin_video_mubi.addon.migrate_genre_settings'), \
+         patch('xbmc.log') as mock_log, \
+         patch('xbmc.executebuiltin') as mock_executebuiltin, \
+         patch('xbmcplugin.endOfDirectory') as mock_end_of_dir, \
+         patch('xbmcplugin.setResolvedUrl') as mock_set_resolved, \
+         patch('xbmcgui.Dialog') as mock_dialog, \
+         patch('xbmcgui.ListItem') as mock_list_item:
+
+        # Setup session instance
+        mock_session_instance = Mock()
+        mock_session_instance.client_country = 'CH'
+        mock_session_instance.client_language = 'en'
+        mock_session_manager.return_value = mock_session_instance
+
+        # Setup mubi instance
+        mock_mubi_instance = Mock()
+        mock_mubi_instance.get_cli_country.return_value = 'US'
+        mock_mubi_instance.get_cli_language.return_value = 'en'
+        mock_mubi.return_value = mock_mubi_instance
+
+        # Setup navigation instance
+        mock_nav_instance = Mock()
+        mock_nav_handler.return_value = mock_nav_instance
+
+        # Setup addon instance
+        mock_addon_instance = Mock()
+        mock_addon_instance.getSetting.return_value = 'CH'
+        mock_addon.return_value = mock_addon_instance
+
+        # Setup dialog instance
+        mock_dialog_instance = Mock()
+        mock_dialog.return_value = mock_dialog_instance
+
+        # Default: not first run
+        mock_is_first_run.return_value = False
+
+        yield {
+            'session_manager': mock_session_manager,
+            'session_instance': mock_session_instance,
+            'navigation_handler': mock_nav_handler,
+            'nav_instance': mock_nav_instance,
+            'mubi': mock_mubi,
+            'mubi_instance': mock_mubi_instance,
+            'addon': mock_addon,
+            'addon_instance': mock_addon_instance,
+            'is_first_run': mock_is_first_run,
+            'add_source': mock_add_source,
+            'mark_first_run': mock_mark_first_run,
+            'log': mock_log,
+            'executebuiltin': mock_executebuiltin,
+            'end_of_directory': mock_end_of_dir,
+            'set_resolved_url': mock_set_resolved,
+            'dialog': mock_dialog,
+            'dialog_instance': mock_dialog_instance,
+            'list_item': mock_list_item,
+        }
