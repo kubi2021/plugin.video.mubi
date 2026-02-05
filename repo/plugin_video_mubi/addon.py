@@ -20,10 +20,10 @@ from resources.lib.migrations import (
     add_mubi_source, is_first_run, mark_first_run, migrate_genre_settings
 )
 
-if __name__ == "__main__":
+def main(argv):
     plugin = xbmcaddon.Addon()
-    handle = int(sys.argv[1])
-    base_url = sys.argv[0]
+    handle = int(argv[1])
+    base_url = argv[0]
     session = SessionManager(plugin)
     mubi = Mubi(session)
 
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     navigation = NavigationHandler(handle, base_url, mubi, session)
 
     # Parse parameters from the URL
-    params = dict(parse_qsl(sys.argv[2][1:]))
+    params = dict(parse_qsl(argv[2][1:]))
     action = params.get("action")
 
     if action == "list_categories":
@@ -173,4 +173,7 @@ if __name__ == "__main__":
             xbmcplugin.setResolvedUrl(handle, False, xbmcgui.ListItem())
     else:
         navigation.main_navigation()
+
+if __name__ == "__main__":
+    main(sys.argv)
 
