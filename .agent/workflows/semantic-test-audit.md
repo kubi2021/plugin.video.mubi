@@ -8,6 +8,23 @@ This workflow leverages the AI Assistant (me) to directly evaluate the "semantic
 
 ---
 
+## Pre-Flight Check (Run First!)
+
+**Before running any audit**, verify this workflow is up-to-date with the codebase:
+
+> "Check if all modules are covered in the semantic-test-audit workflow"
+
+When asked, I will:
+1. **Scan all Python modules** in `repo/plugin_video_mubi/resources/lib/` and `backend/`
+2. **Compare against the Priority Matrix** and Category tables below
+3. **Report any gaps** — modules not listed or new modules added since last update
+4. **Suggest updates** to add missing modules to the appropriate priority/category
+
+> [!IMPORTANT]
+> If the pre-flight check finds gaps, update this workflow **before** proceeding with audits.
+
+---
+
 ## How to Use
 
 ### Single File Audit
@@ -77,16 +94,32 @@ Produce the report in a structured markdown format:
 |:--------:|--------|----------:|----------:|--------|
 | 🔴 P1 | `mubi.py` | 57KB | 124KB | Core API client, highest complexity |
 | 🔴 P1 | `navigation_handler.py` | 53KB | 85KB | All UI routing, user-facing |
+| 🔴 P1 | `scraper.py` *(backend)* | 32KB | 16KB | Mubi data scraping, core pipeline |
+| 🔴 P1 | `tmdb_provider.py` *(backend)* | 29KB | 9KB | TMDB matching, external API |
 | 🟠 P2 | `film.py` | 40KB | 56KB | Data model, Bayesian rating logic |
 | 🟠 P2 | `library.py` | 20KB | 39KB | Kodi library sync, NFO generation |
+| 🟠 P2 | `enrich_metadata.py` *(backend)* | 10KB | 13KB | Metadata enrichment pipeline |
+| 🟠 P2 | `rating_calculator.py` *(backend)* | 10KB | 7KB | Bayesian rating calculation |
 | 🟠 P2 | `playback.py` | 9KB | 20KB | DRM, streaming, inputstream |
 | 🟡 P3 | `data_source.py` | 19KB | 3KB | GitHub sync, caching |
+| 🟡 P3 | `metadata_utils.py` *(backend)* | 10KB | — | Metadata utilities |
+| 🟡 P3 | `omdb_provider.py` *(backend)* | 9KB | 7KB | OMDB API integration |
 | 🟡 P3 | `session_manager.py` | 7KB | 11KB | Auth, token refresh |
 | 🟡 P3 | `mpd_patcher.py` | 10KB | 9KB | MPD manipulation |
+| 🟢 P4 | `generate_weekly_digest.py` *(backend)* | 10KB | — | Email digest generation |
+| 🟢 P4 | `validate_schema.py` *(backend)* | 5KB | 13KB | JSON schema validation |
 | 🟢 P4 | `migrations.py` | 6KB | 18KB | Schema migrations |
 | 🟢 P4 | `metadata.py` | 5KB | 12KB | Kodi metadata formatting |
 | 🟢 P4 | `filters.py` | 3KB | 4KB | List filtering |
 | 🟢 P4 | `local_server.py` | 2KB | 3KB | Local HTTP server |
+| 🟢 P4 | `countries.py` | 14KB | — | Country code mappings |
+| 🟢 P4 | `coverage_optimizer.py` | 6KB | — | Multi-country coverage |
+| 🟢 P4 | `models.py` | 6KB | — | Data models/types |
+| 🟡 P3 | `external_metadata/tmdb_provider.py` | 8KB | 19KB | TMDB provider (plugin) |
+| 🟡 P3 | `external_metadata/title_utils.py` | 9KB | — | Title matching utilities |
+| 🟢 P4 | `external_metadata/omdb_provider.py` | 4KB | — | OMDB provider (plugin) |
+| 🟢 P4 | `external_metadata/factory.py` | 3KB | — | Provider factory |
+| 🟢 P4 | `external_metadata/base.py` | 1KB | — | Base provider class |
 
 ---
 
@@ -114,15 +147,41 @@ These are the most critical modules—audit these first.
 
 ---
 
+### Category: External Metadata Providers
+
+| Implementation | Test File | Notes |
+|----------------|-----------|-------|
+| `resources/lib/external_metadata/tmdb_provider.py` | `tests/plugin_video_mubi/test_tmdb_provider.py` | TMDB integration |
+| `resources/lib/external_metadata/title_utils.py` | `tests/plugin_video_mubi/test_external_metadata.py` | Title matching |
+| `resources/lib/external_metadata/omdb_provider.py` | ⚠️ *No dedicated tests* | Uses shared fixtures |
+| `resources/lib/external_metadata/factory.py` | ⚠️ *No dedicated tests* | Provider factory |
+| `resources/lib/external_metadata/base.py` | ⚠️ *No dedicated tests* | Base class |
+
+---
+
+### Category: Static Data & Models
+
+| Implementation | Test File | Notes |
+|----------------|-----------|-------|
+| `resources/lib/countries.py` | ⚠️ *No tests* | Country mappings |
+| `resources/lib/coverage_optimizer.py` | ⚠️ *No tests* | Availability optimizer |
+| `resources/lib/models.py` | ⚠️ *No tests* | Data models |
+
+---
+
 ### Category: Backend (Scraper & Enrichment)
 
-| Implementation | Test File |
-|----------------|-----------|
-| `backend/scraper.py` | `tests/backend/test_scraper.py` |
-| `backend/enrich_metadata.py` | `tests/backend/test_enrich_metadata.py` |
-| `backend/rating_calculator.py` | `tests/backend/test_rating_calculator.py` |
-| `backend/omdb_provider.py` | `tests/backend/test_omdb_provider.py` |
-| `backend/tmdb_algo.py` | `tests/backend/test_tmdb_algo.py` |
+| Implementation | Test File | Notes |
+|----------------|-----------|-------|
+| `backend/scraper.py` | `tests/backend/test_scraper.py` | Core scraping logic |
+| `backend/tmdb_provider.py` | `tests/backend/test_tmdb_algo.py` | TMDB matching |
+| `backend/enrich_metadata.py` | `tests/backend/test_enrich_metadata.py` | Enrichment pipeline |
+| `backend/rating_calculator.py` | `tests/backend/test_rating_calculator.py` | Bayesian rating |
+| `backend/omdb_provider.py` | `tests/backend/test_omdb_provider.py` | OMDB API |
+| `backend/metadata_utils.py` | ⚠️ *No tests* | Needs coverage |
+| `backend/validate_schema.py` | `tests/backend/test_schema_v1.py` | JSON schema |
+| `backend/generate_weekly_digest.py` | ⚠️ *No tests* | Email digest |
+| `backend/generate_repo.py` | ⚠️ *No tests* | Repo generation |
 
 ---
 

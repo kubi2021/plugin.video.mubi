@@ -5,13 +5,13 @@ from typing import Any, Dict, Optional
 import requests
 import unicodedata
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy
 
 # Configure logging
-# Configure logging
 logger = logging.getLogger(__name__)
-
-
 
 class TMDBProvider:
     """
@@ -31,7 +31,20 @@ class TMDBProvider:
         self.api_key = api_key
         self.config = config or {}
         
+        # Initialize Session with Retry logic
+        self.session = requests.Session()
+        retries = Retry(
+            total=self.config.get("max_retries", 3),
+            backoff_factor=self.config.get("backoff_factor", 1.0),
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount('https://', adapter)
+        self.session.mount('http://', adapter)
+        
         self.title_normalizer = TitleNormalizer()
+        # RetryStrategy class unused for session-based approach, but keeping for compatibility if other methods use it
         self.retry_strategy = RetryStrategy(
             max_retries=self.config.get("max_retries", 3),
             initial_backoff=self.config.get("backoff_factor", 1.0),
@@ -42,6 +55,7 @@ class TMDBProvider:
         self.movie_genres = self._fetch_genres("movie")
         self.tv_genres = self._fetch_genres("tv")
         
+        
         # Import fuzz for matching
         try:
             from thefuzz import fuzz
@@ -50,6 +64,53 @@ class TMDBProvider:
             logger.warning("thefuzz not installed. Falling back to exact matching.")
             self.fuzz = None
 
+    # ...
+
+    def _get_details_with_credits(self, tmdb_id: int, media_type: str) -> dict:
+        """Fetch details with append_to_response=credits,external_ids."""
+        url = f"{self.BASE_URL}/{media_type}/{tmdb_id}"
+        params = {
+            "api_key": self.api_key,
+            "append_to_response": "credits,external_ids,alternative_titles"
+        }
+        try:
+            response = self.session.get(url, params=params, timeout=10)
+            if response.ok:
+                return response.json()
+        except Exception as e:
+            logger.warning(f"Failed to fetch details for {tmdb_id}: {e}")
+        return {}
+
+    # ...
+
+    def _search_api(self, query: str, media_type: str, year: Optional[int] = None, include_adult: bool = True) -> list:
+        """Internal wrapper for search API to handle year filtering."""
+        # Sanitize query: TMDB search fails with underscores (e.g. "Hoax_canular")
+        sanitized_query = query.replace("_", " ")
+        
+        endpoint = "search/movie" if media_type == "movie" else "search/tv"
+        params = {
+            "api_key": self.api_key,
+            "query": sanitized_query,
+            "include_adult": str(include_adult).lower(),
+            "language": "en-US",
+            "page": 1
+        }
+        if year:
+             params["year"] = year # strict primary release year filter for movies
+             # For TV it is first_air_date_year
+             if media_type != "movie":
+                 del params["year"]
+                 params["first_air_date_year"] = year
+
+        url = f"{self.BASE_URL}/{endpoint}"
+        try:
+            resp = self.session.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            return resp.json().get("results", [])
+        except Exception as e:
+            logger.error(f"Search API error: {e}")
+            return []
     def _normalize_string(self, s: Optional[str]) -> str:
         """Normalize string to ASCII, removing accents and lowering case. Replaces hyphens with spaces."""
         if not s:

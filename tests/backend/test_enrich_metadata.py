@@ -11,7 +11,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from backend.enrich_metadata import enrich_metadata
+from backend.enrich_metadata import enrich_metadata, generate_report
 from backend.tmdb_provider import TMDBProvider, ExternalMetadataResult
 
 class TestEnrichMetadata(unittest.TestCase):
@@ -246,6 +246,35 @@ class TestEnrichMetadata(unittest.TestCase):
         self.assertIsNotNone(tmdb_rating)
         self.assertEqual(tmdb_rating['score_over_10'], 8.0)
         self.assertEqual(tmdb_rating['voters'], 500)
+
+    @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key', 'OMDB_API_KEY': 'fake_omdb'})
+    @patch('backend.enrich_metadata.OMDBProvider')
+    @patch('backend.tmdb_provider.requests.get')
+    @patch('backend.enrich_metadata.logger')
+    def test_generate_report_logging(self, mock_logger, mock_get, mock_omdb):
+        """Test that generate_report logs stats correctly."""
+        stats = {
+            "no_tmdb_id": 10,
+            "no_tmdb_rating": 20,
+            "no_imdb_rating": 30
+        }
+        total = 100
+        updated = 5
+        
+        # Test with no OMDB provider
+        generate_report(stats, None, total, updated)
+        
+        # Verify calls
+        # We check specific log messages are present in the list of calls
+        # args[0] is the message
+        calls = [c.args[0] for c in mock_logger.info.call_args_list]
+        
+        self.assertIn(f"Total Films:      {total}", calls)
+        self.assertIn(f"Updated this run: {updated}", calls)
+        self.assertIn("NO TMDB ID Found:      10 (10.0%)", calls)
+        self.assertIn("NO TMDB Rating:        20 (20.0%)", calls)
+        self.assertIn("NO IMDB Rating:        30 (30.0%)", calls)
+        self.assertIn("OMDB Provider: Disabled/Not initialized.", calls)
 
     @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key', 'OMDB_API_KEY': 'fake_omdb'})
     @patch('backend.enrich_metadata.OMDBProvider')

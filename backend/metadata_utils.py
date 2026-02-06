@@ -108,7 +108,7 @@ class TitleNormalizer:
 
     def normalize_title(self, title: str) -> str:
         """Remove conjunctions like 'and'/'&' and collapse whitespace."""
-        title = re.sub(r"\b(and|&)\b", "", title, flags=re.IGNORECASE)
+        title = re.sub(r"\band\b|&", "", title, flags=re.IGNORECASE)
         title = re.sub(r"\s+", " ", title).strip()
         return title
 
