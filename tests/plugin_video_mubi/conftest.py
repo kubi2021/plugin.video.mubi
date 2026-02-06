@@ -81,15 +81,12 @@ sys.modules['requests.packages.urllib3'] = requests_mock.packages.urllib3
 sys.modules['requests.packages.urllib3.util'] = requests_mock.packages.urllib3.util
 sys.modules['requests.packages.urllib3.util.retry'] = requests_mock.packages.urllib3.util.retry
 
-# Mock dateutil/webbrowser
-sys.modules['dateutil'] = MagicMock()
-sys.modules['dateutil'].__file__ = None
-sys.modules['dateutil'].__path__ = None
-sys.modules['dateutil'].__spec__ = None
-sys.modules['dateutil.parser'] = MagicMock()
-sys.modules['dateutil.parser'].__file__ = None
-sys.modules['dateutil.parser'].__path__ = None
-sys.modules['dateutil.parser'].__spec__ = None
+# Use REAL dateutil.parser for date parsing tests to work correctly
+# Only mock the top-level module for import resolution
+import dateutil
+import dateutil.parser
+sys.modules['dateutil'] = dateutil
+sys.modules['dateutil.parser'] = dateutil.parser
 sys.modules['webbrowser'] = MagicMock()
 sys.modules['webbrowser'].__file__ = None
 sys.modules['webbrowser'].__path__ = None
@@ -255,7 +252,10 @@ def mock_metadata():
 
 @pytest.fixture
 def sample_film_data():
-    """Fixture providing sample film data for testing."""
+    """Fixture providing sample film data for testing.
+    
+    Uses far-future dates to ensure availability window is always valid.
+    """
     return {
         'film': {
             'id': 12345,
@@ -273,8 +273,8 @@ def sample_film_data():
             'trailer_url': 'http://example.com/trailer.mp4',
             'web_url': 'http://mubi.com/films/test-movie',
             'consumable': {
-                'available_at': '2023-01-01T00:00:00Z',
-                'expires_at': '2023-12-31T23:59:59Z'
+                'available_at': '2020-01-01T00:00:00Z',
+                'expires_at': '2099-12-31T23:59:59Z'  # Far future to ensure always available
             }
         }
     }

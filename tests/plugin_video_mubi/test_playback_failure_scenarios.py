@@ -13,6 +13,18 @@ from pathlib import Path
 from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
 import dateutil.parser # Import to ensure it is available (mocked or real)
 
+# Optional: freezegun for deterministic time-based tests
+try:
+    from freezegun import freeze_time
+    HAS_FREEZEGUN = True
+except ImportError:
+    # Fallback: no-op decorator if freezegun not installed
+    def freeze_time(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    HAS_FREEZEGUN = False
+
 @pytest.fixture
 def mock_mubi():
     mubi = Mock()
