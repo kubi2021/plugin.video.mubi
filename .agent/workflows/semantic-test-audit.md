@@ -102,11 +102,11 @@ Produce the report in a structured markdown format:
 | 🟠 P2 | `rating_calculator.py` *(backend)* | 10KB | 7KB | Bayesian rating calculation |
 | 🟠 P2 | `playback.py` | 9KB | 20KB | DRM, streaming, inputstream |
 | 🟡 P3 | `data_source.py` | 19KB | 3KB | GitHub sync, caching |
-| 🟡 P3 | `metadata_utils.py` *(backend)* | 10KB | — | Metadata utilities |
+| 🟡 P3 | `metadata_utils.py` *(backend)* | 10KB | 10KB | Metadata utilities |
 | 🟡 P3 | `omdb_provider.py` *(backend)* | 9KB | 7KB | OMDB API integration |
 | 🟡 P3 | `session_manager.py` | 7KB | 11KB | Auth, token refresh |
 | 🟡 P3 | `mpd_patcher.py` | 10KB | 9KB | MPD manipulation |
-| 🟢 P4 | `generate_weekly_digest.py` *(backend)* | 10KB | — | Email digest generation |
+| 🟢 P4 | `generate_weekly_digest.py` *(backend)* | 10KB | 4KB | Email digest generation |
 | 🟢 P4 | `validate_schema.py` *(backend)* | 5KB | 13KB | JSON schema validation |
 | 🟢 P4 | `migrations.py` | 6KB | 18KB | Schema migrations |
 | 🟢 P4 | `metadata.py` | 5KB | 12KB | Kodi metadata formatting |
@@ -178,9 +178,9 @@ These are the most critical modules—audit these first.
 | `backend/enrich_metadata.py` | `tests/backend/test_enrich_metadata.py` | Enrichment pipeline |
 | `backend/rating_calculator.py` | `tests/backend/test_rating_calculator.py` | Bayesian rating |
 | `backend/omdb_provider.py` | `tests/backend/test_omdb_provider.py` | OMDB API |
-| `backend/metadata_utils.py` | ⚠️ *No tests* | Needs coverage |
+| `backend/metadata_utils.py` | `tests/backend/test_metadata_utils.py` | Needs coverage |
 | `backend/validate_schema.py` | `tests/backend/test_schema_v1.py` | JSON schema |
-| `backend/generate_weekly_digest.py` | ⚠️ *No tests* | Email digest |
+| `backend/generate_weekly_digest.py` | `backend/tests/test_weekly_digest.py` | Email digest |
 | `backend/generate_repo.py` | ⚠️ *No tests* | Repo generation |
 
 ---
