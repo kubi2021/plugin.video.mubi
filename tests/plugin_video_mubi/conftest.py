@@ -54,6 +54,13 @@ requests_mock.exceptions.RequestException = MockRequestException
 requests_mock.exceptions.ConnectionError = MockConnectionError
 requests_mock.exceptions.Timeout = MockTimeout
 
+
+# Alias exceptions at top level too, matching requests API
+requests_mock.RequestException = MockRequestException
+requests_mock.ConnectionError = MockConnectionError
+requests_mock.Timeout = MockTimeout
+requests_mock.HTTPError = MockHTTPError
+
 requests_mock.adapters = MagicMock()
 requests_mock.adapters.__file__ = None
 requests_mock.packages = MagicMock()
