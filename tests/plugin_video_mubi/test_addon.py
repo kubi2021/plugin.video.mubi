@@ -13,7 +13,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 import sys
 from pathlib import Path
-from conftest import MOCK_HANDLE, MOCK_BASE_URL
+from tests.plugin_video_mubi.test_constants import MOCK_HANDLE, MOCK_BASE_URL
 
 
 class TestAddon:

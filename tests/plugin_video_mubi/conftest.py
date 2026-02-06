@@ -22,8 +22,7 @@ sys.path.insert(0, str(repo_path))
 # TEST CONSTANTS
 # These constants are used across addon tests for consistency.
 # -----------------------------------------------------------------------------
-MOCK_HANDLE = 123
-MOCK_BASE_URL = "plugin://plugin.video.mubi/"
+from tests.plugin_video_mubi.test_constants import MOCK_HANDLE, MOCK_BASE_URL
 
 
 

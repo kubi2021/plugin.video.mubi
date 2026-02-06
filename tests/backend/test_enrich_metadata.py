@@ -24,8 +24,19 @@ class TestEnrichMetadata(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key'})
-    @patch('backend.tmdb_provider.requests.get')
-    def test_enrich_metadata_successful(self, mock_get):
+    @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key'})
+    @patch('backend.tmdb_provider.requests')
+    def test_enrich_metadata_successful(self, mock_requests):
+        # Setup mocks for requests.get (fetch_genres, test_connection)
+        mock_generic_ok = MagicMock()
+        mock_generic_ok.status_code = 200
+        mock_generic_ok.ok = True
+        mock_generic_ok.json.return_value = {"genres": []}
+        mock_requests.get.return_value = mock_generic_ok
+
+        # Setup mocks for session.get (search, details)
+        mock_get = mock_requests.Session.return_value.get
+
         """Test that films without IDs are updated when matches are found."""
         # Setup initial JSON
         initial_data = {
@@ -40,16 +51,18 @@ class TestEnrichMetadata(unittest.TestCase):
         # Mock TMDB responses
         # 1. Config check
         mock_resp_config = MagicMock()
-        mock_resp_config = MagicMock()
         mock_resp_config.status_code = 200
+        mock_resp_config.ok = True
         
         mock_resp_genres = MagicMock()
         mock_resp_genres.status_code = 200
+        mock_resp_genres.ok = True
         mock_resp_genres.json.return_value = {"genres": []}
         
         # 2. Search response (success)
         mock_resp_search = MagicMock()
         mock_resp_search.status_code = 200
+        mock_resp_search.ok = True
         mock_resp_search.json.return_value = {
             'results': [{'id': 999, 'release_date': '2020-01-01', 'title': 'Test Movie', 'original_title': 'Test Movie'}]
         }
@@ -57,6 +70,7 @@ class TestEnrichMetadata(unittest.TestCase):
         # 3. Details response (with IMDB)
         mock_resp_details = MagicMock()
         mock_resp_details.status_code = 200
+        mock_resp_details.ok = True
         mock_resp_details.json.return_value = {
             'external_ids': {'imdb_id': 'tt999'},
             'id': 999,
@@ -73,42 +87,17 @@ class TestEnrichMetadata(unittest.TestCase):
         # 0. Genre fetch responses (movie, tv) for __init__
         mock_resp_genres = MagicMock()
         mock_resp_genres.status_code = 200
-        mock_resp_genres.json.return_value = {"genres": [{"id": 28, "name": "Action"}]}
-
-        # 0. Genre fetch responses (movie, tv) for __init__
-        mock_resp_genres = MagicMock()
-        mock_resp_genres.status_code = 200
+        mock_resp_genres.ok = True
         mock_resp_genres.json.return_value = {"genres": [{"id": 28, "name": "Action"}]}
 
         # Side effect sequence
         mock_get.side_effect = [
-            mock_resp_genres, # init movie genres
-            mock_resp_genres, # init tv genres
-            mock_resp_config, # test_connection
             mock_resp_search, # search for "Test Movie"
             mock_resp_details, # details for ID 999
-            mock_resp_details # Safety buffer
+            mock_resp_details, # Safety buffer
+            mock_resp_details, # Safety buffer
+            mock_resp_details  # Safety buffer
         ]
-        
-        # We need to mock get_imdb_id on the provider instance, NOT requests.get for search
-        # because enrich_metadata calls provider.get_imdb_id directly.
-        # But wait, the test is mocking requests.get, meaning it tests the integration of enrich->provider->requests.
-        # The error "'int' object has no attribute 'success'" implies something in enrich_metadata 
-        # is receiving an int where it expects an object with .success.
-        # enrich_metadata calls provider.get_imdb_id(). 
-        # In the test setup, we are patching requests.get, so the real Provider code runs.
-        # The real provider code now returns ExternalMetadataResult.
-        # However, we mocked `tmdb_provider.TMDBProvider` class in `test_enrich_metadata_successful`? NO.
-        # We are testing `enrich_metadata` which uses `TMDBProvider`.
-        # Ah, looking at `enrich_metadata.py`: `result = provider.get_imdb_id(...)`.
-        # If the real provider is used, it returns ExternalMetadataResult.
-        # BUT, if the test is mocking `TMDBProvider`, we need to update the mock return value.
-        
-        # Let's check the test file content again.
-        # The test uses `patch('backend.enrich_metadata.TMDBProvider')`.
-        # So `provider` is a Mock object.
-        # `provider.get_imdb_id` must return an object with `.success`.
-
         
         enrich_metadata(self.films_path)
         
@@ -124,8 +113,15 @@ class TestEnrichMetadata(unittest.TestCase):
         self.assertEqual(data['items'][1]['imdb_id'], 'tt123')
 
     @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key'})
-    @patch('backend.tmdb_provider.requests.get')
-    def test_enrich_metadata_no_match(self, mock_get):
+    @patch('backend.tmdb_provider.requests')
+    def test_enrich_metadata_no_match(self, mock_requests):
+        mock_generic_ok = MagicMock()
+        mock_generic_ok.status_code = 200
+        mock_generic_ok.ok = True
+        mock_generic_ok.json.return_value = {"genres": []}
+        mock_requests.get.return_value = mock_generic_ok
+        
+        mock_get = mock_requests.Session.return_value.get
         """Test behavior when no match is found."""
         initial_data = {
             'items': [{'mubi_id': 1, 'title': 'Unknown Movie', 'directors': ['Unknown Director']}]
@@ -135,20 +131,20 @@ class TestEnrichMetadata(unittest.TestCase):
             
         mock_resp_config = MagicMock()
         mock_resp_config.status_code = 200
+        mock_resp_config.ok = True
         
         # Search returns empty results
         mock_resp_search = MagicMock()
         mock_resp_search.status_code = 200
+        mock_resp_search.ok = True
         mock_resp_search.json.return_value = {'results': []}
         
         mock_resp_genres = MagicMock()
         mock_resp_genres.status_code = 200
+        mock_resp_genres.ok = True
         mock_resp_genres.json.return_value = {"genres": []}
         
         mock_get.side_effect = [
-            mock_resp_genres, # init
-            mock_resp_genres, # init
-            mock_resp_config, 
             mock_resp_search
         ]
         
@@ -168,8 +164,15 @@ class TestEnrichMetadata(unittest.TestCase):
         self.assertEqual(cm.exception.code, 1)
 
     @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key'})
-    @patch('backend.tmdb_provider.requests.get')
-    def test_enrich_metadata_creates_ratings_array(self, mock_get):
+    @patch('backend.tmdb_provider.requests')
+    def test_enrich_metadata_creates_ratings_array(self, mock_requests):
+        mock_generic_ok = MagicMock()
+        mock_generic_ok.status_code = 200
+        mock_generic_ok.ok = True
+        mock_generic_ok.json.return_value = {"genres": []}
+        mock_requests.get.return_value = mock_generic_ok
+
+        mock_get = mock_requests.Session.return_value.get
         """Test that ratings array is created with Mubi and TMDB ratings."""
         # Setup initial JSON with Mubi rating data
         initial_data = {
@@ -188,9 +191,11 @@ class TestEnrichMetadata(unittest.TestCase):
         # Mock TMDB responses
         mock_resp_config = MagicMock()
         mock_resp_config.status_code = 200
+        mock_resp_config.ok = True
         
         mock_resp_search = MagicMock()
         mock_resp_search.status_code = 200
+        mock_resp_search.ok = True
         mock_resp_search.json.return_value = {
             'results': [{'id': 999, 'release_date': '2020-01-01', 'title': 'Test Movie', 'original_title': 'Test Movie'}]
         }
@@ -198,6 +203,7 @@ class TestEnrichMetadata(unittest.TestCase):
         # Details response with rating data
         mock_resp_details = MagicMock()
         mock_resp_details.status_code = 200
+        mock_resp_details.ok = True
         mock_resp_details.json.return_value = {
             'external_ids': {'imdb_id': 'tt999'},
             'id': 999,
@@ -213,15 +219,16 @@ class TestEnrichMetadata(unittest.TestCase):
         
         mock_resp_genres = MagicMock()
         mock_resp_genres.status_code = 200
+        mock_resp_genres.ok = True
         mock_resp_genres.json.return_value = {"genres": []}
         
         mock_get.side_effect = [
-            mock_resp_genres, # init
-            mock_resp_genres, # init
-            mock_resp_config,
             mock_resp_search,
             mock_resp_details,
-            mock_resp_details # Safety buffer
+            mock_resp_details,
+            mock_resp_details, # Buffer
+            mock_resp_details, # Buffer
+            mock_resp_details  # Buffer
         ]
         
         enrich_metadata(self.films_path)
@@ -249,9 +256,11 @@ class TestEnrichMetadata(unittest.TestCase):
 
     @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key', 'OMDB_API_KEY': 'fake_omdb'})
     @patch('backend.enrich_metadata.OMDBProvider')
-    @patch('backend.tmdb_provider.requests.get')
+    @patch('backend.tmdb_provider.requests')
     @patch('backend.enrich_metadata.logger')
-    def test_generate_report_logging(self, mock_logger, mock_get, mock_omdb):
+    def test_generate_report_logging(self, mock_logger, mock_requests, mock_omdb):
+        mock_requests.get.return_value.ok = True
+        mock_get = mock_requests.Session.return_value.get
         """Test that generate_report logs stats correctly."""
         stats = {
             "no_tmdb_id": 10,
@@ -278,8 +287,15 @@ class TestEnrichMetadata(unittest.TestCase):
 
     @patch.dict(os.environ, {'TMDB_API_KEY': 'fake_key', 'OMDB_API_KEY': 'fake_omdb'})
     @patch('backend.enrich_metadata.OMDBProvider')
-    @patch('backend.tmdb_provider.requests.get')
-    def test_enrich_metadata_incorporates_omdb_ratings(self, mock_tmdb_get, MockOMDBProvider):
+    @patch('backend.tmdb_provider.requests')
+    def test_enrich_metadata_incorporates_omdb_ratings(self, mock_requests, MockOMDBProvider):
+        mock_generic_ok = MagicMock()
+        mock_generic_ok.status_code = 200
+        mock_generic_ok.ok = True
+        mock_generic_ok.json.return_value = {"genres": []}
+        mock_requests.get.return_value = mock_generic_ok
+
+        mock_tmdb_get = mock_requests.Session.return_value.get
         """Test that OMDB ratings are fetched and added."""
         # Setup initial JSON
         initial_data = {
@@ -296,11 +312,14 @@ class TestEnrichMetadata(unittest.TestCase):
         # Mock TMDB responses (standard success flow)
         mock_resp_config = MagicMock()
         mock_resp_config.status_code = 200
+        mock_resp_config.ok = True
         mock_resp_search = MagicMock()
         mock_resp_search.status_code = 200
+        mock_resp_search.ok = True
         mock_resp_search.json.return_value = {'results': [{'id': 999, 'release_date': '2020-01-01', 'title': 'Test Movie', 'original_title': 'Test Movie'}]}
         mock_resp_details = MagicMock()
         mock_resp_details.status_code = 200
+        mock_resp_details.ok = True
         mock_resp_details.json.return_value = {
             'external_ids': {'imdb_id': 'tt999'},
             'id': 999,
@@ -315,15 +334,15 @@ class TestEnrichMetadata(unittest.TestCase):
         }
         mock_resp_genres = MagicMock()
         mock_resp_genres.status_code = 200
+        mock_resp_genres.ok = True
         mock_resp_genres.json.return_value = {"genres": []}
 
         mock_tmdb_get.side_effect = [
-             mock_resp_genres, 
-             mock_resp_genres, 
-             mock_resp_config, 
              mock_resp_search, 
              mock_resp_details,
-             mock_resp_details # Safety buffer
+             mock_resp_details, # Safety buffer
+             mock_resp_details, # Safety buffer
+             mock_resp_details  # Safety buffer
         ]
 
         # Mock OMDB Provider instance and response

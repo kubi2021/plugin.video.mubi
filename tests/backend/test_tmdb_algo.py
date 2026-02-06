@@ -12,7 +12,7 @@ def tmdb_provider():
         mock_response.ok = True
         mock_response.json.return_value = {"genres": []}
         mock_requests.get.return_value = mock_response
-        return TMDBProvider(api_key="test_key")
+        yield TMDBProvider(api_key="test_key")
 
 def test_phase_i_search_adult_true(tmdb_provider):
     """Test that search queries include adult=true and skip year filter."""
@@ -205,20 +205,72 @@ def test_year_gap_allowed_with_strong_match(tmdb_provider):
              assert result.success is True 
              assert result.tmdb_id == "600"
 
-def test_tmdb_session_configuration(tmdb_provider):
-    """Test that session is configured with retries."""
-    # Since tmdb_provider fixture mocks requests.Session, self.session is a Mock.
-    # We cannot check get_adapter state. We must check mount calls.
-    # self.session.mount was called twice (http and https)
-    assert tmdb_provider.session.mount.call_count == 2
-    
-    # Optional: Verify args if needed, but existence of mount calls confirms logic ran.
-    # args = tmdb_provider.session.mount.call_args_list
-    # assert args[0][0][0] == 'https://' 
+
 
 def test_api_error_500(tmdb_provider):
     """Test that 500 error handles gracefully (logs and returns empty)."""
     mock_resp = MagicMock()
+    mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+    
+    # Patch the session.get on the provider instance
+    with patch.object(tmdb_provider.session, 'get', return_value=mock_resp):
+        # Test _search_api error handling
+        results = tmdb_provider._search_api("Test", "movie")
+        assert results == []
+        
+        # Test _get_details_with_credits error handling (it uses specific try/except block)
+        # Note: _get_details_with_credits in code uses response.ok check, not raise_for_status
+        # Let's adjust mock for that
+        mock_resp.ok = False
+        mock_resp.raise_for_status.side_effect = None # Reset for this call if needed, or separate test
+        
+        details = tmdb_provider._get_details_with_credits(123, "movie")
+        assert details == {}
 
-# Problematic mock tests removed. Correct configuration verified via test_tmdb_session_configuration.
+def test_fuzz_missing():
+    """Test fallback when thefuzz is not installed."""
+    with patch.dict("sys.modules", {"thefuzz": None}):
+        # Trigger re-import or just init?
+        # Since the import is inside __init__, we just need to instantiate
+        
+        with patch("backend.tmdb_provider.requests"):
+            provider = TMDBProvider(api_key="test")
+            assert provider.fuzz is None
+            
+            # Verify scoring handles None fuzz
+            # Should return 10 if years match, else 0
+            mubi_data = {"year": 2020}
+            tmdb_year = 2020
+            score = provider._calculate_final_score(mubi_data, {}, tmdb_year)
+            assert score == 10
+            
+            mubi_data = {"year": 2020}
+            tmdb_year = 2021
+            score = provider._calculate_final_score(mubi_data, {}, tmdb_year)
+            assert score == 0
 
+def test_tmdb_session_configuration():
+    """Test that session is configured with retries."""
+    with patch("backend.tmdb_provider.requests") as mock_requests, \
+         patch("backend.tmdb_provider.Retry") as MockRetry:
+         
+         mock_session = MagicMock()
+         mock_requests.Session.return_value = mock_session
+         
+         TMDBProvider(api_key="key")
+         
+         # Verify mount was called
+         assert mock_session.mount.call_count == 2
+         args, _ = mock_session.mount.call_args
+         
+         adapter = args[1]
+         # Check if adapter has max_retries attribute
+         assert hasattr(adapter, 'max_retries')
+         
+         # Verify Retry was initialized with correct args
+         MockRetry.assert_called_with(
+            total=3,
+            backoff_factor=1.0,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+         )

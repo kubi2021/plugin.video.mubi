@@ -449,7 +449,7 @@ class TestMubiScraper(unittest.TestCase):
             'title': 'Test Movie',
             'genres': [{'name': 'Drama'}],
             # Scraper checks 'default_editorial' and 'short_synopsis' strings
-            'default_editorial': 'A story about gay rights and love.',
+            'default_editorial': 'A story about queer rights and love.',
             'short_synopsis': 'Simple synopsis.'
         }
         
