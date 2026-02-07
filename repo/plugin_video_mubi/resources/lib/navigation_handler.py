@@ -834,9 +834,24 @@ class NavigationHandler:
             play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'], subtitles,
                                          self.session.token, self.session.user_id)
 
+
+        except requests.RequestException as e:
+            xbmc.log(f"Network error playing Mubi video: {e}", xbmc.LOGERROR)
+            xbmcgui.Dialog().notification("MUBI", f"Network Error: {str(e)}", xbmcgui.NOTIFICATION_ERROR)
+            
+            # Offer browser fallback for network errors too? Maybe.
+            if web_url:
+                 if xbmcgui.Dialog().yesno("MUBI", "Network error. Try opening in web browser?"):
+                     self.play_video_ext(web_url)
+
         except Exception as e:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
-            xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
+            
+            # Avoid showing "Unexpected error" for known exceptions we raised ourselves 
+            # (which already showed a specific notification)
+            error_str = str(e)
+            if "Error in stream info" not in error_str and "No suitable stream found" not in error_str:
+                xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
 
             # Prompt the user to open in browser (only for non-geo-restriction errors)
             if web_url:
@@ -1172,12 +1187,36 @@ class NavigationHandler:
                 NavigationHandler._sync_in_progress = False
                 xbmc.log("Sync operation completed - flag cleared", xbmc.LOGDEBUG)
 
+    def wait_for_library_idle(self, timeout=30):
+        """
+        Wait until the Kodi library is idle (not scanning or cleaning).
+        
+        :param timeout: Maximum time to wait in seconds.
+        """
+        import time
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if xbmc.abortRequested:
+                break
+                
+            is_scanning = xbmc.getCondVisibility('Library.IsScanningVideo')
+            is_cleaning = xbmc.getCondVisibility('Library.IsCleaning')
+            
+            if not is_scanning and not is_cleaning:
+                return
+            
+            xbmc.log("Waiting for library to become idle...", xbmc.LOGDEBUG)
+            time.sleep(1)
+            
+        xbmc.log("Timeout waiting for library to become idle. Proceeding anyway.", xbmc.LOGWARNING)
+
     def update_kodi_library(self):
         """
         Triggers a Kodi library update to scan for new movies after the sync process.
         Library update runs in the background without blocking the UI.
         """
         try:
+            self.wait_for_library_idle()
             xbmc.log("Triggering Kodi library update...", xbmc.LOGDEBUG)
             xbmc.executebuiltin('UpdateLibrary(video)')
             xbmc.log("Library update triggered successfully - running in background", xbmc.LOGDEBUG)
@@ -1191,6 +1230,7 @@ class NavigationHandler:
         Waits for the clean operation to complete before returning (blocking).
         """
         try:
+            self.wait_for_library_idle()
             xbmc.log("Triggering Kodi library clean...", xbmc.LOGDEBUG)
             xbmc.executebuiltin('CleanLibrary(video)')
 

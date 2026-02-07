@@ -1461,3 +1461,50 @@ class TestFilmSanitizationEdgeCases:
         title_elem = root.find("title")
         assert title_elem is not None
         assert title_elem.text == special_title
+
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
+    def test_download_thumbnail_success(self, mock_get, mock_metadata, tmp_path):
+        """Test successful thumbnail download."""
+        # Create a film instance with mock metadata
+        # Ensure metadata has image URL
+        mock_metadata.image = "http://example.com/image.jpg"
+        mock_metadata.year = 2023
+        
+        film = Film("123", "Test Film", "art.jpg", "url", mock_metadata)
+        
+        film_path = tmp_path / "Test Film (2023)"
+        film_path.mkdir(parents=True, exist_ok=True)
+        
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'image_data'
+        mock_response.iter_content.return_value = [b'image_data']
+        mock_get.return_value = mock_response
+        
+        # Act
+        result = film._download_thumbnail(film_path, film.get_sanitized_folder_name())
+        
+        # ... Assert ...
+        assert result is not None
+        assert Path(result).exists()
+        with open(result, 'rb') as f:
+            assert f.read() == b'image_data'
+
+    @patch('plugin_video_mubi.resources.lib.film.requests.get')
+    def test_download_thumbnail_network_error(self, mock_get, mock_metadata, tmp_path):
+        """Test network error during thumbnail download."""
+        # Arrange
+        film = Film("123", "Test Film", "http://image.url", "http://web.url", mock_metadata)
+        
+        import requests
+        mock_get.side_effect = requests.exceptions.RequestException("Network Error")
+        
+        film_path = tmp_path / film.get_sanitized_folder_name()
+        film_path.mkdir()
+        
+        # Act
+        # We expect it to handle exception and return None (and likely log error, but we skip log assertion for simplicity unless strictly required)
+        result = film._download_thumbnail(film_path, film.get_sanitized_folder_name())
+        
+        # Assert
+        assert result is None

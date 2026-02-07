@@ -1,5 +1,5 @@
-
 import pytest
+import requests
 from unittest.mock import MagicMock, patch
 from backend.tmdb_provider import TMDBProvider
 from backend.metadata_utils import ExternalMetadataResult
@@ -12,7 +12,7 @@ def tmdb_provider():
         mock_response.ok = True
         mock_response.json.return_value = {"genres": []}
         mock_requests.get.return_value = mock_response
-        return TMDBProvider(api_key="test_key")
+        yield TMDBProvider(api_key="test_key")
 
 def test_phase_i_search_adult_true(tmdb_provider):
     """Test that search queries include adult=true and skip year filter."""
@@ -168,12 +168,13 @@ def test_split_title_search(tmdb_provider):
 
 def test_underscore_sanitization(tmdb_provider):
     """Ref: 'Hoax_Canular'. Test that underscores are replaced with spaces in search query."""
-    with patch("backend.tmdb_provider.requests.get") as mock_req:
-        mock_resp = MagicMock()
-        mock_resp.ok = True
-        mock_resp.json.return_value = {"results": []}
-        mock_req.return_value = mock_resp
-        
+    # We patch session.get on the provider instance
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"results": []}
+    
+    # We must patch the INSTANCE's session.get
+    with patch.object(tmdb_provider.session, 'get', return_value=mock_resp) as mock_req:
         tmdb_provider.get_imdb_id(title="Hoax_Canular", year=2013)
         
         call_args = mock_req.call_args
@@ -203,3 +204,73 @@ def test_year_gap_allowed_with_strong_match(tmdb_provider):
              
              assert result.success is True 
              assert result.tmdb_id == "600"
+
+
+
+def test_api_error_500(tmdb_provider):
+    """Test that 500 error handles gracefully (logs and returns empty)."""
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+    
+    # Patch the session.get on the provider instance
+    with patch.object(tmdb_provider.session, 'get', return_value=mock_resp):
+        # Test _search_api error handling
+        results = tmdb_provider._search_api("Test", "movie")
+        assert results == []
+        
+        # Test _get_details_with_credits error handling (it uses specific try/except block)
+        # Note: _get_details_with_credits in code uses response.ok check, not raise_for_status
+        # Let's adjust mock for that
+        mock_resp.ok = False
+        mock_resp.raise_for_status.side_effect = None # Reset for this call if needed, or separate test
+        
+        details = tmdb_provider._get_details_with_credits(123, "movie")
+        assert details == {}
+
+def test_fuzz_missing():
+    """Test fallback when thefuzz is not installed."""
+    with patch.dict("sys.modules", {"thefuzz": None}):
+        # Trigger re-import or just init?
+        # Since the import is inside __init__, we just need to instantiate
+        
+        with patch("backend.tmdb_provider.requests"):
+            provider = TMDBProvider(api_key="test")
+            assert provider.fuzz is None
+            
+            # Verify scoring handles None fuzz
+            # Should return 10 if years match, else 0
+            mubi_data = {"year": 2020}
+            tmdb_year = 2020
+            score = provider._calculate_final_score(mubi_data, {}, tmdb_year)
+            assert score == 10
+            
+            mubi_data = {"year": 2020}
+            tmdb_year = 2021
+            score = provider._calculate_final_score(mubi_data, {}, tmdb_year)
+            assert score == 0
+
+def test_tmdb_session_configuration():
+    """Test that session is configured with retries."""
+    with patch("backend.tmdb_provider.requests") as mock_requests, \
+         patch("backend.tmdb_provider.Retry") as MockRetry:
+         
+         mock_session = MagicMock()
+         mock_requests.Session.return_value = mock_session
+         
+         TMDBProvider(api_key="key")
+         
+         # Verify mount was called
+         assert mock_session.mount.call_count == 2
+         args, _ = mock_session.mount.call_args
+         
+         adapter = args[1]
+         # Check if adapter has max_retries attribute
+         assert hasattr(adapter, 'max_retries')
+         
+         # Verify Retry was initialized with correct args
+         MockRetry.assert_called_with(
+            total=3,
+            backoff_factor=1.0,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"]
+         )

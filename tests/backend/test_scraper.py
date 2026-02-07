@@ -389,5 +389,79 @@ class TestMubiScraper(unittest.TestCase):
         finally:
             shutil.rmtree(test_dir)
 
+    def test_prune_film_data(self):
+        """Test that unnecessary fields are removed from film data."""
+        film = {
+            'id': 1,
+            'title': 'Test Film',
+            'content_rating': {'label_hex_color': '#FF5733', 'code': 'R'},
+            'artworks': [{
+                'format': 'cover_artwork_vertical', 
+                'focal_point': [0.5, 0.5], 
+                'url': 'http://test',
+                'locale': 'en'
+            }]
+        }
+        self.scraper._prune_film_data(film)
+        
+        # Check pruning 
+        self.assertNotIn('label_hex_color', film.get('content_rating', {}))
+        self.assertEqual(film['content_rating']['code'], 'R')
+        
+        artwork = film['artworks'][0]
+        self.assertNotIn('focal_point', artwork)
+        self.assertNotIn('locale', artwork)
+        self.assertEqual(artwork['url'], 'http://test')
+
+    def test_prune_series_data(self):
+        """Test that series specific fields are pruned."""
+        # _prune_series_data looks for 'series' and 'episode' keys
+        data = {
+            'series': {
+                'id': 1,
+                'slug': 'test-series',
+                'trailer_url': 'http://trailer',
+                'keep_me': 'kept'
+            },
+            'episode': {
+                'id': 2,
+                'slug': 'test-episode',
+                'trailer_id': 123,
+                'keep_me': 'also_kept'
+            }
+        }
+        
+        self.scraper._prune_series_data(data)
+        
+        # Check specific keys that should be removed
+        self.assertNotIn('slug', data['series'])
+        self.assertNotIn('trailer_url', data['series'])
+        self.assertEqual(data['series']['keep_me'], 'kept')
+        
+        self.assertNotIn('slug', data['episode'])
+        self.assertNotIn('trailer_id', data['episode'])
+        self.assertEqual(data['episode']['keep_me'], 'also_kept')
+
+    def test_enrich_genres_lgbtq(self):
+        """Test that LGBTQ+ genre is added based on keywords."""
+        film = {
+            'id': 123,
+            'title': 'Test Movie',
+            'genres': [{'name': 'Drama'}],
+            # Scraper checks 'default_editorial' and 'short_synopsis' strings
+            'default_editorial': 'A story about queer rights and love.',
+            'short_synopsis': 'Simple synopsis.'
+        }
+        
+        self.scraper._enrich_genres(film)
+        
+        # Scraper appends string 'LGBTQ+' to list of genre objects or strings
+        genres = film['genres']
+        self.assertIn('LGBTQ+', genres)
+        
+        # Verify existing genres are preserved
+        existing_names = [g['name'] for g in genres if isinstance(g, dict)]
+        self.assertIn('Drama', existing_names)
+
 if __name__ == '__main__':
     unittest.main()

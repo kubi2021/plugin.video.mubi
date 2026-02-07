@@ -13,10 +13,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 import sys
 from pathlib import Path
-
-# Constants for testing (avoid conftest import issues - pytest picks up wrong conftest.py)
-MOCK_HANDLE = 123
-MOCK_BASE_URL = "plugin://plugin.video.mubi/"
+from tests.plugin_video_mubi.test_constants import MOCK_HANDLE, MOCK_BASE_URL
 
 
 class TestAddon:
