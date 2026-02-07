@@ -60,6 +60,29 @@ class LocalServer:
         filename = os.path.basename(file_path)
         return f"http://127.0.0.1:{self.port}/{filename}"
 
+    def is_healthy(self):
+        """
+        Tests if the LocalServer is working by making a quick HTTP request.
+        Returns True if server responds, False otherwise.
+        
+        This catches issues like Linux ABI mismatches that cause crashes
+        when switching between localhost and remote CDN contexts.
+        """
+        if not self.server:
+            return False
+        
+        try:
+            import urllib.request
+            # Quick timeout test - just check if server responds
+            test_url = f"http://127.0.0.1:{self.port}/"
+            req = urllib.request.Request(test_url, method='HEAD')
+            with urllib.request.urlopen(req, timeout=2) as response:
+                # Any response (even 404) means server is working
+                return True
+        except Exception:
+            # Connection refused, timeout, or crash = not healthy
+            return False
+
     def stop(self):
         """Stops the server."""
         with self._lock:

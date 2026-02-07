@@ -127,13 +127,17 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, su
                     server = LocalServer.get_instance()
                     local_url = server.get_url(patched_path)
                     
-                    xbmc.log(f"Using patched manifest via local server: {local_url} (file: {patched_path})", xbmc.LOGINFO)
-                    stream_url = local_url
+                    # Verify LocalServer is actually working before using it
+                    # This catches issues like the Linux ABI mismatch crash early
+                    if server.is_healthy():
+                        xbmc.log(f"Using patched manifest via local server: {local_url} (file: {patched_path})", xbmc.LOGINFO)
+                        stream_url = local_url
+                    else:
+                        xbmc.log("LocalServer health check failed, using original URL", xbmc.LOGWARNING)
                     
                     # We MUST pass headers even for local playback, because the segments 
                     # are still fetched from the remote CDN and require authentication.
                     # The LocalServer (SimpleHTTPRequestHandler) will safely ignore these headers.
-                    pass
             except Exception as e:
                 xbmc.log(f"MPD Patching failed, falling back to original URL: {e}", xbmc.LOGWARNING)
 
