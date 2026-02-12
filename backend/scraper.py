@@ -462,7 +462,7 @@ class MubiScraper:
                             
                             # Imagery & artwork
                             'stills': item.get('stills'),
-                            'still_url': item.get('still_url'),
+                            'still_url': item.get('still_url')['url'] if isinstance(item.get('still_url'), dict) else item.get('still_url'),
                             'portrait_image': item.get('portrait_image')['url'] if isinstance(item.get('portrait_image'), dict) else item.get('portrait_image'),
                             'artworks': item.get('artworks', []),
                             
