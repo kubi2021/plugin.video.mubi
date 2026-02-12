@@ -1023,8 +1023,11 @@ class Mubi:
                 if standard_url:
                     return standard_url
 
-            # Final fallback to still_url
-            return film_info.get('still_url', '')
+            # Final fallback to still_url (handle potential object format)
+            still_val = film_info.get('still_url')
+            if isinstance(still_val, dict):
+                return still_val.get('url', '')
+            return still_val or ''
 
         except Exception as e:
             xbmc.log(f"Error getting thumbnail URL: {e}", xbmc.LOGERROR)
@@ -1062,7 +1065,12 @@ class Mubi:
 
             # Fallback to still_url if no stills available
             if 'thumb' not in artwork_urls:
-                still_url = film_info.get('still_url')
+                still_val = film_info.get('still_url')
+                if isinstance(still_val, dict):
+                    still_url = still_val.get('url')
+                else:
+                    still_url = still_val
+                
                 if still_url:
                     artwork_urls['thumb'] = still_url
 
@@ -1093,7 +1101,12 @@ class Mubi:
 
             # Fallback: Portrait image for poster if not found in artworks[]
             if 'poster' not in artwork_urls:
-                portrait_image = film_info.get('portrait_image')
+                port_val = film_info.get('portrait_image')
+                if isinstance(port_val, dict):
+                    portrait_image = port_val.get('url')
+                else:
+                    portrait_image = port_val
+                
                 if portrait_image:
                     artwork_urls['poster'] = portrait_image
 
