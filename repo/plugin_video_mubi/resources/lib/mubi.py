@@ -359,8 +359,10 @@ class Mubi:
 
         # Try multiple IP geolocation services for reliability
         geo_services = [
-            ('https://ipapi.co/country/', 'text'),  # Returns just country code like "US"
-            ('https://ipinfo.io/country', 'text'),  # Returns just country code like "US"
+            ('https://get.geojs.io/v1/ip/country', 'text'),  # Returns just country code like "US"
+            ('https://ifconfig.co/country-iso', 'text'),      # Returns just country code like "US"
+            ('https://ipapi.co/country/', 'text'),            # Returns just country code like "US"
+            ('https://ipinfo.io/country', 'text'),            # Returns just country code like "US"
         ]
 
         for service_url, response_type in geo_services:

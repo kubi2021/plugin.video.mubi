@@ -2857,7 +2857,7 @@ class TestMultiCountrySync:
             assert headers.get('Client-Country') == 'JP'
 
     def test_get_cli_country_geolocation_primary(self, mock_session):
-        """Test that ipapi.co is tried first for IP geolocation."""
+        """Test that geojs.io is tried first for IP geolocation."""
         with patch('xbmc.log'), \
              patch('plugin_video_mubi.resources.lib.mubi.requests.get') as mock_get:
             mubi = Mubi(mock_session)
@@ -2869,9 +2869,9 @@ class TestMultiCountrySync:
             result = mubi.get_cli_country()
 
             assert result == 'DE'
-            # First call should be to ipapi.co
+            # First call should be to geojs.io
             first_call_url = mock_get.call_args_list[0][0][0]
-            assert 'ipapi.co' in first_call_url
+            assert 'geojs.io' in first_call_url
 
     def test_get_cli_country_fallback_chain(self, mock_session):
         """Test fallback through geolocation services to PL default."""

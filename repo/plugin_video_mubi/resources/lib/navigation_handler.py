@@ -709,11 +709,17 @@ class NavigationHandler:
     def play_mubi_video(self, film_id: str = None, web_url: str = None, country: str = None):
         """
         Play a Mubi video using the secure URL and DRM handling.
-        Checks country availability before playback and suggests VPN if needed.
-        If playback fails, prompt the user to open the video in an external web browser.
-        
-        MAX COMPATIBILITY UPDATE (2024-12):
-        Handles old NFOs (list of countries) and new NFOs (detailed availability dict).
+
+        Pre-checks country availability via NFO data and geo-IP detection.
+        If the film appears unavailable in the user's current location, shows a
+        non-blocking dialog with VPN suggestions and the option to play anyway.
+        This ensures geo-detection errors never prevent playback.
+
+        NOTE: The MUBI API does NOT enforce geo-restrictions at the API level.
+        It returns stream URLs regardless of location. The actual geo-block
+        happens at the DRM license server (drmtoday.com), which returns HTTP 403
+        to inputstream.adaptive — invisible to our Python code.
+        The pre-check is the only way to warn the user before silent failure.
 
         :param film_id: Video ID
         :param web_url: Web URL of the film
@@ -730,62 +736,69 @@ class NavigationHandler:
             xbmcgui.Dialog().notification("MUBI", "Internal Error: No Film ID", xbmcgui.NOTIFICATION_ERROR)
             return
 
-        # Step 1: Get current client country (from settings or auto-detect logic)
-        # Step 1: Get current client country (Live check for VPN support)
-        # We check the actual IP location to support users who switch VPNs before playback
-        current_country = self.mubi.get_cli_country()
-        xbmc.log(f"Current client country detected via IP: {current_country}", xbmc.LOGINFO)
+        # Step 1: Check if user's account country matches NFO availability
+        # No geo IP detection — just compare account country vs NFO data.
+        # If mismatched, warn but let user play anyway (in case VPN is active).
+        client_country = (self.plugin.getSetting("client_country") or "").upper()
+        xbmc.log(f"Client account country: {client_country}", xbmc.LOGINFO)
 
-        # Step 2: Get available countries from NFO file
-        # Returns a dict of {country_code: availability_details}
         available_countries_data = self._get_available_countries_data_from_nfo(film_id)
-        
-        # Derive simple list of availability for basic check
         available_country_codes = list(available_countries_data.keys())
-
         xbmc.log(f"Film {film_id} available in countries: {available_country_codes}", xbmc.LOGINFO)
 
-        # Step 3: Check availability logic
-        is_available = False
-        availability_status = "unknown"
-        
-        if not available_countries_data:
-            # Optimistic fallback: if no data (e.g. not in library), assume available and let backend decide
-            xbmc.log(f"No availability data found for {film_id}. Assuming available.", xbmc.LOGINFO)
-            is_available = True
-        elif current_country.upper() in available_country_codes:
-            # Check detailed availability
-            details = available_countries_data.get(current_country.upper(), {})
-            
-            if self._is_country_available(details):
-                is_available = True
-            else:
-                availability_status = details.get('availability', 'unknown')
-                xbmc.log(f"Film {film_id} in {current_country} is not currently available (Status: {availability_status})", xbmc.LOGINFO)
-        
-        if not is_available:
-            # Get country name for display
-            current_country_name = COUNTRIES.get(current_country.lower(), {}).get("name", current_country)
-
-            # Get VPN suggestions (top 3 countries sorted by best VPN tier AND live availability)
+        # Step 2: Availability check — warn but never block
+        should_play = True
+        if available_countries_data and client_country and client_country not in available_country_codes:
+            # Film is NOT available in user's account country — suggest VPN
+            client_country_name = COUNTRIES.get(client_country.lower(), {}).get("name", client_country)
             vpn_suggestions = self._get_vpn_suggestions(available_countries_data)
 
             if vpn_suggestions:
                 vpn_countries = ", ".join([f"{s[1]}" for s in vpn_suggestions])
-                message = f"This movie is not available in {current_country_name}. Connect to a VPN and try again. Available countries: {vpn_countries}"
+                message = (
+                    f"This movie is not available in {client_country_name}.\n"
+                    f"Connect your VPN to: {vpn_countries}\n\n"
+                    f"Already connected?"
+                )
             else:
-                extra_msg = ""
-                if availability_status != "unknown" and availability_status != "live":
-                     extra_msg = f" (Status: {availability_status})"
-                message = f"This movie is not available in {current_country_name}{extra_msg}."
+                message = (
+                    f"This movie is not available in {client_country_name}.\n\n"
+                    f"Connect to a VPN and try again."
+                )
+                # No VPN suggestions — just inform, no play option
+                xbmcgui.Dialog().ok("MUBI - Not Available", message)
+                xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
+                return
 
-            xbmc.log(f"Film not available in {current_country}: {message}", xbmc.LOGINFO)
-            xbmcgui.Dialog().ok("MUBI - Not Available", message)
-            # Tell Kodi we failed so it stops loading, hopefully suppressing the timeout error
-            xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
-            return
+            xbmc.log(f"Film not available in {client_country}: showing VPN dialog", xbmc.LOGINFO)
 
-        # Step 4: Proceed with playback
+            # yesno: Yes = "I'm connected, play!" / No = "Cancel"
+            should_play = xbmcgui.Dialog().yesno(
+                "MUBI - Not Available",
+                message,
+                yeslabel="Play",
+                nolabel="Cancel"
+            )
+
+            if not should_play:
+                xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
+                return
+        elif available_countries_data and client_country and client_country in available_country_codes:
+            # Country is in the list — check if it's actually live (not upcoming/expired)
+            details = available_countries_data.get(client_country, {})
+            if not self._is_country_available(details):
+                availability_status = details.get('availability', 'unknown')
+                xbmc.log(f"Film {film_id} in {client_country} status: {availability_status}", xbmc.LOGINFO)
+
+                message = (
+                    f"This movie is currently {availability_status} in your country.\n\n"
+                    f"Play anyway?"
+                )
+                if not xbmcgui.Dialog().yesno("MUBI - Availability Warning", message):
+                    xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
+                    return
+
+        # Step 3: Proceed with playback
         try:
             stream_info = self.mubi.get_secure_stream_info(film_id)
             xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
@@ -793,28 +806,9 @@ class NavigationHandler:
             if 'error' in stream_info:
                 error_msg = stream_info['error']
                 xbmc.log(f"Error in stream info: {error_msg}", xbmc.LOGERROR)
-
-                # If geo-restriction error and we have availability data, show VPN suggestions
-                if 'VPN' in error_msg and available_countries_data:
-                    current_country_name = COUNTRIES.get(current_country.lower(), {}).get("name", current_country)
-                    vpn_suggestions = self._get_vpn_suggestions(available_countries_data)
-                    if vpn_suggestions:
-                        vpn_countries = ", ".join([s[1] for s in vpn_suggestions])
-                        message = f"This movie is not available in {current_country_name}. Connect to a VPN and try again. Available countries: {vpn_countries}"
-                        xbmcgui.Dialog().ok("MUBI - Not Available", message)
-                        xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
-                        return
-
-                # Check if this is a geo-restriction error (contains VPN message)
-                if 'VPN' in error_msg:
-                    # Show a dialog for geo-restriction, no browser option
-                    xbmcgui.Dialog().ok("MUBI", error_msg)
-                    xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
-                    return  # Exit without offering browser option
-                else:
-                    # For other errors, raise exception to trigger browser option
-                    xbmcgui.Dialog().notification("MUBI", f"Error: {error_msg}", xbmcgui.NOTIFICATION_ERROR)
-                    raise Exception("Error in stream info")
+                xbmcgui.Dialog().notification("MUBI", f"Error: {error_msg}", xbmcgui.NOTIFICATION_ERROR)
+                xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
+                return
 
             # Select the best stream URL
             best_stream_url = self.mubi.select_best_stream(stream_info)
@@ -834,26 +828,21 @@ class NavigationHandler:
             play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'], subtitles,
                                          self.session.token, self.session.user_id)
 
-
         except requests.RequestException as e:
             xbmc.log(f"Network error playing Mubi video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().notification("MUBI", f"Network Error: {str(e)}", xbmcgui.NOTIFICATION_ERROR)
-            
-            # Offer browser fallback for network errors too? Maybe.
+
             if web_url:
                  if xbmcgui.Dialog().yesno("MUBI", "Network error. Try opening in web browser?"):
                      self.play_video_ext(web_url)
 
         except Exception as e:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
-            
-            # Avoid showing "Unexpected error" for known exceptions we raised ourselves 
-            # (which already showed a specific notification)
+
             error_str = str(e)
-            if "Error in stream info" not in error_str and "No suitable stream found" not in error_str:
+            if "No suitable stream found" not in error_str:
                 xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred.", xbmcgui.NOTIFICATION_ERROR)
 
-            # Prompt the user to open in browser (only for non-geo-restriction errors)
             if web_url:
                 if xbmcgui.Dialog().yesno("MUBI", "Failed to play the video. Do you want to open it in a web browser?"):
                     self.play_video_ext(web_url)

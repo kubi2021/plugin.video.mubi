@@ -58,23 +58,25 @@ class TestPlaybackFailureScenarios:
         mock_path = '/tmp/mock_kodi'
         os.makedirs(mock_path, exist_ok=True)
         
-        with patch('xbmcaddon.Addon'), patch('xbmc.log'), patch('xbmcvfs.translatePath', return_value=mock_path):
+        with patch('xbmcaddon.Addon') as mock_addon_cls, patch('xbmc.log'), patch('xbmcvfs.translatePath', return_value=mock_path):
+            mock_addon_instance = Mock()
+            mock_addon_instance.getSetting.side_effect = lambda key: {'client_country': 'US'}.get(key, '')
+            mock_addon_cls.return_value = mock_addon_instance
             handler = NavigationHandler(1, "plugin://test", mock_mubi, mock_session)
-            handler.mubi.get_cli_country.return_value = "US"
             yield handler
 
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_play_mubi_video_expired_film(self, mock_translate_path, mock_log, navigation_handler, tmp_path):
-        """Test coherent error message when film is expired."""
-        # Manually configure dateutil parser side effect on the imported mock
-        # Note: We must patch the object that navigation_handler uses. 
-        # Since dateutil is in sys.modules, importing it here gets the same Mock.
+        """Test that expired film shows availability warning with play-anyway option."""
         import dateutil.parser
         dateutil.parser.parse.side_effect = parse_iso_date
         
         mock_translate_path.return_value = str(tmp_path)
         film_id = "expired_123"
+        
+        # Set client_country to CH so it matches the NFO country
+        navigation_handler.plugin.getSetting.side_effect = lambda key: {'client_country': 'CH'}.get(key, '')
         
         # Create expired NFO
         film_folder = tmp_path / "Expired Film (2020)"
@@ -95,27 +97,31 @@ class TestPlaybackFailureScenarios:
 </movie>"""
         (film_folder / "Expired Film (2020).nfo").write_text(nfo_content)
 
-        with patch('xbmcgui.Dialog') as mock_dialog:
+        with patch('xbmcgui.Dialog') as mock_dialog, \
+             patch('xbmcplugin.setResolvedUrl'):
             mock_dialog_instance = Mock()
+            mock_dialog_instance.yesno.return_value = False  # User cancels
             mock_dialog.return_value = mock_dialog_instance
-            
-            navigation_handler.mubi.get_cli_country.return_value = "CH"
 
             navigation_handler.play_mubi_video(film_id=film_id, web_url="https://mubi.com/films/expired")
 
-            mock_dialog_instance.ok.assert_called_once()
-            args = mock_dialog_instance.ok.call_args[0]
-            # Title might be "MUBI" or "MUBI - Not Available" depending on exact path
+            # Should show yesno with availability status warning
+            mock_dialog_instance.yesno.assert_called_once()
+            args = mock_dialog_instance.yesno.call_args[0]
             assert "MUBI" in args[0]
-            assert "not available" in args[1] 
+            # Stream info should NOT be called since user cancelled
+            navigation_handler.mubi.get_secure_stream_info.assert_not_called() 
 
     @patch('dateutil.parser.parse', side_effect=parse_iso_date)
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_play_mubi_video_future_film(self, mock_translate_path, mock_log, mock_parse, navigation_handler, tmp_path):
-        """Test coherent error message when film is coming soon."""
+        """Test that future/upcoming film shows availability warning with play-anyway option."""
         mock_translate_path.return_value = str(tmp_path)
         film_id = "future_456"
+        
+        # Set client_country to CH so it matches the NFO country
+        navigation_handler.plugin.getSetting.side_effect = lambda key: {'client_country': 'CH'}.get(key, '')
         
         film_folder = tmp_path / "Future Film (2025)"
         film_folder.mkdir(parents=True, exist_ok=True)
@@ -135,17 +141,20 @@ class TestPlaybackFailureScenarios:
 </movie>"""
         (film_folder / "Future Film (2025).nfo").write_text(nfo_content)
 
-        with patch('xbmcgui.Dialog') as mock_dialog:
+        with patch('xbmcgui.Dialog') as mock_dialog, \
+             patch('xbmcplugin.setResolvedUrl'):
             mock_dialog_instance = Mock()
+            mock_dialog_instance.yesno.return_value = False  # User cancels
             mock_dialog.return_value = mock_dialog_instance
-            
-            navigation_handler.mubi.get_cli_country.return_value = "CH"
 
             navigation_handler.play_mubi_video(film_id=film_id, web_url="https://mubi.com/films/future")
 
-            mock_dialog_instance.ok.assert_called_once()
-            args = mock_dialog_instance.ok.call_args[0]
-            assert "Not Available" in args[0] # Checks title
+            # Should show yesno with "upcoming" status warning
+            mock_dialog_instance.yesno.assert_called_once()
+            args = mock_dialog_instance.yesno.call_args[0]
+            assert "Availability" in args[0] or "MUBI" in args[0]
+            # Stream info should NOT be called since user cancelled
+            navigation_handler.mubi.get_secure_stream_info.assert_not_called()
 
     def test_play_mubi_video_geo_restriction_api_response(self, navigation_handler):
         """Test coherent error message when API returns explicit geo-restriction."""
@@ -160,9 +169,9 @@ class TestPlaybackFailureScenarios:
 
             navigation_handler.play_mubi_video(film_id="geo_block", web_url="https://mubi.com/uhoh")
 
-            mock_dialog_instance.ok.assert_called_once()
-            args = mock_dialog_instance.ok.call_args[0]
-            assert "MUBI" in args[0]
+            # Now uses notification for API errors (not ok dialog)
+            mock_dialog_instance.notification.assert_called()
+            args = mock_dialog_instance.notification.call_args[0]
             assert "Use a VPN to France" in args[1]
             mock_resolved.assert_called_with(navigation_handler.handle, False, unittest.mock.ANY)
 
