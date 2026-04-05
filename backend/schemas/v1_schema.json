@@ -355,6 +355,13 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "original_audio_language": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Original audio language of the film (optional, added by Mubi API ~April 2026)"
                 }
             },
             "additionalProperties": false

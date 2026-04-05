@@ -110,7 +110,8 @@ Each film in `films.json` is a combination of:
       "duration": 1255,
       "hd": true
     },
-    "media_features": ["HD", "5.1"]
+    "media_features": ["HD", "5.1"],
+    "original_audio_language": "French"
   },
 
   // ─────────────────────────────────────────────
@@ -263,6 +264,7 @@ Each film in `films.json` is a combination of:
 | `playback_languages.audio_options` | `<audio><language>` | Audio tracks | Mubi API | `<audio><language>` |
 | `playback_languages.subtitle_options` | `<subtitle><language>` | Subtitles | Mubi API | `<subtitle><language>` |
 | `playback_languages.media_features` | string[] | Features: "HD", "4K", "5.1" | Mubi API | — |
+| `playback_languages.original_audio_language` | string\|null | Original audio language (optional, may not be present on all films) | Mubi API | — |
 
 ### Availability & Playback (available_countries)
 

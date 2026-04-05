@@ -104,7 +104,8 @@ def full_valid_film():
             "extended_audio_options": ["English (5.1)"],
             "subtitle_options": ["English", "Spanish"],
             "media_options": {"duration": 7200, "hd": True},
-            "media_features": ["HD", "5.1"]
+            "media_features": ["HD", "5.1"],
+            "original_audio_language": "French"
         },
         "available_countries": {
             "US": {
@@ -271,6 +272,39 @@ class TestNestedObjects:
         minimal_valid_film["ratings"] = [
             {"source": "mubi", "score_over_10": 7.5}  # missing voters
         ]
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(minimal_valid_film, v1_schema)
+
+    def test_playback_languages_with_original_audio_language(self, v1_schema, minimal_valid_film):
+        """playback_languages should accept original_audio_language as optional string."""
+        minimal_valid_film["playback_languages"] = {
+            "audio_options": ["English"],
+            "original_audio_language": "French"
+        }
+        jsonschema.validate(minimal_valid_film, v1_schema)
+
+    def test_playback_languages_with_null_original_audio_language(self, v1_schema, minimal_valid_film):
+        """playback_languages should accept null original_audio_language."""
+        minimal_valid_film["playback_languages"] = {
+            "audio_options": ["English"],
+            "original_audio_language": None
+        }
+        jsonschema.validate(minimal_valid_film, v1_schema)
+
+    def test_playback_languages_without_original_audio_language(self, v1_schema, minimal_valid_film):
+        """playback_languages should still validate without original_audio_language."""
+        minimal_valid_film["playback_languages"] = {
+            "audio_options": ["English"],
+            "subtitle_options": ["Spanish"]
+        }
+        jsonschema.validate(minimal_valid_film, v1_schema)
+
+    def test_playback_languages_rejects_unknown_fields(self, v1_schema, minimal_valid_film):
+        """playback_languages should still reject truly unknown fields."""
+        minimal_valid_film["playback_languages"] = {
+            "audio_options": ["English"],
+            "totally_unknown_field": "should fail"
+        }
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(minimal_valid_film, v1_schema)
 
