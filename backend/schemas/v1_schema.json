@@ -407,6 +407,12 @@
                             "null"
                         ]
                     },
+                    "early_access_film_date_message": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "exclusive": {
                         "type": [
                             "boolean",

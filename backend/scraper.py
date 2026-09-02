@@ -547,6 +547,7 @@ class MubiScraper:
                             consumable_copy.pop('offered', None)           # Always catalogue
                             consumable_copy.pop('film_id', None)           # Already at top level
                             consumable_copy.pop('film_date_message', None) # Always null
+                            consumable_copy.pop('early_access_film_date_message', None) # Early-access banner text, not used
                             consumable_copy.pop('exclusive', None)         # Not used
                             consumable_copy.pop('permit_download', None)   # Not used
                             
