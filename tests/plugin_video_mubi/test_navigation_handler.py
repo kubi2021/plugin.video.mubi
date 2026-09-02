@@ -303,6 +303,20 @@ class TestNavigationHandler:
         assert call_args[1] == 'Error during code generation.'
         # Third parameter is the notification type (NOTIFICATION_ERROR)
 
+    def test_display_login_code_uses_current_activation_url(self, navigation_handler):
+        """The login dialog must point users at the current Mubi activation URL.
+
+        Mubi retired https://mubi.com/android (now a 404); the correct page is
+        https://mubi.com/tv. Guard against silently reintroducing a dead URL.
+        """
+        with patch('xbmcgui.Dialog') as mock_dialog:
+            navigation_handler._display_login_code({'link_code': '123456'})
+
+        message = mock_dialog().ok.call_args[0][1]
+        assert 'https://mubi.com/tv' in message
+        assert 'mubi.com/android' not in message
+        assert '123456' in message
+
     def test_log_out(self, navigation_handler, mock_session):
         """Test logout process."""
         with patch('xbmcgui.Dialog') as mock_dialog:
