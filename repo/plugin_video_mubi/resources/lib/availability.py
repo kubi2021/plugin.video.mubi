@@ -41,8 +41,15 @@ def is_country_available(details: dict, now: Optional[datetime] = None) -> bool:
     Window rules:
     - ``available_at`` is the start; the end is ``expires_at`` when present, else
       ``availability_ends_at`` (Mubi emits both field names across endpoints).
-    - When neither a start nor an end date is present, or a timestamp fails to
-      parse, falls back to the legacy ``availability == 'live'`` status check.
+    - A film is available on its dates only when it has a start date that is in
+      the past and (if an end date is present) has not yet passed. A window with
+      an end date but *no* start date is not treated as available on its dates —
+      a missing start means "not started yet".
+    - An end date already in the past means expired, even if ``availability`` is
+      still ``'live'``.
+    - When there is no usable start date (absent window, no start field, or a
+      timestamp fails to parse) and the film has not expired, falls back to the
+      legacy ``availability == 'live'`` status check.
     """
     if not details:
         return False
@@ -55,11 +62,14 @@ def is_country_available(details: dict, now: Optional[datetime] = None) -> bool:
 
     if available_at or ends_at:
         try:
-            if available_at and now < _parse_aware(available_at):
-                return False
             if ends_at and now > _parse_aware(ends_at):
-                return False
-            return True
+                return False  # Expired — overrides the status check below.
+            if available_at:
+                if now < _parse_aware(available_at):
+                    return False  # Start date is in the future: not yet available.
+                return True  # Valid start in the past and not expired.
+            # End date present (or future) but no start date: a missing start is
+            # not enough to be "available" — fall through to the status check.
         except (ValueError, OverflowError, TypeError) as e:
             xbmc.log(
                 f"Error parsing availability dates ({e}); "

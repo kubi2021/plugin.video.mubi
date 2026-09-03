@@ -100,13 +100,14 @@ class TestAvailability(unittest.TestCase):
         film = self.create_film(countries)
         self.assertTrue(film.is_playable())
 
-    def test_playable_missing_start_date_with_future_end(self):
-        """End date in the future but no start date: available until it expires.
+    def test_not_playable_missing_start_date_with_future_end(self):
+        """End date in the future but no start date and no 'live' status: not playable.
 
-        Regression for issue #52: film.py used to treat a missing available_at as
-        'not started yet' and return False, while navigation_handler.py and
-        data_source.py treated an expires-only-future window as available. The
-        shared helper makes all three agree (available here).
+        Availability on the dates requires a start date in the past; a missing
+        available_at means 'not started yet'. Without a start date and without a
+        'live' status to fall back on, the film must not be playable. (A film that
+        IS marked 'live' with a future end and no start stays playable via the
+        status fallback — see test_live_status_with_future_end_no_start.)
         """
         countries = {
             'US': {
@@ -114,7 +115,24 @@ class TestAvailability(unittest.TestCase):
             }
         }
         film = self.create_film(countries)
+        self.assertFalse(film.is_playable())
+
+    def test_live_status_with_future_end_no_start(self):
+        """A 'live' film with a future end but no start date stays playable.
+
+        The strict start-date rule applies to the date logic only; an explicit
+        'live' status is still honoured as a fallback when there is no usable
+        start date and the film has not expired.
+        """
+        film = self.create_film({'US': {'availability_ends_at': self.future,
+                                         'availability': 'live'}})
         self.assertTrue(film.is_playable())
+
+    def test_not_playable_expired_even_when_live_without_start(self):
+        """A past end date means expired even with 'live' status and no start."""
+        film = self.create_film({'US': {'availability_ends_at': self.past,
+                                        'availability': 'live'}})
+        self.assertFalse(film.is_playable())
 
     def test_not_playable_no_dates_and_not_live(self):
         """No dates at all falls back to the availability status string."""
