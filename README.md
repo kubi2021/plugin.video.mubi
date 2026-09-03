@@ -82,6 +82,10 @@ Whenever you want to **update** the local database, run the **sync** process aga
 ### Sep 3rd, 2026 - Fast Sync by Default ⚡
 - **Fast Sync is now the default**: On update, existing users are automatically switched to the pre-computed GitHub catalogue ("Fast Sync") once. New installs start with it enabled too. You can still turn it back off in the add-on settings if you need the legacy per-country sync.
 
+### Sep 3rd, 2026 - Correct Availability Across Timezones 🕒
+- **Timezone-Aware Availability**: Fixed a case where a film's availability could be judged wrong when Mubi expressed its start/end times with a numeric UTC offset (e.g. `+02:00`) instead of `Z`. Availability is now compared as real instants, and the library and browsing views use one shared check so they always agree.
+- **Stricter Start-Date Check**: A film is now only treated as available on its dates when it has a start date that has already passed. A film with only a future end date and no start date no longer shows up unless Mubi still marks it as live.
+
 ### Dec 30th, 2025 - Bayesian Ratings & Smarter Availability 🧠🎯
 - **Bayesian Ratings**: Introduced Bayesian composite ratings for the Fast Sync mode (currently in beta). This provides a more balanced and reliable scoring system by weighing ratings from multiple sources.
 - **Refined Availability Logic**: Fixed an issue where "upcoming" movies could appear in your library before they were actually playable. Now, films will only show up when they are truly available to watch.

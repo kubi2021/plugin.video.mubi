@@ -1993,15 +1993,11 @@ class TestWorldwideSyncMenuLabel:
             assert 'worldwide' in label.lower()
             assert 'VPN' in description or 'vpn' in description.lower()
 class TestIsCountryAvailable:
-    """Test date-based availability checking logic."""
+    """Test date-based availability checking logic.
 
-    @pytest.fixture(autouse=True)
-    def patch_dateutil(self):
-        """Patch dateutil.parser.parse to use datetime.fromisoformat since dateutil is mocked."""
-        # Use simple lambda to handle any extra args if necessary, though fromisoformat takes only string
-        side_effect = lambda s: datetime.datetime.fromisoformat(s)
-        with patch('plugin_video_mubi.resources.lib.navigation_handler.dateutil.parser.parse', side_effect=side_effect):
-            yield
+    Parsing now lives in the shared ``availability`` module and uses the real
+    ``dateutil.parser`` supplied by conftest, so no dateutil patching is needed.
+    """
 
     @pytest.fixture
     def navigation_handler(self):
