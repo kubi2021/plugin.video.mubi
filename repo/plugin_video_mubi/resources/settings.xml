@@ -344,6 +344,11 @@
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <setting id="fast_sync_migration_done" type="boolean" label="" help="">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
             </group>
         </category>
         <category id="filters" label="30400" help="">
@@ -481,7 +486,7 @@
             <group id="1">
                 <setting id="enable_fast_sync" label="30801" type="boolean" help="30802">
                     <level>2</level>
-                    <default>false</default>
+                    <default>true</default>
                     <control type="toggle"/>
                 </setting>
             </group>

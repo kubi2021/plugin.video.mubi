@@ -120,6 +120,25 @@ class TestAddon:
         mocks['add_source'].assert_called_once()
         mocks['mark_first_run'].assert_called_once()
 
+    def test_main_runs_fast_sync_migration(self, mock_dependencies):
+        """main() must wire in the one-time fast-sync migration.
+
+        Regression guard for the PR #69 wiring: the whole feature depends on
+        main() calling migrate_to_fast_sync(plugin). Without this assertion the
+        call could be dropped and every other addon test would still pass.
+        """
+        from plugin_video_mubi import addon
+        mocks = mock_dependencies
+        mocks['session_instance'].client_country = 'US'
+        mocks['session_instance'].client_language = 'en'
+
+        with patch('plugin_video_mubi.addon.migrate_to_fast_sync') as mock_migrate:
+            argv = ["plugin://plugin.video.mubi/", "123", ""]
+            addon.main(argv)
+
+        # The migration runs exactly once, against the resolved Addon instance.
+        mock_migrate.assert_called_once_with(mocks['addon_instance'])
+
 
 class TestErrorHandling:
     """
