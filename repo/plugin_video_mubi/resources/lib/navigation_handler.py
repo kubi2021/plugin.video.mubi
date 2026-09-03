@@ -13,7 +13,7 @@ from .library import Library
 from .playback import play_with_inputstream_adaptive
 from .constants import MUBI_LOGIN_ACTIVATION_URL
 import datetime
-import dateutil.parser
+from .availability import is_country_available
 import requests
 import re
 
@@ -632,43 +632,13 @@ class NavigationHandler:
         Check if the film is available in a country based on date ranges.
         Falls back to 'live' status check if dates are missing.
 
+        Delegates to the shared availability-window check so the plugin's
+        availability paths agree on the same inputs (issue #52).
+
         :param details: Availability details dict for a country
         :return: True if available, False otherwise
         """
-        # 1. Check date range if available
-        available_at = details.get('available_at')
-        expires_at = details.get('expires_at')
-
-        if available_at or expires_at:
-            try:
-                # Use UTC for comparison as API dates are typically UTC
-                now = datetime.datetime.now(datetime.timezone.utc)
-                
-                is_available = True
-                
-                if available_at:
-                    start_dt = dateutil.parser.parse(available_at)
-                    # ensure timezone awareness
-                    if not start_dt.tzinfo:
-                        start_dt = start_dt.replace(tzinfo=datetime.timezone.utc)
-                    if now < start_dt:
-                        is_available = False
-                
-                if expires_at:
-                    end_dt = dateutil.parser.parse(expires_at)
-                    # ensure timezone awareness
-                    if not end_dt.tzinfo:
-                        end_dt = end_dt.replace(tzinfo=datetime.timezone.utc)
-                    if now > end_dt:
-                        is_available = False
-                
-                return is_available
-            except Exception as e:
-                xbmc.log(f"Error parsing dates for availability check: {e}", xbmc.LOGWARNING)
-                # Fall through to legacy check on error
-
-        # 2. Legacy/Simple check: availability == 'live'
-        return details.get('availability') == 'live'
+        return is_country_available(details)
 
     def _get_vpn_suggestions(self, available_countries_data: dict, max_suggestions: int = 3) -> list:
         """

@@ -79,6 +79,9 @@ Whenever you want to **update** the local database, run the **sync** process aga
 
 ## Changelog
 
+### Sep 3rd, 2026 - Correct Availability Across Timezones 🕒
+- **Timezone-Aware Availability**: Fixed a case where a film's availability could be judged wrong when Mubi expressed its start/end times with a numeric UTC offset (e.g. `+02:00`) instead of `Z`. Availability is now compared as real instants, and the library and browsing views use one shared check so they always agree.
+
 ### Dec 30th, 2025 - Bayesian Ratings & Smarter Availability 🧠🎯
 - **Bayesian Ratings**: Introduced Bayesian composite ratings for the Fast Sync mode (currently in beta). This provides a more balanced and reliable scoring system by weighing ratings from multiple sources.
 - **Refined Availability Logic**: Fixed an issue where "upcoming" movies could appear in your library before they were actually playable. Now, films will only show up when they are truly available to watch.

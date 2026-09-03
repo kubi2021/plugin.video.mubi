@@ -9,6 +9,7 @@ import time
 import re
 from typing import Optional, List
 from .external_metadata import MetadataProviderFactory
+from .availability import is_country_available
 from datetime import datetime, timezone
 
 
@@ -44,39 +45,21 @@ class Film:
         
         Logic:
         - Iterates through available_countries.
-        - Checks if current UTC time is within the availability window:
-          available_at <= now <= availability_ends_at
-        - Ignores 'availability' string status.
-        
+        - Delegates each country to the shared availability-window check
+          (availability.is_country_available), which parses timestamps into
+          aware datetimes and compares instants, never ISO strings (issue #52).
+
         :return: True if playable in at least one country, False otherwise.
         """
         if not self.available_countries:
             return False
-            
-        now = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-        
+
+        now = datetime.now(timezone.utc)
+
         for details in self.available_countries.values():
-            if not details:
-                continue
-                
-            available_at = details.get('available_at')
-            availability_ends_at = details.get('availability_ends_at')
-            
-            # If available_at is missing, assume not started yet (safe default)
-            if not available_at:
-                continue
-                
-            # Check start time
-            if now < available_at:
-                continue
-                
-            # Check end time (if present)
-            if availability_ends_at and now > availability_ends_at:
-                continue
-                
-            # If we got here, it's valid for this country
-            return True
-            
+            if is_country_available(details, now):
+                return True
+
         return False
 
 
