@@ -1389,6 +1389,34 @@ class TestMubi:
         assert "Accept-Encoding" in headers
         assert headers["Client"] == "web"
 
+    def test_header_generators_use_mubi_web_origin(self, mubi_instance):
+        """Referer/Origin on every header generator must be the Mubi web origin.
+
+        Regression guard for the constants refactor: mutating the base URL in
+        hea_gen/hea_atv_gen/hea_gen_anonymous previously escaped the suite.
+        """
+        for headers in (
+            mubi_instance.hea_atv_gen(),
+            mubi_instance.hea_gen(),
+            mubi_instance.hea_gen_anonymous("DE"),
+        ):
+            assert headers["Referer"] == "https://mubi.com"
+            assert headers["Origin"] == "https://mubi.com"
+
+    def test_get_cli_country_fallback_hits_mubi_root(self, mubi_instance):
+        """When every geo-IP service fails, the fallback must GET the Mubi homepage."""
+        failed = Mock()
+        failed.status_code = 500
+        fallback_session = Mock()
+        fallback_session.get.return_value = failed
+
+        with patch('plugin_video_mubi.resources.lib.mubi.requests.get', return_value=failed), \
+             patch('plugin_video_mubi.resources.lib.mubi.requests.Session', return_value=fallback_session):
+            mubi_instance.get_cli_country()
+
+        fallback_session.get.assert_called_once()
+        assert fallback_session.get.call_args[0][0] == "https://mubi.com/"
+
     def test_hea_atv_auth(self, mubi_instance):
         """Test authenticated header building."""
         mubi_instance.session_manager.token = "test-token"
