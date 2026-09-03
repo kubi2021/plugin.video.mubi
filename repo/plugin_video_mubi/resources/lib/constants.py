@@ -68,14 +68,20 @@ CATALOG_FILMS_URL = (
 # authenticated call. The DRM license endpoint is likewise excluded (it only
 # responds to authenticated license POSTs).
 #
-# ipapi.co is excluded: it answers 403 to browser User-Agents and 200 to
-# python-requests, i.e. it is bot-gated and would produce false alarms.
+# Two of the four GEOIP_COUNTRY_URLS are deliberately NOT healthchecked because
+# they are bot-gated and would fire false alarms while still being fine for real
+# (residential) plugin users:
+#   - ipapi.co answers 403 to browser User-Agents and 200 to python-requests.
+#   - ifconfig.co is Cloudflare-fronted and 403s datacenter IPs (the GitHub
+#     Actions runner) while returning 200 for residential IPs. Observed live:
+#     issue #62, run 33742252948 -> HTTP 403 from the runner, 200 from a laptop.
+# geojs.io and ipinfo.io answer a bare GET with a country code from any IP, so
+# they stand in for the fallback chain's liveness.
 HEALTHCHECK_URLS = [
     MUBI_WEB_URL,
     MUBI_LOGIN_ACTIVATION_URL,
     CATALOG_FILMS_URL,
     "https://get.geojs.io/v1/ip/country",
-    "https://ifconfig.co/country-iso",
     "https://ipinfo.io/country",
     TMDB_API_URL,  # bare GET -> 204
     OMDB_API_URL,  # bare GET -> 200 (JSON error body, no key needed)

@@ -51,6 +51,24 @@ class TestUrlConstants:
         # api.mubi.com/ returns 404 on a bare GET, so it must not be strict-checked.
         assert constants.MUBI_API_URL not in constants.HEALTHCHECK_URLS
 
+    def test_healthcheck_excludes_bot_gated_geoip_services(self):
+        # ipapi.co (403 to browser UAs) and ifconfig.co (Cloudflare 403 to
+        # datacenter IPs, e.g. the CI runner -- issue #62) 403 in CI while
+        # serving real residential users, so they are runtime fallbacks but must
+        # not be strict-checked, or the daily job false-alarms.
+        assert "https://ipapi.co/country/" not in constants.HEALTHCHECK_URLS
+        assert "https://ifconfig.co/country-iso" not in constants.HEALTHCHECK_URLS
+        # ...but they remain in the plugin's runtime fallback chain.
+        assert "https://ipapi.co/country/" in constants.GEOIP_COUNTRY_URLS
+        assert "https://ifconfig.co/country-iso" in constants.GEOIP_COUNTRY_URLS
+
+    def test_healthchecked_geoip_services_answer_from_any_ip(self):
+        # The two geo services that DO stay in the healthcheck must be the
+        # IP-agnostic ones; keep at least one so the fallback chain has coverage.
+        checked = [u for u in constants.GEOIP_COUNTRY_URLS if u in constants.HEALTHCHECK_URLS]
+        assert "https://get.geojs.io/v1/ip/country" in checked
+        assert "https://ipinfo.io/country" in checked
+
     def test_data_source_uses_catalog_constant(self):
         from resources.lib import data_source
 
