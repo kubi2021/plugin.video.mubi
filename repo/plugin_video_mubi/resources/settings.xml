@@ -15,6 +15,17 @@
                     </control>
                 </setting>
 
+                <setting id="omdbapiKey" label="30001" type="string" help="">
+                    <level>0</level>
+                    <default/>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30001</heading>
+                    </control>
+                </setting>
+
                 <setting id="accept-language" label="30002" type="string" help="">
                     <level>0</level>
                     <default/>

@@ -1327,3 +1327,93 @@ class TestSettingsCountrySync:
             f"Expected 248 countries, but found {len(COUNTRIES)}. "
             "If countries were intentionally added/removed, update this test."
         )
+
+
+class TestSettingsDeclarations:
+    """
+    Test that every addon setting the plugin reads is declared in settings.xml.
+
+    Regression guard for issue #51: ``MetadataProviderFactory`` read the
+    ``omdbapiKey`` setting, but no such setting was declared in settings.xml, so
+    for every new install the OMDb key was permanently empty and the OMDb
+    fallback provider could never be selected (the fallback path was dead).
+
+    A setting that is read but not declared is always a bug: Kodi returns "" for
+    unknown ids and the user has no way to populate it. See CLAUDE.md,
+    "Every getSetting* key must exist in resources/settings.xml".
+    """
+
+    # Keys that are read on purpose but intentionally NOT declared, with why.
+    # ``skip_genres`` is the obsolete free-text genre setting: migrations.py
+    # reads it once to migrate old profiles to the per-genre toggles, then
+    # clears it. It must never be re-declared. See migrations.py.
+    LEGACY_UNDECLARED_KEYS = {"skip_genres"}
+
+    def _plugin_root(self):
+        from pathlib import Path
+        return Path(__file__).parent.parent.parent / 'repo' / 'plugin_video_mubi'
+
+    def _read_setting_keys(self):
+        """Collect every literal setting id read in the plugin.
+
+        Matches both a direct ``getSetting*("id")`` call and a read through the
+        ``session_manager._get_plugin_setting("id")`` wrapper, through which the
+        whole session surface (client_country, token, userID, deviceID, ...) is
+        read. A wrapper read would otherwise escape the scan, defeating the
+        "read but not declared" guard for that entire module.
+        """
+        import re
+        keys = set()
+        patterns = (
+            re.compile(
+                r'getSetting(?:Bool|Int|Number|String)?\(\s*["\']([A-Za-z0-9_-]+)["\']'
+            ),
+            re.compile(
+                r'_get_plugin_setting\(\s*["\']([A-Za-z0-9_-]+)["\']'
+            ),
+        )
+        for path in self._plugin_root().rglob('*.py'):
+            text = path.read_text(encoding='utf-8')
+            for pattern in patterns:
+                keys.update(pattern.findall(text))
+        return keys
+
+    def _declared_setting_ids(self):
+        import xml.etree.ElementTree as ET
+        tree = ET.parse(self._plugin_root() / 'resources' / 'settings.xml')
+        return {s.get('id') for s in tree.getroot().iter('setting') if s.get('id')}
+
+    def test_omdbapikey_setting_is_declared(self):
+        """The specific setting from issue #51 must be declared."""
+        assert 'omdbapiKey' in self._declared_setting_ids(), (
+            "omdbapiKey is read by MetadataProviderFactory but not declared in "
+            "settings.xml, so the OMDb fallback is dead for new installs (#51)."
+        )
+
+    def test_all_read_settings_are_declared(self):
+        """Every setting the plugin reads is declared (or a known legacy key)."""
+        read_keys = self._read_setting_keys()
+        declared = self._declared_setting_ids()
+
+        undeclared = read_keys - declared - self.LEGACY_UNDECLARED_KEYS
+
+        assert not undeclared, (
+            f"These settings are read in the plugin but not declared in "
+            f"settings.xml: {sorted(undeclared)}. Declare them, remove the read, "
+            f"or add them to LEGACY_UNDECLARED_KEYS with a justification."
+        )
+
+    def test_scanner_sees_wrapper_reads(self):
+        """The scan must follow ``_get_plugin_setting``, not only direct calls.
+
+        session_manager reads every setting through the wrapper. If the scan only
+        matched direct ``getSetting*`` calls, an undeclared read added the
+        idiomatic session_manager way would ship silently. ``deviceID`` is read
+        exclusively via the wrapper (session_manager.py), so its presence proves
+        the wrapper path is scanned.
+        """
+        assert 'deviceID' in self._read_setting_keys(), (
+            "The settings scan no longer sees _get_plugin_setting() reads; the "
+            "whole session_manager surface (deviceID, token, userID, ...) would "
+            "escape the read-but-not-declared guard."
+        )

@@ -101,6 +101,12 @@ Decide explicitly, and document the decision in this file:
 - **Preferred:** make Fast Sync the default and the API‑crawl path a fallback. Then the plugin's `external_metadata` package becomes thin (read `imdb_id`/`tmdb_id` from the JSON) and the backend owns matching.
 - **Alternative:** if both paths must live on, put shared pure‑Python code (title normalisation, retry) in one place and copy it into the plugin at build time via `_repo_generator.py`, so there is one source of truth.
 
+**Decision (2026-09, issue #51): the plugin matcher stays, as a fallback.** Fast Sync is opt-in (`enable_fast_sync` defaults `false`, advanced level), so most installs still reach TMDB/OMDb through the plugin's `external_metadata` package. Retiring it would strip metadata from every non-Fast-Sync user, so it is kept. Consequences that follow from keeping it:
+
+- The backend copy stays canonical; the plugin copy is legacy. Fix a matching bug in both or neither (the rule below).
+- OMDb remains a live fallback provider in the plugin, so its `omdbapiKey` setting must exist. Issue #51 was that read with no declaration; the setting is now declared in `settings.xml`.
+- Sharing the pure-Python normalisation/retry via `_repo_generator.py` (the Alternative above) is still the eventual target but is out of scope here; until then, "fix both" is the guard against drift.
+
 Do not fix a matching bug in one copy without fixing it in the other.
 
 ### P6. Compare times as datetimes, never as strings.
