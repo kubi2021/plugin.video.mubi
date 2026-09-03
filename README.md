@@ -12,10 +12,12 @@ This project is a personal endeavour I work on in my free time. As I am not a pr
 
 If you are looking for a simple way of browsing the MUBI catalogue without integrating with the Kodi library, another extension does exactly this: [mtr81/kodi_addons](https://github.com/mtr81/kodi_addons).
 
+> **Want to contribute?** Development, testing, release, and backend documentation lives in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+
 ## Features
 
 - 🎬 **Full MUBI catalogue** — Fetches all movies with ratings and descriptions, seamlessly integrated into your Kodi library
-- 🌍 **Worldwide sync** — Access MUBI's entire global catalogue (~2000 films) with smart optimization that syncs from only ~23 countries instead of 248, balancing coverage with speed
+- 🌍 **Worldwide catalogue** — Access MUBI's entire global catalogue (~2000 films). **Fast Sync** (beta) downloads a pre-computed catalogue in seconds; the classic sync fetches directly from MUBI across a small curated set of countries
 - 🛡️ **Rich metadata** — Finds IMDb matches so Kodi scrapers can fetch cast, ratings, posters, and more
 - 🍿 **Optimal quality** — Automatically selects best stream quality for movies and trailers
 - 📺 **Native playback** — Movies play directly in Kodi with Mubi subtitles and multiple audio streams
@@ -23,7 +25,7 @@ If you are looking for a simple way of browsing the MUBI catalogue without integ
 - 🏆 **Ratings & advisories** — MPAA ratings and content warnings for informed viewing
 - 🔖 **Watchlist sync** — Your MUBI watchlist accessible directly from Kodi
 - 🈯 **Multi-language** — Titles and descriptions in languages supported by MUBI (configure in plugin settings)
-- � **VPN-friendly** — Detects your country via IP and suggests optimal VPN servers for geo-restricted films
+- 🛡️ **VPN-friendly** — Detects your country via IP and suggests optimal VPN servers for geo-restricted films
 - 🖥️ **Browser fallback** — Opens films in your browser when Kodi playback isn't available (tested on macOS only)
 
 ## Installation
@@ -74,152 +76,6 @@ If you are looking for a simple way of browsing the MUBI catalogue without integ
 ### Next Runs 🚀
 
 Whenever you want to **update** the local database, run the **sync** process again. The Kodi library will be automatically updated and cleaned (movies that are no longer available in Mubi will be removed from Kodi)
-
-## Contributing
-
-### Repository Structure
-
-This project uses a **Kodi repository structure** with automated release management:
-
-```
-├── repo/                           # Kodi repository files
-│   ├── plugin_video_mubi/         # Main MUBI add-on source code
-│   │   ├── addon.xml              # Add-on definition (version managed here)
-│   │   ├── addon.py               # Main entry point
-│   │   └── resources/             # Add-on resources and Python modules
-│   │       ├── settings.xml
-│   │       └── lib/               # Core Python modules
-│   ├── repository_kubi2021/       # Repository add-on definition
-│   └── zips/                      # Generated zip files (auto-created)
-├── tests/                         # Test suite
-│   ├── plugin_video_mubi/         # Tests for MUBI add-on
-│   └── repository_kubi2021/       # Tests for repository (future)
-├── docs/                          # Documentation
-├── _repo_generator.py             # Repository build script
-└── .github/workflows/             # CI/CD automation
-```
-
-### Development Workflow
-
-1. **Make Changes**: Edit files in `repo/plugin_video_mubi/`
-2. **Run Tests**: `pytest tests/`
-3. **Update Country Catalogue** Run the coverage analyzer to regenerate the country optimization data
-4. **Create PR**: Submit pull request to `main` branch
-5. **Merge PR**: Normal merge
-6. **Manual Release** (when ready): Go to Actions → "Release Plugin Update" → Run workflow:
-   - Enter release notes (user-facing description)
-   - GitHub Actions automatically:
-     - Increments version number (simple: 5 → 6)
-     - Updates `addon.xml` news section with release notes
-     - Generates repository zip files
-     - Creates GitHub release with assets
-     - Updates repository metadata
-
-### Key Files for Contributors
-
-- **Main Add-on Code**: `repo/plugin_video_mubi/`
-- **Version Management**: `repo/plugin_video_mubi/addon.xml` (line 2) - auto-updated on release
-- **Tests**: `tests/plugin_video_mubi/`
-- **Release Workflow**: `.github/workflows/auto-release.yml` - manual trigger only
-- **Release Guide**: `docs/RELEASE_MANAGEMENT.md` - detailed release process
-
-### Testing
-
-```bash
-# Run all tests
-pytest tests/
-
-# Run specific test file
-pytest tests/plugin_video_mubi/test_library.py
-
-# Run with coverage
-pytest tests/ --cov=repo/plugin_video_mubi --cov-report=term-missing
-```
-
-### Manual Repository Generation
-
-```bash
-# Generate repository files manually
-python3 _repo_generator.py
-
-# Files created in repo/zips/:
-# - plugin.video.mubi-X.zip (add-on)
-# - repository.kubi2021-2.zip (repository)
-# - addons.xml (metadata)
-# - addons.xml.md5 (checksum)
-```
-
-### Country Coverage Analyzer
-
-The worldwide sync uses a pre-computed JSON catalogue to optimize which countries to fetch. Run the analyzer to regenerate this data when MUBI's catalogue changes significantly:
-
-```bash
-cd repo/plugin_video_mubi
-
-# Fetch fresh data from MUBI API and save to JSON (requires valid MUBI session)
-python -m tools.analyze_coverage
-
-# Analyze existing JSON without re-fetching
-python -m tools.analyze_coverage --analyze-only --country CH
-```
-
-The analyzer uses a greedy set cover algorithm to find the minimum countries needed for 100% catalogue coverage. Output is saved to `resources/data/country_catalogue.json`.
-
-
-### The "Shadow Backend" 👻
-
-As of **Dec 2025**, this project uses a decoupled architecture to manage the global film catalogue. 
-
-**Concept:**
-Instead of the Kodi plugin crawling the Mubi API for every user (which is slow and error-prone), a GitHub Action runs periodically to harvest the entire catalogue. This data is compressed and pushed to an orphan branch (`database`), acting as a "CDN" for the plugin.
-
-**Benefits:**
-- ⚡ **Instant Sync:** Plugin downloads a single compressed file instead of making thousands of API calls.
-- 🛡️ **Reliability:** Scraper runs on a server, reducing rate-limiting issues for end-users.
-- 📉 **Low Bandwidth:** Tiny updates compared to full crawls.
-
-**How to Run Manually:**
-1. Go to the [Actions tab](https://github.com/kubi2021/plugin.video.mubi/actions).
-2. Select **"Update Mubi Catalog"**.
-3. Click **"Run workflow"**.
-
-**Where are the files?**
-The generated database files are stored in the **[database branch](https://github.com/kubi2021/plugin.video.mubi/tree/database)** (orphan branch).
-- **Catalogue:** [`v1/films.json.gz`](https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz)
-- **Checksum:** [`v1/films.json.gz.md5`](https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz.md5)
-
-### Versioning Policy
-
-- **Simple incremental**: 1, 2, 3, 4, 5... (no semantic versioning)
-- **Auto-managed**: Version increments automatically on PR merge
-- **Repository stable**: Repository version stays at 2, only add-on versions increment
-
-### Release Process
-
-**Manual Release Control**:
-1. **Regular Development**: Merge PRs normally (tests, docs, refactoring) - no automatic releases
-2. **When Ready to Release**:
-   - Go to **Actions** → **"Release Plugin Update"** → **"Run workflow"**
-   - Enter **release notes**: "Fixed audio detection and improved error handling"
-   - Click **"Run workflow"**
-3. **Result**: New version appears in GitHub releases, users get update notifications in Kodi
-
-**When to Release**:
-- ✅ New features for users
-- ✅ Bug fixes affecting functionality
-- ✅ Security updates
-- ❌ Test improvements, documentation, refactoring
-
-**Example Workflow**:
-```
-Week 1: Merge "Improve test coverage" → No release
-Week 1: Merge "Update README" → No release
-Week 2: Merge "Add 5.1 audio support" → Manual release v6
-Week 2: Merge "Fix login timeout" → Include in next release
-Week 3: Manual release v7 → "Audio improvements and login fixes"
-```
-
----
 
 ## Changelog
 
@@ -365,3 +221,7 @@ After adding the source manually, follow the normal steps to configure it for mo
 ---
 
 Enjoy Mubi on Kodi! 🎥🍿
+
+---
+
+_Last updated: 2026-09-03_
