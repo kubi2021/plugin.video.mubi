@@ -274,3 +274,110 @@ def test_tmdb_session_configuration():
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["GET"]
          )
+
+
+# --- Regression tests (PR 60 audit F1): API key must never reach a log line ---
+
+_SECRET = "SECRETKEY4242"
+
+
+# `requests` may be a MagicMock when the whole suite runs (tests/plugin_video_mubi/conftest.py
+# swaps sys.modules['requests']; with pytest 7 that happens before this module is imported),
+# so these helpers build the messages requests would produce without touching requests.
+
+
+class _FakeRequestsError(Exception):
+    pass
+
+
+def _query(params):
+    return "&".join(f"{k}={v}" for k, v in (params or {}).items())
+
+
+def _http_500(url, params=None, **_):
+    """What str(HTTPError) looks like for a 500: the full URL, query string included."""
+    raise _FakeRequestsError(f"500 Server Error: Server Error for url: {url}?{_query(params)}")
+
+
+def _connection_error(url, params=None, **_):
+    """urllib3-style ConnectionError text: it carries the request path and query."""
+    path = url.split("api.themoviedb.org", 1)[-1]
+    raise _FakeRequestsError(
+        f"HTTPSConnectionPool(host='api.themoviedb.org', port=443): Max retries exceeded with url: {path}?{_query(params)}"
+    )
+
+
+def _provider_with_secret():
+    with patch("backend.tmdb_provider.requests") as mock_requests:
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {"genres": []}
+        mock_requests.get.return_value = mock_response
+        return TMDBProvider(api_key=_SECRET)
+
+
+def test_search_api_http_error_does_not_log_api_key(caplog):
+    import logging
+    provider = _provider_with_secret()
+
+    with patch.object(provider.session, "get", side_effect=_http_500):
+        with caplog.at_level(logging.WARNING, logger="backend.tmdb_provider"):
+            results = provider._search_api("Stalker", "movie", year=1979)
+
+    assert results == []
+    assert "Search API error" in caplog.text
+    assert _SECRET not in caplog.text
+
+
+def test_details_connection_error_does_not_log_api_key(caplog):
+    import logging
+    provider = _provider_with_secret()
+
+    with patch.object(provider.session, "get", side_effect=_connection_error):
+        with caplog.at_level(logging.WARNING, logger="backend.tmdb_provider"):
+            details = provider._get_details_with_credits(603, "movie")
+
+    assert details == {}
+    assert "Failed to fetch details for 603" in caplog.text
+    assert _SECRET not in caplog.text
+
+
+def test_genre_fetch_connection_error_does_not_log_api_key(caplog):
+    import logging
+
+    with patch("backend.tmdb_provider.requests.get", side_effect=_connection_error):
+        with caplog.at_level(logging.WARNING, logger="backend.tmdb_provider"):
+            provider = TMDBProvider(api_key=_SECRET)
+
+    assert provider.movie_genres == {}
+    assert "Failed to fetch movie genres" in caplog.text
+    assert _SECRET not in caplog.text
+
+
+# --- Regression tests (PR 60 audit F2): imdb_url is built from the constant template ---
+
+def test_build_result_formats_imdb_url_from_template(tmdb_provider):
+    best_match = {
+        "id": 603,
+        "title": "Stalker",
+        "release_date": "1979-05-25",
+        "external_ids": {"imdb_id": "tt0079944"},
+        "credits": {"crew": [{"job": "Director", "name": "Andrei Tarkovsky"}]},
+    }
+
+    result = tmdb_provider._build_result(best_match, 90, {"title": "Stalker", "year": 1979}, "movie")
+
+    assert result.success is True
+    assert result.imdb_id == "tt0079944"
+    assert result.imdb_url == "https://www.imdb.com/title/tt0079944/"
+    assert "{imdb_id}" not in result.imdb_url
+
+
+def test_build_result_without_imdb_id_has_no_imdb_url(tmdb_provider):
+    best_match = {"id": 603, "title": "Stalker", "release_date": "1979-05-25", "external_ids": {}}
+
+    result = tmdb_provider._build_result(best_match, 90, {"title": "Stalker"}, "movie")
+
+    assert result.success is True
+    assert result.imdb_id is None
+    assert result.imdb_url is None

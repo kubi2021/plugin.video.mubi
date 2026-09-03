@@ -10,9 +10,10 @@ Coverage: ExternalMetadataResult, TitleNormalizer, RetryStrategy
 
 import pytest
 from unittest.mock import MagicMock, patch
+import logging
 import requests
 
-from backend.metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy
+from backend.metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy, redact_secrets
 
 
 class TestExternalMetadataResult:
@@ -250,3 +251,52 @@ class TestRetryStrategy:
         
         assert result.success is False
         assert "Network failure" in result.error_message
+
+
+class TestRedactSecrets:
+    """redact_secrets hides a key wherever a requests error message can carry it."""
+
+    def test_redact_secrets_replaces_raw_and_url_encoded_forms(self):
+        text = "500 Server Error for url: https://x/?api_key=ab%2Fcd&q=1 (raw ab/cd)"
+
+        assert redact_secrets(text, ["ab/cd"]) == "500 Server Error for url: https://x/?api_key=***&q=1 (raw ***)"
+
+    def test_redact_secrets_skips_empty_and_none_secrets(self):
+        assert redact_secrets("keep me", [None, "", "absent"]) == "keep me"
+
+    def test_redact_secrets_accepts_exception_objects(self):
+        error = requests.ConnectionError("Max retries exceeded with url: /?apikey=K1&i=tt1")
+
+        assert redact_secrets(error, ["K1"]) == "Max retries exceeded with url: /?apikey=***&i=tt1"
+
+    def test_redact_secrets_empty_text(self):
+        assert redact_secrets("", ["K1"]) == ""
+
+    def test_redact_secrets_ignores_non_string_secrets(self):
+        # Test doubles hand providers a Mock api_key; quote() on it must not raise
+        # inside the except handler that calls this helper (CI failure on PR 60).
+        assert redact_secrets("boom apikey=K1", [MagicMock(), 42, "K1"]) == "boom apikey=***"
+
+
+class TestRetryStrategySecretsFiltering:
+    def test_retry_strategy_keeps_only_real_string_secrets(self):
+        strategy = RetryStrategy(max_retries=1, secrets=[MagicMock(), None, "", "K1"])
+
+        assert strategy.secrets == ("K1",)
+
+
+class TestRetryStrategySecrets:
+    def test_retry_request_error_does_not_log_secret(self, caplog):
+        secret = "SECRETKEY4242"
+        strategy = RetryStrategy(max_retries=1, secrets=[secret])
+
+        def boom():
+            raise requests.ConnectionError(f"Max retries exceeded with url: /?apikey={secret}&t=Stalker")
+
+        with caplog.at_level(logging.ERROR, logger="backend.metadata_utils"):
+            result = strategy.execute(boom, "Stalker")
+
+        assert result.success is False
+        assert "Request error" in caplog.text
+        assert secret not in caplog.text
+        assert secret not in (result.error_message or "")

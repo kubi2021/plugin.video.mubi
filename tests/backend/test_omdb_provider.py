@@ -185,5 +185,34 @@ class TestOMDBProvider(unittest.TestCase):
         # Good key should NOT be bad
         self.assertNotIn(good_key, self.provider._bad_keys)
 
+    @patch('requests.get')
+    def test_network_error_does_not_log_api_key(self, mock_get):
+        """Regression (PR 60 audit F1): str(HTTPError) embeds the full URL incl. apikey=.
+
+        The message below is verbatim what requests produces for a 500. A plain
+        exception class is used because `requests` may be a MagicMock when the whole
+        suite runs (tests/plugin_video_mubi/conftest.py) and this class reloads the
+        provider in setUp.
+        """
+        secret = "SECRETKEY4242"
+        provider = self.provider_cls(api_keys=[secret])
+
+        class FakeHTTPError(Exception):
+            pass
+
+        mock_get.side_effect = FakeHTTPError(
+            "500 Server Error: Server Error for url: "
+            f"https://www.omdbapi.com/?apikey={secret}&i=tt0111161&plot=short&r=json"
+        )
+
+        with self.assertLogs("backend.omdb_provider", level="WARNING") as captured:
+            result = provider.get_details("tt0111161")
+
+        logged = "\n".join(captured.output)
+        self.assertFalse(result.success)
+        self.assertIn("Network error with key ...4242", logged)
+        self.assertNotIn(secret, logged)
+        self.assertNotIn(secret, result.error_message or "")
+
 if __name__ == '__main__':
     unittest.main()

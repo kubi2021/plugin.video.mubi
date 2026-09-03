@@ -2,12 +2,32 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Callable, List, Optional
+from typing import Any, Callable, Iterable, List, Optional
+from urllib.parse import quote, quote_plus
 
 import requests
 import xbmc
 
 from .base import ExternalMetadataResult
+
+
+def redact_secrets(text: Any, secrets: Iterable[Optional[str]]) -> str:
+    """Return ``str(text)`` with every secret replaced by ``***``.
+
+    ``requests`` exception messages embed the full request URL, so a key sent as a
+    query parameter (OMDb ``apikey``, TMDb ``api_key``) would otherwise reach
+    kodi.log verbatim. Raw, percent-encoded and plus-encoded forms are all
+    replaced. Empty/None secrets are ignored. Mirror of backend/metadata_utils.py.
+    """
+    out = str(text)
+    for secret in secrets:
+        # Only real, non-empty strings are redacted: test doubles hand providers a
+        # Mock api_key, and quote() on a non-str raises inside an except handler.
+        if not isinstance(secret, str) or not secret:
+            continue
+        for form in {secret, quote(secret, safe=""), quote_plus(secret)}:
+            out = out.replace(form, "***")
+    return out
 
 
 class TitleNormalizer:
@@ -182,10 +202,13 @@ class RetryStrategy:
         max_retries: int = 10,
         initial_backoff: float = 1.0,
         multiplier: float = 1.5,
+        secrets: Iterable[Optional[str]] = (),
     ) -> None:
         self.max_retries = max_retries
         self.initial_backoff = initial_backoff
         self.multiplier = multiplier
+        # API keys to strip from logged exception text (see redact_secrets).
+        self.secrets = tuple(s for s in secrets if isinstance(s, str) and s)
 
     def execute(
         self,
@@ -232,17 +255,17 @@ class RetryStrategy:
                         success=False,
                         error_message="Title not found (404)",
                     )
-                xbmc.log(f"HTTP error {status_code}: {error}", xbmc.LOGERROR)
+                xbmc.log(f"HTTP error {status_code}: {redact_secrets(error, self.secrets)}", xbmc.LOGERROR)
                 return ExternalMetadataResult(
                     success=False,
                     error_message=f"HTTP {status_code}",
                 )
 
             except Exception as error:
-                xbmc.log(f"Request error for '{title}': {error}", xbmc.LOGERROR)
+                xbmc.log(f"Request error for '{title}': {redact_secrets(error, self.secrets)}", xbmc.LOGERROR)
                 return ExternalMetadataResult(
                     success=False,
-                    error_message=str(error),
+                    error_message=redact_secrets(error, self.secrets),
                 )
 
         return ExternalMetadataResult(

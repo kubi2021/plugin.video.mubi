@@ -41,6 +41,19 @@ class TestMubiScraper(unittest.TestCase):
         self.assertEqual(films[0]['id'], 1)
         self.assertEqual(films[0]['title'], 'Test Film 1')
 
+    def test_fetch_films_for_country_hits_v4_browse_endpoint(self):
+        # Regression (PR 60 audit F3): pin the request URL, not just the constant.
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'films': [], 'meta': {'next_page': None}}
+        self.scraper.session.get.return_value = mock_response
+
+        self.scraper.fetch_films_for_country('US')
+
+        url = self.scraper.session.get.call_args.args[0]
+        self.assertEqual(url, 'https://api.mubi.com/v4/browse/films')
+        self.assertEqual(self.scraper.session.get.call_args.kwargs['headers']['Client-Country'], 'US')
+
     @patch('sys.exit')
     def test_run(self, mock_exit):
         # Disable threshold for this test

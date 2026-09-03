@@ -8,7 +8,8 @@ import unicodedata
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy
+from .external_urls import TMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
+from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy, redact_secrets
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class TMDBProvider:
     - Free API with higher rate limits
     """
     
-    BASE_URL = "https://api.themoviedb.org/3"
+    BASE_URL = TMDB_API_URL
     
     def __init__(self, api_key: str, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize TMDB provider with API key."""
@@ -49,6 +50,7 @@ class TMDBProvider:
             max_retries=self.config.get("max_retries", 3),
             initial_backoff=self.config.get("backoff_factor", 1.0),
             multiplier=self.config.get("backoff_multiplier", 1.5),
+            secrets=(self.api_key,),
         )
         
         # Determine genres dynamically to avoid hardcoding IDs
@@ -222,7 +224,7 @@ class TMDBProvider:
             success=True,
             tmdb_id=str(best_match["id"]),
             imdb_id=external_ids.get("imdb_id"),
-            imdb_url=f"https://www.imdb.com/title/{external_ids.get('imdb_id')}/" if external_ids.get("imdb_id") else None,
+            imdb_url=IMDB_TITLE_URL_TEMPLATE.format(imdb_id=external_ids["imdb_id"]) if external_ids.get("imdb_id") else None,
             source_provider=self.provider_name,
             vote_average=best_match.get("vote_average"),
             vote_count=best_match.get("vote_count"),
@@ -426,7 +428,7 @@ class TMDBProvider:
             resp.raise_for_status()
             return resp.json().get("results", [])
         except Exception as e:
-            logger.error(f"Search API error: {e}")
+            logger.error(f"Search API error: {redact_secrets(e, (self.api_key,))}")
             return []
 
     def _get_details_with_credits(self, tmdb_id: int, media_type: str) -> dict:
@@ -441,7 +443,7 @@ class TMDBProvider:
             if response.ok:
                 return response.json()
         except Exception as e:
-            logger.warning(f"Failed to fetch details for {tmdb_id}: {e}")
+            logger.warning(f"Failed to fetch details for {tmdb_id}: {redact_secrets(e, (self.api_key,))}")
         return {}
 
     def _extract_year(self, date_str: Optional[str]) -> Optional[int]:
@@ -476,7 +478,7 @@ class TMDBProvider:
                 data = response.json()
                 return {g["id"]: g["name"].lower() for g in data.get("genres", [])}
         except Exception as e:
-            logger.warning(f"Failed to fetch {media_type} genres: {e}")
+            logger.warning(f"Failed to fetch {media_type} genres: {redact_secrets(e, (self.api_key,))}")
         return {}
 
     def _normalize_string(self, s: Optional[str]) -> str:

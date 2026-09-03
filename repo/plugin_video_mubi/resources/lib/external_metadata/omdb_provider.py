@@ -7,7 +7,7 @@ import xbmc
 
 from ..constants import OMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
 from .base import BaseMetadataProvider, ExternalMetadataResult
-from .title_utils import TitleNormalizer, RetryStrategy
+from .title_utils import TitleNormalizer, RetryStrategy, redact_secrets
 
 
 class OMDBProvider(BaseMetadataProvider):
@@ -23,6 +23,7 @@ class OMDBProvider(BaseMetadataProvider):
             max_retries=self.config.get("max_retries", 10),
             initial_backoff=self.config.get("backoff_factor", 1.0),
             multiplier=self.config.get("backoff_multiplier", 1.5),
+            secrets=(self.api_key,),
         )
 
 
@@ -108,12 +109,14 @@ class OMDBProvider(BaseMetadataProvider):
             )
         except requests.exceptions.HTTPError:
             raise
-        except Exception as error:  # pragma: no cover - fallback for unexpected errors
-            xbmc.log(f"OMDB: Request error: {error}", xbmc.LOGERROR)
+        except Exception as error:
+            # str(error) of a requests error embeds the full URL incl. apikey=... -> redact.
+            safe_error = redact_secrets(error, (self.api_key,))
+            xbmc.log(f"OMDB: Request error: {safe_error}", xbmc.LOGERROR)
             return ExternalMetadataResult(
                 success=False,
                 source_provider=self.provider_name,
-                error_message=str(error),
+                error_message=safe_error,
             )
 
     def test_connection(self) -> bool:
