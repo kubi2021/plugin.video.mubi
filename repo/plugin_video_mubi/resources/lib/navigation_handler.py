@@ -12,7 +12,6 @@ from .library import Library
 from .library import Library
 from .playback import play_with_inputstream_adaptive
 from .constants import MUBI_LOGIN_ACTIVATION_URL
-import datetime
 from .availability import is_country_available
 import requests
 import re
