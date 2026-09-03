@@ -74,6 +74,7 @@ Never edit `v1_schema.json` alone. Use `/schema-change` (schema + test + models 
 - 17 tests are skipped citing `os.startfile` (Windows-only). Resolve them; do not add more skips.
 - The release workflow's `sed` produced nested `<news>` tags in v27. Edit XML with a parser, not `sed`.
 - A redirect's `Location` is not proof its target exists. mubi.com 301s `/activate`, `/tv/activate` and the retired `/android` alike to `/tv/<path>`, which then 404s. Follow the chain and check the final status before baselining a URL.
+- Notify-on-failure steps gate on `steps.<id>.outcome == 'failure'`, not bare `failure()`, or a broken `pip install` files an "endpoint failed" issue.
 
 ## Skills
 
