@@ -8,6 +8,7 @@ import unicodedata
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from .external_urls import TMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
 from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy
 
 # Configure logging
@@ -24,7 +25,7 @@ class TMDBProvider:
     - Free API with higher rate limits
     """
     
-    BASE_URL = "https://api.themoviedb.org/3"
+    BASE_URL = TMDB_API_URL
     
     def __init__(self, api_key: str, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize TMDB provider with API key."""
@@ -222,7 +223,7 @@ class TMDBProvider:
             success=True,
             tmdb_id=str(best_match["id"]),
             imdb_id=external_ids.get("imdb_id"),
-            imdb_url=f"https://www.imdb.com/title/{external_ids.get('imdb_id')}/" if external_ids.get("imdb_id") else None,
+            imdb_url=IMDB_TITLE_URL_TEMPLATE.format(imdb_id=external_ids["imdb_id"]) if external_ids.get("imdb_id") else None,
             source_provider=self.provider_name,
             vote_average=best_match.get("vote_average"),
             vote_count=best_match.get("vote_count"),

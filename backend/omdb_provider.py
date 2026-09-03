@@ -6,6 +6,7 @@ import threading
 from typing import Any, Dict, Optional, List, Union
 import requests
 
+from .external_urls import OMDB_API_URL
 from .metadata_utils import ExternalMetadataResult, RetryStrategy
 
 # Configure logging
@@ -19,7 +20,7 @@ class OMDBProvider:
     Supports API key rotation.
     """
     
-    BASE_URL = "http://www.omdbapi.com/"
+    BASE_URL = OMDB_API_URL
     
     def __init__(self, api_keys: Union[str, List[str]]) -> None:
         """

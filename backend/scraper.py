@@ -13,12 +13,17 @@ from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
+# Ensure the backend package can be imported when run directly (python backend/scraper.py),
+# same bootstrap as enrich_metadata.py.
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from backend.external_urls import MUBI_API_V4_URL, MUBI_WEB_URL
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class MubiScraper:
-    BASE_URL = 'https://api.mubi.com/v4'
+    BASE_URL = MUBI_API_V4_URL
     UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
     MIN_TOTAL_FILMS = 1000
     MAX_WORKERS = 2 # Increased for debugging speed
@@ -63,8 +68,8 @@ class MubiScraper:
         session.headers.update({
             'User-Agent': self.UA,
             'Client': 'web',
-            'Origin': 'https://mubi.com',
-            'Referer': 'https://mubi.com',
+            'Origin': MUBI_WEB_URL,
+            'Referer': MUBI_WEB_URL,
             'Accept-Encoding': 'gzip'
         })
         return session
