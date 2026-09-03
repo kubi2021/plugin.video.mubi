@@ -146,3 +146,29 @@ class TestActivationPageCanary:
         (ok, _), get = self._run({"return_value": _response(200, "https://mubi.com/en/tv")})
         assert get.call_args.args[0] == "https://mubi.com/tv"
         assert healthcheck.ACTIVATION_URL == healthcheck._constants.MUBI_LOGIN_ACTIVATION_URL
+
+
+class TestRequestOptions:
+    """Hostile audit of PR 58, F2: three mutations escaped the suite -- dropping
+    the timeout (a hung host then stalls the job until GitHub's 6 h default),
+    dropping the browser User-Agent (some hosts answer 403 to python-requests),
+    and flipping allow_redirects on the canary. Pin all three."""
+
+    def test_check_uses_timeout_and_browser_user_agent(self):
+        with patch.object(healthcheck.requests, "get", return_value=_response(200)) as get:
+            healthcheck.check("https://example.com")
+        kwargs = get.call_args.kwargs
+        assert kwargs["timeout"] == healthcheck.TIMEOUT
+        assert healthcheck.TIMEOUT > 0
+        assert kwargs["headers"]["User-Agent"].startswith("Mozilla/")
+        assert kwargs["allow_redirects"] is True
+
+    def test_canary_follows_redirect_chain_with_timeout_and_browser_user_agent(self):
+        with patch.object(
+            healthcheck.requests, "get", return_value=_response(200, "https://mubi.com/en/tv")
+        ) as get:
+            healthcheck.check_activation_page()
+        kwargs = get.call_args.kwargs
+        assert kwargs["allow_redirects"] is True
+        assert kwargs["timeout"] == healthcheck.TIMEOUT
+        assert kwargs["headers"]["User-Agent"].startswith("Mozilla/")
