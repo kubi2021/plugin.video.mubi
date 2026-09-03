@@ -17,6 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Mask individual OMDb keys in logs
+      # GitHub masks a secret only as its exact full string. OMDB_API_KEYS is a
+      # comma-separated list, so a single key printed on its own (e.g. inside a
+      # requests error URL) would NOT be masked. Register each key separately,
+      # before anything else runs. Defense in depth for CLAUDE.md "never log a key".
+      env:
+        OMDB_API_KEYS: ${{ secrets.OMDB_API_KEYS }}
+      run: |
+        IFS=',' read -ra KEYS <<< "$OMDB_API_KEYS"
+        for key in "${KEYS[@]}"; do
+          key="${key//[[:space:]]/}"
+          if [ -n "$key" ]; then
+            echo "::add-mask::$key"
+          fi
+        done
+
     - name: Checkout repository
       uses: actions/checkout@v4
 
