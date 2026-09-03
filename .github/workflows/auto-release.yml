@@ -25,47 +25,18 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Get current plugin version
-      id: current_version
-      run: |
-        echo "Extracting version from addon.xml..."
-        ADDON_LINE=$(grep '^<addon' repo/plugin_video_mubi/addon.xml)
-        echo "Addon line: $ADDON_LINE"
-        CURRENT_VERSION=$(echo "$ADDON_LINE" | grep -o 'version="[^"]*"' | cut -d'"' -f2)
-        echo "Extracted version: $CURRENT_VERSION"
-
-        # Validate version is a number
-        if ! [[ "$CURRENT_VERSION" =~ ^[0-9]+$ ]]; then
-          echo "Error: Version '$CURRENT_VERSION' is not a valid integer"
-          exit 1
-        fi
-
-        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-        echo "Current version: $CURRENT_VERSION"
-
-    - name: Increment plugin version
+    - name: Bump version and news in addon.xml
       id: new_version
+      # Parse/write addon.xml with a real XML parser instead of sed (issue #48):
+      # sed corrupted <news> on notes containing apostrophes/metacharacters.
+      # Notes are passed via env, never interpolated into the shell, to avoid
+      # script injection from the workflow input.
+      env:
+        RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
       run: |
-        CURRENT_VERSION=${{ steps.current_version.outputs.current_version }}
-        NEW_VERSION=$((CURRENT_VERSION + 1))
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "New version: $NEW_VERSION"
-
-    - name: Update plugin addon.xml with new version
-      run: |
-        NEW_VERSION=${{ steps.new_version.outputs.new_version }}
-        # Only update the addon version, not dependency versions
-        sed -i "s/<addon id=\"plugin.video.mubi\" name=\"MUBI\" version=\"[^\"]*\"/<addon id=\"plugin.video.mubi\" name=\"MUBI\" version=\"$NEW_VERSION\"/" repo/plugin_video_mubi/addon.xml
-        echo "Updated plugin version to $NEW_VERSION"
-
-    - name: Update news section with release notes
-      run: |
-        NEW_VERSION=${{ steps.new_version.outputs.new_version }}
-        RELEASE_NOTES="${{ github.event.inputs.release_notes }}"
-        # Escape special characters for XML
-        ESCAPED_NOTES=$(echo "$RELEASE_NOTES" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
-        sed -i "s|<news>.*</news>|<news>v$NEW_VERSION - $ESCAPED_NOTES</news>|" repo/plugin_video_mubi/addon.xml
-        echo "Updated news section with: v$NEW_VERSION - $RELEASE_NOTES"
+        NEW_VERSION=$(python3 scripts/bump_version.py --notes "$RELEASE_NOTES")
+        echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+        echo "Bumped plugin to v$NEW_VERSION with notes: $RELEASE_NOTES"
 
     - name: Generate repository files
       run: |
