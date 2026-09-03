@@ -345,3 +345,32 @@ def test_genre_fetch_connection_error_does_not_log_api_key(caplog):
     assert provider.movie_genres == {}
     assert "Failed to fetch movie genres" in caplog.text
     assert _SECRET not in caplog.text
+
+
+# --- Regression tests (PR 60 audit F2): imdb_url is built from the constant template ---
+
+def test_build_result_formats_imdb_url_from_template(tmdb_provider):
+    best_match = {
+        "id": 603,
+        "title": "Stalker",
+        "release_date": "1979-05-25",
+        "external_ids": {"imdb_id": "tt0079944"},
+        "credits": {"crew": [{"job": "Director", "name": "Andrei Tarkovsky"}]},
+    }
+
+    result = tmdb_provider._build_result(best_match, 90, {"title": "Stalker", "year": 1979}, "movie")
+
+    assert result.success is True
+    assert result.imdb_id == "tt0079944"
+    assert result.imdb_url == "https://www.imdb.com/title/tt0079944/"
+    assert "{imdb_id}" not in result.imdb_url
+
+
+def test_build_result_without_imdb_id_has_no_imdb_url(tmdb_provider):
+    best_match = {"id": 603, "title": "Stalker", "release_date": "1979-05-25", "external_ids": {}}
+
+    result = tmdb_provider._build_result(best_match, 90, {"title": "Stalker"}, "movie")
+
+    assert result.success is True
+    assert result.imdb_id is None
+    assert result.imdb_url is None
