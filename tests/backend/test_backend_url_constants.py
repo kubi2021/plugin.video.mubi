@@ -34,6 +34,13 @@ class TestBackendUrlConstants:
             f"{name} differs between backend/external_urls.py and the plugin constants; change both or neither"
         )
 
+    def test_mubi_api_base_is_v4_under_the_plugin_api_host(self):
+        # Regression (PR 60 audit F3): the one URL the whole pipeline depends on was pinned
+        # by nothing; the agreement test skips it because the plugin constant has no version.
+        plugin = _load_plugin_constants()
+
+        assert constants.MUBI_API_V4_URL == plugin.MUBI_API_URL.rstrip("/") + "/v4"
+
     def test_scraper_and_providers_use_constants(self):
         from backend.omdb_provider import OMDBProvider
         from backend.scraper import MubiScraper
