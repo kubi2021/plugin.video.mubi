@@ -51,3 +51,18 @@ HEALTHCHECK_URLS = [
     MUBI_LOGIN_ACTIVATION_URL,
     CATALOG_FILMS_URL,
 ]
+
+# Activation-URL drift canary.
+#
+# `https://mubi.com/activate` is Mubi's server-side pointer to wherever device
+# activation currently lives: it permanently (301) redirects to the real path.
+# Today that first hop is `/tv/activate`. Watching *that Location header* is an
+# authoritative early signal that Mubi moved the activation page (as it did when
+# it retired /android): the redirect target changes before/independently of our
+# hardcoded MUBI_LOGIN_ACTIVATION_URL breaking, and it names the new path.
+#
+# The healthcheck reads the first-hop Location (redirects OFF) and compares its
+# path to the baseline below; a mismatch means "review the login URL". Only the
+# path is compared, so Mubi returning an absolute vs relative Location is fine.
+MUBI_ACTIVATION_PROBE_URL = "https://mubi.com/activate"
+MUBI_ACTIVATION_EXPECTED_REDIRECT_PATH = "/tv/activate"

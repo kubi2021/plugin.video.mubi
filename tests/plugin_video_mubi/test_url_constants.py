@@ -34,3 +34,8 @@ class TestUrlConstants:
         from resources.lib import data_source
 
         assert data_source.GithubDataSource.GITHUB_URL == constants.CATALOG_FILMS_URL
+
+    def test_activation_drift_canary_baselines_present(self):
+        assert constants.MUBI_ACTIVATION_PROBE_URL.startswith("https://")
+        # The expected redirect target is compared as a path, so it must be one.
+        assert constants.MUBI_ACTIVATION_EXPECTED_REDIRECT_PATH.startswith("/")
