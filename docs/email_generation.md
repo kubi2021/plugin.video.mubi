@@ -67,4 +67,17 @@ The email template (`weekly-digest.tsx`) is designed to read dynamic data from a
 
 > **Note**: The React component looks for `tmp/weekly_digest.json`. If this file is missing, it falls back to hardcoded sample data (e.g., "Senna").
 
-To update the email with real data, you must run the generation script that produces this JSON artifact (implementation pending integration with `generate_weekly_digest.py`).
+The generation step is fully wired into CI. The [`weekly-digest.yml`](../.github/workflows/weekly-digest.yml)
+workflow runs every Friday: it fetches `films.json.gz` from the `database` branch,
+unzips it, and runs `backend/generate_weekly_digest.py` to produce the digest artifact
+before rendering and sending the email via React Email.
+
+To reproduce it locally, run the generation script against a local `films.json`:
+
+```bash
+python3 backend/generate_weekly_digest.py --input films.json --output backend/tmp/weekly_digest.md
+```
+
+---
+
+_Last updated: 2026-09-03_

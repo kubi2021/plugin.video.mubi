@@ -53,7 +53,7 @@ pytest tests/ -v
 
 #### Coverage Report
 ```bash
-pytest tests/ --cov=resources --cov-report=term-missing --cov-fail-under=65
+pytest tests/ --cov=repo/plugin_video_mubi --cov-report=term-missing --cov-fail-under=65
 ```
 
 #### Parallel Execution
@@ -63,7 +63,7 @@ pytest tests/ -n auto
 
 #### Specific Test File
 ```bash
-pytest tests/test_film.py -v
+pytest tests/plugin_video_mubi/test_film.py -v
 ```
 
 #### Specific Test Function
@@ -75,22 +75,22 @@ pytest tests/ -k "test_film_initialization" -v
 
 #### Code Formatting
 ```bash
-python -m black resources/ tests/ addon.py
-python -m isort resources/ tests/ addon.py
+python -m black repo/plugin_video_mubi/resources/ tests/ repo/plugin_video_mubi/addon.py
+python -m isort repo/plugin_video_mubi/resources/ tests/ repo/plugin_video_mubi/addon.py
 ```
 
 #### Linting
 ```bash
-python -m flake8 resources/ tests/ addon.py
+python -m flake8 repo/plugin_video_mubi/resources/ tests/ repo/plugin_video_mubi/addon.py
 ```
 
 #### Combined Workflow
 ```bash
 # Format, lint, and test with coverage
-python -m black resources/ tests/ addon.py && \
-python -m isort resources/ tests/ addon.py && \
-python -m flake8 resources/ tests/ addon.py && \
-python -m pytest tests/ --cov=resources --cov-report=term-missing --cov-fail-under=65
+python -m black repo/plugin_video_mubi/resources/ tests/ repo/plugin_video_mubi/addon.py && \
+python -m isort repo/plugin_video_mubi/resources/ tests/ repo/plugin_video_mubi/addon.py && \
+python -m flake8 repo/plugin_video_mubi/resources/ tests/ repo/plugin_video_mubi/addon.py && \
+python -m pytest tests/ --cov=repo/plugin_video_mubi --cov-report=term-missing --cov-fail-under=65
 ```
 
 ## Test Coverage
@@ -188,7 +188,7 @@ strategy:
     python-version: [3.8, 3.9, '3.10', '3.11']
 
 # Coverage validation
-pytest tests/ --cov=resources --cov-report=term-missing --cov-fail-under=65
+pytest tests/ --cov=repo/plugin_video_mubi --cov-report=term-missing --cov-fail-under=65
 ```
 
 ### Local CI Simulation
@@ -200,7 +200,7 @@ To run the same tests locally as CI:
 pip install -r requirements-dev.txt
 
 # Run tests with coverage (same as CI)
-pytest tests/ -v --tb=short --cov=resources --cov-report=term-missing --cov-fail-under=65
+pytest tests/ -v --tb=short --cov=repo/plugin_video_mubi --cov-report=term-missing --cov-fail-under=65
 ```
 
 ## Troubleshooting
@@ -228,3 +228,7 @@ When adding new functionality:
 3. Follow existing test patterns
 4. Update this README if needed
 5. Ensure all tests pass before submitting
+
+---
+
+_Last updated: 2026-09-03_
