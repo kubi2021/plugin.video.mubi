@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.mubi" name="MUBI" version="28" provider-name="kubi2021">
+<addons><addon id="plugin.video.mubi" name="MUBI" version="29" provider-name="kubi2021">
   <requires>
     <import addon="xbmc.python" version="3.0.1" />
     <import addon="script.module.inputstreamhelper" version="0.5.0+matrix.1" />
@@ -17,7 +17,7 @@
     <source>https://github.com/kubi2021/plugin.video.mubi</source>
     <disclaimer>Unofficial add-on</disclaimer>
     <website>https://mubi.com</website>
-    <news>v28 - Fix login: Mubi moved their TV activation page, so the plugin now points to the correct URL (mubi.com/tv).</news>
+    <news>v29 - Centralize all external URLs into a constants module for easier maintenance and healthcheck coverage</news>
     <assets>
         <icon>resources/icon.png</icon>
         <fanart>resources/fanart.png</fanart>
