@@ -1,0 +1,70 @@
+name: Endpoint Healthcheck
+
+# Proactively verifies that the external pages/files the plugin depends on are
+# still live, so a retired/moved URL (e.g. Mubi's old login page returning 404)
+# is caught here instead of via a user bug report.
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # Daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install requests
+
+    - name: Run endpoint healthcheck
+      id: healthcheck
+      run: python scripts/healthcheck.py
+
+    - name: Notify on Failure
+      # Gate on the check step itself, not bare failure(): a broken checkout or
+      # pip install must not file an "endpoint failed" issue that points the
+      # maintainer at constants.py.
+      if: failure() && steps.healthcheck.outcome == 'failure'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { repo, owner } = context.repo;
+          const run_url = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+          const title = `🚨 Endpoint Healthcheck Failed`;
+
+          // De-duplicate: only open a new issue if one isn't already open.
+          const existing = await github.rest.issues.listForRepo({
+            owner,
+            repo,
+            state: 'open',
+            per_page: 100,
+          });
+          const already = existing.data.find(
+            (i) => !i.pull_request && i.title === title
+          );
+
+          const body = `One or more external endpoints the plugin depends on failed the healthcheck.\n\n[View Run logs](${run_url})\n\nA URL the plugin hardcodes (Mubi login/web page or the catalog data file) may have moved or been retired. Check the run logs for which URL failed and update \`repo/plugin_video_mubi/resources/lib/constants.py\`.`;
+
+          if (already) {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: already.number,
+              body: `Still failing as of ${new Date().toISOString()}.\n\n[View Run logs](${run_url})`,
+            });
+          } else {
+            await github.rest.issues.create({ owner, repo, title, body });
+          }

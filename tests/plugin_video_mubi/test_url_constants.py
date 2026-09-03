@@ -19,7 +19,6 @@ class TestUrlConstants:
             "TMDB_API_URL",
             "OMDB_API_URL",
             "IMDB_TITLE_URL_TEMPLATE",
-            "MUBI_ACTIVATION_PROBE_URL",
         ):
             value = getattr(constants, name)
             assert value.startswith("https://"), f"{name} must be https"
@@ -52,15 +51,39 @@ class TestUrlConstants:
         # api.mubi.com/ returns 404 on a bare GET, so it must not be strict-checked.
         assert constants.MUBI_API_URL not in constants.HEALTHCHECK_URLS
 
+    def test_healthcheck_excludes_bot_gated_geoip_services(self):
+        # ipapi.co (403 to browser UAs) and ifconfig.co (Cloudflare 403 to
+        # datacenter IPs, e.g. the CI runner -- issue #62) 403 in CI while
+        # serving real residential users, so they are runtime fallbacks but must
+        # not be strict-checked, or the daily job false-alarms.
+        assert "https://ipapi.co/country/" not in constants.HEALTHCHECK_URLS
+        assert "https://ifconfig.co/country-iso" not in constants.HEALTHCHECK_URLS
+        # ...but they remain in the plugin's runtime fallback chain.
+        assert "https://ipapi.co/country/" in constants.GEOIP_COUNTRY_URLS
+        assert "https://ifconfig.co/country-iso" in constants.GEOIP_COUNTRY_URLS
+
+    def test_healthchecked_geoip_services_answer_from_any_ip(self):
+        # The two geo services that DO stay in the healthcheck must be the
+        # IP-agnostic ones; keep at least one so the fallback chain has coverage.
+        checked = [u for u in constants.GEOIP_COUNTRY_URLS if u in constants.HEALTHCHECK_URLS]
+        assert "https://get.geojs.io/v1/ip/country" in checked
+        assert "https://ipinfo.io/country" in checked
+
     def test_data_source_uses_catalog_constant(self):
         from resources.lib import data_source
 
         assert data_source.GithubDataSource.GITHUB_URL == constants.CATALOG_FILMS_URL
 
-    def test_activation_drift_canary_baselines_present(self):
-        assert constants.MUBI_ACTIVATION_PROBE_URL.startswith("https://")
-        # The expected redirect target is compared as a path, so it must be one.
-        assert constants.MUBI_ACTIVATION_EXPECTED_REDIRECT_PATH.startswith("/")
+    def test_activation_canary_suffix_matches_the_login_url(self):
+        # scripts/healthcheck.py follows MUBI_LOGIN_ACTIVATION_URL's redirects and
+        # requires the final path to end in this suffix, so the suffix must be a
+        # path fragment and the login URL itself must satisfy it.
+        from urllib.parse import urlsplit
+
+        suffix = constants.MUBI_ACTIVATION_EXPECTED_PATH_SUFFIX
+        assert suffix.startswith("/")
+        login_path = urlsplit(constants.MUBI_LOGIN_ACTIVATION_URL).path.rstrip("/")
+        assert login_path.endswith(suffix)
 
 
 class TestNoUrlLiteralsOutsideConstants:

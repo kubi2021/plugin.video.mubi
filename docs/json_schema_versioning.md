@@ -2,7 +2,7 @@
 
 This document explains the versioning system for the Mubi plugin's JSON data format (`films.json` and `series.json`).
 
-**Last Updated:** 2025-12-20
+**Last Updated:** 2026-09-03
 
 ---
 
@@ -19,16 +19,16 @@ The plugin syncs film data from a pre-computed JSON database hosted on GitHub. T
 | Field | Value | Location |
 |-------|-------|----------|
 | `version` | `1` (integer) | JSON `meta.version` |
-| `version_label` | `1.0-beta.1` | JSON `meta.version_label` |
-| **Status** | **BETA** | — |
+| `version_label` | `1.0` | JSON `meta.version_label` |
+| **Status** | **STABLE** (since 2026-09-03) | — |
 
 ### Where It's Defined
 
-1. **Scraper Output**: `backend/scraper.py` (lines ~597 and ~612)
+1. **Scraper Output**: `backend/scraper.py` (films and series `meta` blocks in `save_films`)
    ```python
    'meta': {
        'version': 1,
-       'version_label': '1.0-beta.1',
+       'version_label': '1.0',
        ...
    }
    ```
@@ -42,19 +42,9 @@ The plugin syncs film data from a pre-computed JSON database hosted on GitHub. T
 
 ---
 
-## What "Beta" Means
+## Schema Status: Stable
 
-During beta, the schema is **not frozen**. Changes are allowed with proper process:
-
-| Change Type | Allowed? | Required Steps |
-|-------------|----------|----------------|
-| Add optional field | ✅ Yes | Update schema, add test |
-| Remove field | ⚠️ With review | Human review required |
-| Change field type | ⚠️ With review | Human review required |
-| Restructure objects | ⚠️ With review | Human review required |
-| Make optional → required | ✅ Yes | Update schema + tests |
-
-**Key point**: Breaking changes are allowed during beta, but they must be reviewed.
+v1 is **frozen** as of 2026-09-03. The rules in [Post-Stable Rules](#post-stable-rules) apply: optional fields may be added in v1.x; removing a field, changing a type, or restructuring objects requires a v2. The beta period (labels `1.0-beta.1` to `1.0-beta.3`) is over.
 
 ---
 
@@ -89,7 +79,7 @@ This prevents AI agents or accidental commits from bypassing the tests.
 
 **If tests fail:**
 1. Check if your change matches the schema
-2. If intentional breaking change during beta → update schema + tests together
+2. If the change is a breaking one (see Post-Stable Rules) → it needs a v2, not a v1 edit
 3. If production data fails → schema may need to be more permissive (e.g., allow string OR int)
 
 **Running tests locally:**
@@ -101,7 +91,7 @@ pytest tests/backend/test_schema_v1.py -v
 
 ## Transition to Stable (v1.0)
 
-When you're ready to freeze the schema and release v1.0 stable:
+This was done on 2026-09-03. Kept as the procedure for future major versions (e.g. `2.0-beta.N` → `2.0`):
 
 ### Step 1: Update Backend Scraper
 
@@ -109,7 +99,7 @@ In `backend/scraper.py`, change the version label:
 
 ```python
 # Before (beta)
-'version_label': '1.0-beta.1',
+'version_label': '1.0-beta.3',
 
 # After (stable)
 'version_label': '1.0',
@@ -237,14 +227,14 @@ If validation fails, the workflow aborts and does NOT deploy to the database bra
 
 ---
 
-## Bumping Beta Version
+## Bumping the Version Label
 
-When making changes during beta:
+On every v1 schema change (additive only, see Post-Stable Rules):
 
 1. Make your schema changes
-2. Update `version_label` in `backend/scraper.py`:
+2. Update `version_label` in `backend/scraper.py` (both `meta` blocks):
    ```python
-   '1.0-beta.1' → '1.0-beta.2'
+   '1.0' → '1.1'
    ```
 3. Update tests in `tests/backend/test_schema_v1.py`
 4. Commit and push

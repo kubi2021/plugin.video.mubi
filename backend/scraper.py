@@ -667,7 +667,7 @@ class MubiScraper:
             'meta': {
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
                 'version': 1,
-                'version_label': '1.0-beta.3',  # Human-readable version for debugging
+                'version_label': '1.0',  # Human-readable version for debugging
                 'total_count': len(final_films),
                 'mode': mode
             },
@@ -684,7 +684,7 @@ class MubiScraper:
             'meta': {
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
                 'version': 1,
-                'version_label': '1.0-beta.3',  # Human-readable version for debugging
+                'version_label': '1.0',  # Human-readable version for debugging
                 'total_count': len(final_series),
                 'mode': mode
             },
