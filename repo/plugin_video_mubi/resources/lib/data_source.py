@@ -7,6 +7,11 @@ from abc import ABC, abstractmethod
 import datetime
 import dateutil.parser
 
+try:
+    from .constants import CATALOG_FILMS_URL
+except ImportError:  # imported as a top-level module (e.g. some test harnesses)
+    from constants import CATALOG_FILMS_URL
+
 class FilmDataSource:
     """
     Interface for a film data source.
@@ -239,7 +244,7 @@ class GithubDataSource(FilmDataSource):
     URL: https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz
     """
 
-    GITHUB_URL = "https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz"
+    GITHUB_URL = CATALOG_FILMS_URL
     SUPPORTED_VERSIONS = [1]  # Supported schema versions
 
     def get_films(self, *args, **kwargs) -> List[Dict[str, Any]]:

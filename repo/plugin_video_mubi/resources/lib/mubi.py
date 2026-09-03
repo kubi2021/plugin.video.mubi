@@ -28,6 +28,7 @@ from requests.packages.urllib3.util.retry import Retry
 from typing import Optional, Tuple
 from .metadata import Metadata
 from .film import Film
+from .constants import MUBI_API_URL, MUBI_WEB_URL
 from .library import Library
 from .playback import generate_drm_license_key
 
@@ -51,7 +52,7 @@ class Mubi:
         :param session_manager: Instance of SessionManager to handle session data
         :type session_manager: SessionManager
         """
-        self.apiURL = 'https://api.mubi.com/'
+        self.apiURL = MUBI_API_URL
         self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
         self.session_manager = session_manager  # Use session manager for session-related data
         self.library = Library()  # Initialize the Library
@@ -397,7 +398,7 @@ class Mubi:
 
             fresh_session = fresh_requests.Session()
             fresh_session.cookies.clear()
-            response = fresh_session.get('https://mubi.com/', headers=headers, timeout=10)
+            response = fresh_session.get(f'{MUBI_WEB_URL}/', headers=headers, timeout=10)
 
             if response and response.status_code == 200:
                 country = re.findall(r'"Client-Country":"([^"]+?)"', response.text)
@@ -435,7 +436,7 @@ class Mubi:
         :return: Headers dictionary.
         :rtype: dict
         """
-        base_url = 'https://mubi.com'  # This is used for the Referer and Origin headers
+        base_url = MUBI_WEB_URL  # This is used for the Referer and Origin headers
 
         return {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
@@ -509,7 +510,7 @@ class Mubi:
         :return: Headers dictionary without Authorization token.
         :rtype: dict
         """
-        base_url = 'https://mubi.com'
+        base_url = MUBI_WEB_URL
         # Use provided country_code or fall back to session's client_country
         client_country = country_code if country_code else self.session_manager.client_country
 
@@ -531,7 +532,7 @@ class Mubi:
         :return: Headers dictionary with web client headers and Authorization token.
         :rtype: dict
         """
-        base_url = 'https://mubi.com'
+        base_url = MUBI_WEB_URL
         token = self.session_manager.token
         if not token:
             xbmc.log("No token found for web headers", xbmc.LOGERROR)
