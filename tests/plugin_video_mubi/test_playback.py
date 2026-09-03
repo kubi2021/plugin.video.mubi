@@ -58,6 +58,31 @@ class TestPlayback:
         assert custom_data["sessionId"] == token
         assert custom_data["merchant"] == "mubi"
 
+    def test_generate_drm_license_key_headers_use_mubi_origin(self):
+        """DRM Today validates Referer/Origin; both must be the Mubi web origin.
+
+        Regression guard for the constants refactor: a wrong MUBI_WEB_URL (or a
+        trailing-slash change) would break every license request and no other
+        test pins the header *values*.
+        """
+        from urllib.parse import parse_qs
+
+        license_key = generate_drm_license_key("tok", "uid")
+        headers = parse_qs(license_key.split("|")[1])
+
+        assert headers["Referer"] == ["https://mubi.com/"]
+        assert headers["Origin"] == ["https://mubi.com"]
+
+    def test_generate_drm_config_headers_use_mubi_origin(self):
+        """Kodi 22+ DRM config must carry the same Referer/Origin pair."""
+        from urllib.parse import parse_qs
+
+        drm_config = generate_drm_config("tok", "uid")
+        headers = parse_qs(drm_config["com.widevine.alpha"]["license"]["req_headers"])
+
+        assert headers["Referer"] == ["https://mubi.com/"]
+        assert headers["Origin"] == ["https://mubi.com"]
+
     def test_generate_drm_config(self):
         """Test DRM configuration generation for Kodi 22+."""
         token = "test-session-token"

@@ -8,6 +8,7 @@ import xbmc
 import pathlib
 from .mpd_patcher import MPDPatcher
 from .local_server import LocalServer
+from .constants import MUBI_WEB_URL, DRM_LICENSE_URL
 
 def generate_drm_license_key(token, user_id):
     """
@@ -17,15 +18,15 @@ def generate_drm_license_key(token, user_id):
     :param user_id: The Mubi user ID.
     :return: A formatted DRM license key URL.
     """
-    drm_license_url = "https://lic.drmtoday.com/license-proxy-widevine/cenc/"
+    drm_license_url = DRM_LICENSE_URL
     dcd = json.dumps({"userId": user_id, "sessionId": token, "merchant": "mubi"})
     dcd_enc = base64.b64encode(dcd.encode()).decode()
 
     drm_headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
         'dt-custom-data': dcd_enc,
-        'Referer': 'https://mubi.com/',
-        'Origin': 'https://mubi.com',
+        'Referer': f'{MUBI_WEB_URL}/',
+        'Origin': MUBI_WEB_URL,
         'Content-Type': ''
     }
 
@@ -42,15 +43,15 @@ def generate_drm_config(token, user_id):
     :param user_id: The Mubi user ID.
     :return: A dictionary containing the DRM configuration for the new format.
     """
-    drm_license_url = "https://lic.drmtoday.com/license-proxy-widevine/cenc/"
+    drm_license_url = DRM_LICENSE_URL
     dcd = json.dumps({"userId": user_id, "sessionId": token, "merchant": "mubi"})
     dcd_enc = base64.b64encode(dcd.encode()).decode()
 
     drm_headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
         'dt-custom-data': dcd_enc,
-        'Referer': 'https://mubi.com/',
-        'Origin': 'https://mubi.com',
+        'Referer': f'{MUBI_WEB_URL}/',
+        'Origin': MUBI_WEB_URL,
         'Content-Type': ''
     }
 
@@ -106,8 +107,8 @@ def play_with_inputstream_adaptive(handle, stream_url: str, license_key: str, su
         # Set the headers that will be used for the license and manifest
         stream_headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
-            'Referer': 'https://mubi.com/',
-            'Origin': 'https://mubi.com'
+            'Referer': f'{MUBI_WEB_URL}/',
+            'Origin': MUBI_WEB_URL
         }
 
         headers_str = "&".join([f"{k}={v}" for k, v in stream_headers.items()])
