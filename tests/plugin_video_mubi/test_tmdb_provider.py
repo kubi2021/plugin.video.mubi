@@ -267,3 +267,35 @@ class TestTMDBProvider:
         # Call 2: Fuzzy
         args2, kwargs2 = mock_get.call_args_list[1]
         assert "year" not in kwargs2['params']
+
+
+class TestTMDBSecretRedaction:
+    """Regression (PR 60 audit F1): the TMDb key is a query parameter, and a requests
+    error message carries the request URL, so logging `{e}` leaks the key into kodi.log."""
+
+    SECRET = "SECRETKEY4242"
+
+    @staticmethod
+    def _connection_error(url, params=None, **_):
+        # `requests` is a MagicMock in this suite (conftest), so build the urllib3-style
+        # message by hand: it carries the request path *and* query string.
+        import requests as _requests
+        query = "&".join(f"{k}={v}" for k, v in (params or {}).items())
+        raise _requests.exceptions.ConnectionError(
+            f"HTTPSConnectionPool(host='api.themoviedb.org', port=443): Max retries exceeded with url: /3/movie/603?{query}"
+        )
+
+    @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.xbmc')
+    @patch('plugin_video_mubi.resources.lib.external_metadata.tmdb_provider.requests.get')
+    def test_get_movie_details_error_does_not_log_api_key(self, mock_get, mock_xbmc):
+        from plugin_video_mubi.resources.lib.external_metadata.tmdb_provider import TMDBProvider
+        mock_get.side_effect = self._connection_error
+        provider = TMDBProvider(api_key=self.SECRET)
+
+        result = provider._get_movie_details(603)
+
+        logged = "\n".join(str(call.args[0]) for call in mock_xbmc.log.call_args_list)
+        assert result.success is False
+        assert "Failed to get details for ID 603" in logged
+        assert self.SECRET not in logged
+        assert self.SECRET not in (result.error_message or "")

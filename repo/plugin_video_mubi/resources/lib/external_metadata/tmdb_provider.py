@@ -7,7 +7,7 @@ import xbmc
 
 from ..constants import TMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
 from .base import BaseMetadataProvider, ExternalMetadataResult
-from .title_utils import TitleNormalizer, RetryStrategy
+from .title_utils import TitleNormalizer, RetryStrategy, redact_secrets
 
 
 class TMDBProvider(BaseMetadataProvider):
@@ -32,6 +32,7 @@ class TMDBProvider(BaseMetadataProvider):
             max_retries=self.config.get("max_retries", 3),
             initial_backoff=self.config.get("backoff_factor", 1.0),
             multiplier=self.config.get("backoff_multiplier", 1.5),
+            secrets=(self.api_key,),
         )
         
 
@@ -169,7 +170,7 @@ class TMDBProvider(BaseMetadataProvider):
             return None
             
         except Exception as e:
-            xbmc.log(f"TMDB: Search failed for '{title}': {e}", xbmc.LOGWARNING)
+            xbmc.log(f"TMDB: Search failed for '{title}': {redact_secrets(e, (self.api_key,))}", xbmc.LOGWARNING)
             return None
 
     def _get_movie_details(self, tmdb_id: int) -> ExternalMetadataResult:
@@ -203,11 +204,13 @@ class TMDBProvider(BaseMetadataProvider):
             return ExternalMetadataResult(**result_data)
             
         except Exception as e:
-            xbmc.log(f"TMDB: Failed to get details for ID {tmdb_id}: {e}", xbmc.LOGERROR)
+            # str(e) of a requests error embeds the full URL incl. api_key=... -> redact.
+            safe_error = redact_secrets(e, (self.api_key,))
+            xbmc.log(f"TMDB: Failed to get details for ID {tmdb_id}: {safe_error}", xbmc.LOGERROR)
             return ExternalMetadataResult(
                 success=False,
                 source_provider=self.provider_name,
-                error_message=str(e)
+                error_message=safe_error
             )
 
     def test_connection(self) -> bool:

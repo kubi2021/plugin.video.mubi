@@ -3,12 +3,31 @@ from __future__ import annotations
 import re
 import time
 import logging
-from typing import Callable, List, Optional, Any
+from typing import Callable, Iterable, List, Optional, Any
 from dataclasses import dataclass
+from urllib.parse import quote, quote_plus
 import requests
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def redact_secrets(text: Any, secrets: Iterable[Optional[str]]) -> str:
+    """Return ``str(text)`` with every secret replaced by ``***``.
+
+    ``requests`` exception messages embed the full request URL, so a key sent as a
+    query parameter (OMDb ``apikey``, TMDb ``api_key``) would otherwise reach the
+    log verbatim. Raw, percent-encoded and plus-encoded forms are all replaced.
+    Empty/None secrets are ignored.
+    """
+    out = str(text)
+    for secret in secrets:
+        if not secret:
+            continue
+        for form in {secret, quote(secret, safe=""), quote_plus(secret)}:
+            out = out.replace(form, "***")
+    return out
+
 
 @dataclass
 class ExternalMetadataResult:
@@ -201,10 +220,13 @@ class RetryStrategy:
         max_retries: int = 10,
         initial_backoff: float = 1.0,
         multiplier: float = 1.5,
+        secrets: Iterable[Optional[str]] = (),
     ) -> None:
         self.max_retries = max_retries
         self.initial_backoff = initial_backoff
         self.multiplier = multiplier
+        # API keys to strip from logged exception text (see redact_secrets).
+        self.secrets = tuple(s for s in secrets if s)
 
     def execute(
         self,
@@ -262,17 +284,17 @@ class RetryStrategy:
                         error_message="Title not found (404)",
                     )
                 
-                logger.error(f"HTTP error {status_code}: {error}")
+                logger.error(f"HTTP error {status_code}: {redact_secrets(error, self.secrets)}")
                 return ExternalMetadataResult(
                     success=False,
                     error_message=f"HTTP {status_code}",
                 )
 
             except Exception as error:
-                logger.error(f"Request error for '{title}': {error}")
+                logger.error(f"Request error for '{title}': {redact_secrets(error, self.secrets)}")
                 return ExternalMetadataResult(
                     success=False,
-                    error_message=str(error),
+                    error_message=redact_secrets(error, self.secrets),
                 )
 
         return ExternalMetadataResult(

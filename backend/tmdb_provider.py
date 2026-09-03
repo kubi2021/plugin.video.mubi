@@ -9,7 +9,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .external_urls import TMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
-from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy
+from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy, redact_secrets
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ class TMDBProvider:
             max_retries=self.config.get("max_retries", 3),
             initial_backoff=self.config.get("backoff_factor", 1.0),
             multiplier=self.config.get("backoff_multiplier", 1.5),
+            secrets=(self.api_key,),
         )
         
         # Determine genres dynamically to avoid hardcoding IDs
@@ -427,7 +428,7 @@ class TMDBProvider:
             resp.raise_for_status()
             return resp.json().get("results", [])
         except Exception as e:
-            logger.error(f"Search API error: {e}")
+            logger.error(f"Search API error: {redact_secrets(e, (self.api_key,))}")
             return []
 
     def _get_details_with_credits(self, tmdb_id: int, media_type: str) -> dict:
@@ -442,7 +443,7 @@ class TMDBProvider:
             if response.ok:
                 return response.json()
         except Exception as e:
-            logger.warning(f"Failed to fetch details for {tmdb_id}: {e}")
+            logger.warning(f"Failed to fetch details for {tmdb_id}: {redact_secrets(e, (self.api_key,))}")
         return {}
 
     def _extract_year(self, date_str: Optional[str]) -> Optional[int]:
@@ -477,7 +478,7 @@ class TMDBProvider:
                 data = response.json()
                 return {g["id"]: g["name"].lower() for g in data.get("genres", [])}
         except Exception as e:
-            logger.warning(f"Failed to fetch {media_type} genres: {e}")
+            logger.warning(f"Failed to fetch {media_type} genres: {redact_secrets(e, (self.api_key,))}")
         return {}
 
     def _normalize_string(self, s: Optional[str]) -> str:

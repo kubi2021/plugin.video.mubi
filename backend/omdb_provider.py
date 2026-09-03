@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, List, Union
 import requests
 
 from .external_urls import OMDB_API_URL
-from .metadata_utils import ExternalMetadataResult, RetryStrategy
+from .metadata_utils import ExternalMetadataResult, RetryStrategy, redact_secrets
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ class OMDBProvider:
             max_retries=3,
             initial_backoff=1.0,
             multiplier=1.5,
+            secrets=self.api_keys,
         )
         
     @property
@@ -133,13 +134,15 @@ class OMDBProvider:
 
             except Exception as e:
                 # Catch internal exhaustion exception or request errors
-                if "All OMDB API keys are marked as bad" in str(e):
-                    logger.warning(f"OMDB: Aborting request. {e}")
-                    last_error = str(e)
+                # str(e) of a requests error embeds the full URL incl. apikey=... -> redact.
+                safe_error = redact_secrets(e, self.api_keys)
+                if "All OMDB API keys are marked as bad" in safe_error:
+                    logger.warning(f"OMDB: Aborting request. {safe_error}")
+                    last_error = safe_error
                     break 
                 
-                logger.warning(f"OMDB: Network error with key ...{current_key[-4:]}: {e}")
-                last_error = str(e)
+                logger.warning(f"OMDB: Network error with key ...{current_key[-4:]}: {safe_error}")
+                last_error = safe_error
                 # For network errors, we might want to just retry (maybe same key, maybe next).
                 # Continuing loop rotates key, which is fine.
                 continue

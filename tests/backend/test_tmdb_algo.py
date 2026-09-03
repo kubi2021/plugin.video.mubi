@@ -274,3 +274,74 @@ def test_tmdb_session_configuration():
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["GET"]
          )
+
+
+# --- Regression tests (PR 60 audit F1): API key must never reach a log line ---
+
+_SECRET = "SECRETKEY4242"
+
+
+def _http_500(url, params=None, **_):
+    """A real 500 Response whose .url requests built itself (query string included)."""
+    prepared = requests.Request("GET", url, params=params).prepare()
+    resp = requests.Response()
+    resp.status_code = 500
+    resp.reason = "Server Error"
+    resp.url = prepared.url
+    resp._content = b"{}"
+    return resp
+
+
+def _connection_error(url, params=None, **_):
+    """urllib3-style ConnectionError text: it carries the request path and query."""
+    path = requests.Request("GET", url, params=params).prepare().path_url
+    raise requests.ConnectionError(
+        f"HTTPSConnectionPool(host='api.themoviedb.org', port=443): Max retries exceeded with url: {path}"
+    )
+
+
+def _provider_with_secret():
+    with patch("backend.tmdb_provider.requests") as mock_requests:
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {"genres": []}
+        mock_requests.get.return_value = mock_response
+        return TMDBProvider(api_key=_SECRET)
+
+
+def test_search_api_http_error_does_not_log_api_key(caplog):
+    import logging
+    provider = _provider_with_secret()
+
+    with patch.object(provider.session, "get", side_effect=_http_500):
+        with caplog.at_level(logging.WARNING, logger="backend.tmdb_provider"):
+            results = provider._search_api("Stalker", "movie", year=1979)
+
+    assert results == []
+    assert "Search API error" in caplog.text
+    assert _SECRET not in caplog.text
+
+
+def test_details_connection_error_does_not_log_api_key(caplog):
+    import logging
+    provider = _provider_with_secret()
+
+    with patch.object(provider.session, "get", side_effect=_connection_error):
+        with caplog.at_level(logging.WARNING, logger="backend.tmdb_provider"):
+            details = provider._get_details_with_credits(603, "movie")
+
+    assert details == {}
+    assert "Failed to fetch details for 603" in caplog.text
+    assert _SECRET not in caplog.text
+
+
+def test_genre_fetch_connection_error_does_not_log_api_key(caplog):
+    import logging
+
+    with patch("backend.tmdb_provider.requests.get", side_effect=_connection_error):
+        with caplog.at_level(logging.WARNING, logger="backend.tmdb_provider"):
+            provider = TMDBProvider(api_key=_SECRET)
+
+    assert provider.movie_genres == {}
+    assert "Failed to fetch movie genres" in caplog.text
+    assert _SECRET not in caplog.text

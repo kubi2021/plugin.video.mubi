@@ -509,3 +509,55 @@ path2 = xbmcvfs.translatePath('special://profile/')
 
         # Assert
         assert contains_deprecated, f"Should detect deprecated API: {deprecated_api}"
+
+
+class TestSecretRedaction:
+    """Regression (PR 60 audit F1): a requests error message carries the request URL,
+    and the OMDb key travels in the query string, so logging `{error}` leaks the key
+    into kodi.log (which users paste into public bug reports)."""
+
+    SECRET = "SECRETKEY4242"
+
+    @staticmethod
+    def _connection_error(url, params=None, **_):
+        # `requests` is a MagicMock in this suite (conftest), so build the urllib3-style
+        # message by hand: it carries the request path *and* query string.
+        import requests as _requests
+        query = "&".join(f"{k}={v}" for k, v in (params or {}).items())
+        raise _requests.exceptions.ConnectionError(
+            f"HTTPSConnectionPool(host='www.omdbapi.com', port=443): Max retries exceeded with url: /?{query}"
+        )
+
+    @staticmethod
+    def _logged(mock_xbmc):
+        return "\n".join(str(call.args[0]) for call in mock_xbmc.log.call_args_list)
+
+    @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.xbmc')
+    @patch('plugin_video_mubi.resources.lib.external_metadata.omdb_provider.requests.get')
+    def test_omdb_request_error_does_not_log_api_key(self, mock_get, mock_xbmc):
+        mock_get.side_effect = self._connection_error
+        provider = OMDBProvider(api_key=self.SECRET)
+
+        result = provider._make_request({"apikey": self.SECRET, "t": "Stalker", "type": "movie"})
+
+        logged = self._logged(mock_xbmc)
+        assert result.success is False
+        assert "OMDB: Request error" in logged
+        assert self.SECRET not in logged
+        assert self.SECRET not in (result.error_message or "")
+
+    @patch('plugin_video_mubi.resources.lib.external_metadata.title_utils.xbmc')
+    def test_retry_request_error_does_not_log_secret(self, mock_xbmc):
+        import requests as _requests
+        strategy = RetryStrategy(max_retries=1, secrets=[self.SECRET])
+
+        def boom():
+            raise _requests.exceptions.ConnectionError(f"Max retries exceeded with url: /?apikey={self.SECRET}&t=Stalker")
+
+        result = strategy.execute(boom, "Stalker")
+
+        logged = self._logged(mock_xbmc)
+        assert result.success is False
+        assert "Request error" in logged
+        assert self.SECRET not in logged
+        assert self.SECRET not in (result.error_message or "")
