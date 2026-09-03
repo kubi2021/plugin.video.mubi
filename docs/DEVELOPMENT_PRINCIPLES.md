@@ -16,8 +16,6 @@ The project is really **three products in one repo** that share a data contract:
 | Shadow backend (scraper + enrichment + ratings) | `backend/` | GitHub Actions, Python 3.11 | Pushes `films.json.gz` to the orphan `database` branch |
 | Weekly digest email | `backend/generate_weekly_digest.py` + `backend/emails/` (React Email) | GitHub Actions, Python + Node 18 | Sent via Resend |
 
-The concrete, ordered work list derived from these principles lives in [FIX_BACKLOG.md](FIX_BACKLOG.md), so this document stays stable while the backlog churns.
-
 The **JSON schema in `backend/schemas/v1_schema.json`** is the contract between the backend and the plugin. It is the single most important artefact in the repo and is already protected by CODEOWNERS.
 
 ### Health snapshot (measured 2026‑09‑03)

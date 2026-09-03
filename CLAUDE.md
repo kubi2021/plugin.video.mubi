@@ -1,7 +1,7 @@
 # plugin.video.mubi
 
 Kodi add-on for MUBI plus a GitHub-Actions backend that pre-computes the catalogue.
-Rules below are terse on purpose. Rationale lives in `docs/DEVELOPMENT_PRINCIPLES.md`; read it only when a rule needs justifying. Ordered work list: `docs/FIX_BACKLOG.md`.
+Rules below are terse on purpose. Rationale lives in `docs/DEVELOPMENT_PRINCIPLES.md`; read it only when a rule needs justifying.
 
 ## Layout
 
