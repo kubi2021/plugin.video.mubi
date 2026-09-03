@@ -21,7 +21,9 @@ def redact_secrets(text: Any, secrets: Iterable[Optional[str]]) -> str:
     """
     out = str(text)
     for secret in secrets:
-        if not secret:
+        # Only real, non-empty strings are redacted: test doubles hand providers a
+        # Mock api_key, and quote() on a non-str raises inside an except handler.
+        if not isinstance(secret, str) or not secret:
             continue
         for form in {secret, quote(secret, safe=""), quote_plus(secret)}:
             out = out.replace(form, "***")
@@ -206,7 +208,7 @@ class RetryStrategy:
         self.initial_backoff = initial_backoff
         self.multiplier = multiplier
         # API keys to strip from logged exception text (see redact_secrets).
-        self.secrets = tuple(s for s in secrets if s)
+        self.secrets = tuple(s for s in secrets if isinstance(s, str) and s)
 
     def execute(
         self,

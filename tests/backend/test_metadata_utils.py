@@ -272,6 +272,18 @@ class TestRedactSecrets:
     def test_redact_secrets_empty_text(self):
         assert redact_secrets("", ["K1"]) == ""
 
+    def test_redact_secrets_ignores_non_string_secrets(self):
+        # Test doubles hand providers a Mock api_key; quote() on it must not raise
+        # inside the except handler that calls this helper (CI failure on PR 60).
+        assert redact_secrets("boom apikey=K1", [MagicMock(), 42, "K1"]) == "boom apikey=***"
+
+
+class TestRetryStrategySecretsFiltering:
+    def test_retry_strategy_keeps_only_real_string_secrets(self):
+        strategy = RetryStrategy(max_retries=1, secrets=[MagicMock(), None, "", "K1"])
+
+        assert strategy.secrets == ("K1",)
+
 
 class TestRetryStrategySecrets:
     def test_retry_request_error_does_not_log_secret(self, caplog):

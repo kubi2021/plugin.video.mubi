@@ -281,22 +281,29 @@ def test_tmdb_session_configuration():
 _SECRET = "SECRETKEY4242"
 
 
+# `requests` may be a MagicMock when the whole suite runs (tests/plugin_video_mubi/conftest.py
+# swaps sys.modules['requests']; with pytest 7 that happens before this module is imported),
+# so these helpers build the messages requests would produce without touching requests.
+
+
+class _FakeRequestsError(Exception):
+    pass
+
+
+def _query(params):
+    return "&".join(f"{k}={v}" for k, v in (params or {}).items())
+
+
 def _http_500(url, params=None, **_):
-    """A real 500 Response whose .url requests built itself (query string included)."""
-    prepared = requests.Request("GET", url, params=params).prepare()
-    resp = requests.Response()
-    resp.status_code = 500
-    resp.reason = "Server Error"
-    resp.url = prepared.url
-    resp._content = b"{}"
-    return resp
+    """What str(HTTPError) looks like for a 500: the full URL, query string included."""
+    raise _FakeRequestsError(f"500 Server Error: Server Error for url: {url}?{_query(params)}")
 
 
 def _connection_error(url, params=None, **_):
     """urllib3-style ConnectionError text: it carries the request path and query."""
-    path = requests.Request("GET", url, params=params).prepare().path_url
-    raise requests.ConnectionError(
-        f"HTTPSConnectionPool(host='api.themoviedb.org', port=443): Max retries exceeded with url: {path}"
+    path = url.split("api.themoviedb.org", 1)[-1]
+    raise _FakeRequestsError(
+        f"HTTPSConnectionPool(host='api.themoviedb.org', port=443): Max retries exceeded with url: {path}?{_query(params)}"
     )
 
 
