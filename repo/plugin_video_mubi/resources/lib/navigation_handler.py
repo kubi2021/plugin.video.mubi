@@ -11,6 +11,7 @@ from typing import Optional
 from .library import Library
 from .library import Library
 from .playback import play_with_inputstream_adaptive
+from .constants import MUBI_LOGIN_ACTIVATION_URL
 import datetime
 import dateutil.parser
 import requests
@@ -946,7 +947,7 @@ class NavigationHandler:
     def _display_login_code(self, code_info: dict):
         """ Helper method to display login code to the user """
         link_code = code_info['link_code']
-        xbmcgui.Dialog().ok("Log In", f"Enter code [COLOR=yellow][B]{link_code}[/B][/COLOR] on [B]https://mubi.com/tv[/B]")
+        xbmcgui.Dialog().ok("Log In", f"Enter code [COLOR=yellow][B]{link_code}[/B][/COLOR] on [B]{MUBI_LOGIN_ACTIVATION_URL}[/B]")
 
     def _handle_login_error(self, auth_response: dict):
         """ Handle login errors from the Mubi API """
