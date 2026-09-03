@@ -89,8 +89,8 @@ Work through every group. Skip a group only if the target cannot touch it.
 
 For each candidate:
 
-1. Write a throwaway pytest in the scratchpad that imports the real module (use `tests/plugin_video_mubi/kodi_stubs.py` and the existing conftest path setup) and drives the failure.
-2. Run it. Use the repo's venv if one exists, else `python3 -m pytest`.
+1. Write a throwaway pytest in `tmp/` (gitignored; name it `tmp/YYYYMMDD-HHMMSS-audit-<topic>.py`) that imports the real module (use `tests/plugin_video_mubi/kodi_stubs.py` and the existing conftest path setup) and drives the failure.
+2. Run it with `python3 -m pytest tmp/<file> -q -p no:cacheprovider --rootdir=.` (use the repo venv if one exists). Leave the file in `tmp/` so the reproduction can be re-run.
 3. Classify:
    - **CONFIRMED**: the test demonstrates wrong behaviour, or the defect is a static fact (missing setting key, py3.9 syntax, `continue-on-error` contradiction).
    - **PLAUSIBLE**: could not reproduce in-process (needs Kodi, network, or a race), but the reasoning holds after reading callers. State exactly what you could not check.

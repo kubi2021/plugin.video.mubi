@@ -16,6 +16,8 @@ The project is really **three products in one repo** that share a data contract:
 | Shadow backend (scraper + enrichment + ratings) | `backend/` | GitHub Actions, Python 3.11 | Pushes `films.json.gz` to the orphan `database` branch |
 | Weekly digest email | `backend/generate_weekly_digest.py` + `backend/emails/` (React Email) | GitHub Actions, Python + Node 18 | Sent via Resend |
 
+The concrete, ordered work list derived from these principles lives in [FIX_BACKLOG.md](FIX_BACKLOG.md), so this document stays stable while the backlog churns.
+
 The **JSON schema in `backend/schemas/v1_schema.json`** is the contract between the backend and the plugin. It is the single most important artefact in the repo and is already protected by CODEOWNERS.
 
 ### Health snapshot (measured 2026‑09‑03)
@@ -178,23 +180,7 @@ Recent commits are a good model: one concern each, a body that explains what bro
 
 ---
 
-## 3. Suggested order of work
-
-These are the concrete tasks the principles above imply, ordered by value over effort:
-
-1. **Replace the `sed` version/news bump in `auto-release.yml` with a tested Python script.** (P8) Small, prevents a repeat of the v27 `<news>` corruption.
-2. **Adopt ruff, fix the 77 `F`‑class findings, format once, gate in CI.** (P10) One afternoon; makes every later diff cleaner.
-3. **Raise coverage floor to 80 %, mark the live‑network test, resolve the 17 skips.** (P7)
-4. **Declare or delete `omdbapiKey`; decide the fate of the plugin‑side matcher.** (P3, P5)
-5. **Convert `is_playable` and the `data_source.py` availability filter to datetime comparison.** (P6) Add tests with mixed `Z` / `+00:00` inputs.
-6. **Extract `sync_service.py` from `navigation_handler.py`.** (P4) Start with the largest seam; the tests already exist and will guide the move.
-7. **Move generated zips out of `main`; extract the VPN composite action.** (P8)
-8. **Docs sweep: fix dead links, split README into user vs contributor docs, add "Last updated" lines.** (P9)
-9. **Extract `nfo_writer.py` and `api_client.py`.** (P4) Larger refactors, do them when a feature already requires touching those areas.
-
----
-
-## 4. Things that are already right and should not change
+## 3. Things that are already right and should not change
 
 - The thin‑client architecture: scraper on GitHub Actions, plugin downloads one gzip. Do not move heavy work back into Kodi.
 - MD5 verification of the downloaded database and the `SUPPORTED_VERSIONS` check.

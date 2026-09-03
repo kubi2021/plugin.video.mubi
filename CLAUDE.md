@@ -1,7 +1,7 @@
 # plugin.video.mubi
 
 Kodi add-on for MUBI plus a GitHub-Actions backend that pre-computes the catalogue.
-Rules below are terse on purpose. Rationale lives in `docs/DEVELOPMENT_PRINCIPLES.md`; read it only when a rule needs justifying.
+Rules below are terse on purpose. Rationale lives in `docs/DEVELOPMENT_PRINCIPLES.md`; read it only when a rule needs justifying. Ordered work list: `docs/FIX_BACKLOG.md`.
 
 ## Layout
 
@@ -24,6 +24,10 @@ pytest tests/plugin_video_mubi/test_film.py -k <name>
 python3 _repo_generator.py            # build zips; release workflow does this
 ```
 Local Kodi dev: symlink `repo/plugin_video_mubi` into the Kodi addons dir (`docs/note_to_self.md`).
+
+## Temporary files
+
+All scratch output (throwaway tests, downloaded JSON, PR bodies, reports) goes in `tmp/` at the repo root. It is gitignored; `mkdir -p tmp` if absent. Never use `/tmp` or a session scratchpad. Name every file timestamp first: `YYYYMMDD-HHMMSS-<name>.<ext>`, e.g. `tmp/20260903-141500-audit-film-playable.py`.
 
 ## Hard rules: plugin (`repo/`)
 

@@ -34,10 +34,10 @@ Default for a new upstream field the plugin does not need: **allow it in the sch
 pytest tests/backend/test_schema_v1.py tests/plugin_video_mubi/test_data_loading_schema.py -q
 ```
 
-Against production data (write to the scratchpad, not `/tmp`):
+Against production data (into the repo's gitignored `tmp/`, timestamp-first name):
 
 ```bash
-curl -sL https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz -o "$SCRATCH/films.json.gz" && gzip -df "$SCRATCH/films.json.gz" && python backend/validate_schema.py --path "$SCRATCH/films.json" --version 1
+mkdir -p tmp && F="tmp/$(date +%Y%m%d-%H%M%S)-films" && curl -sL https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz -o "$F.json.gz" && gzip -df "$F.json.gz" && python backend/validate_schema.py --path "$F.json" --version 1
 ```
 
 Refresh `tests/fixtures/golden_film_sample.json` with two or three real items if the field is now common.
