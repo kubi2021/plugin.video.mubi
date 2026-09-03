@@ -40,8 +40,8 @@ _constants = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_constants)
 
 HEALTHCHECK_URLS = _constants.HEALTHCHECK_URLS
-ACTIVATION_PROBE_URL = _constants.MUBI_ACTIVATION_PROBE_URL
-ACTIVATION_EXPECTED_REDIRECT_PATH = _constants.MUBI_ACTIVATION_EXPECTED_REDIRECT_PATH
+ACTIVATION_URL = _constants.MUBI_LOGIN_ACTIVATION_URL
+ACTIVATION_EXPECTED_PATH_SUFFIX = _constants.MUBI_ACTIVATION_EXPECTED_PATH_SUFFIX
 
 # A real browser UA; some sites reject the default requests UA with a 403.
 USER_AGENT = (
@@ -69,42 +69,44 @@ def check(url):
     return False, f"HTTP {resp.status_code}"
 
 
-def check_activation_redirect():
+def check_activation_page():
     """Drift canary for the device-activation URL.
 
-    `MUBI_ACTIVATION_PROBE_URL` (/activate) is Mubi's own permanent redirect to
-    wherever activation currently lives. We read that first-hop Location WITHOUT
-    following it and compare its path to the expected baseline. A mismatch is the
-    early signal that Mubi moved the activation page (as with /android) -- it
-    names the new path and can fire while the hardcoded login URL still 200s.
+    Follows `MUBI_LOGIN_ACTIVATION_URL`'s redirect chain -- the page the user is
+    told to open -- and judges where it *lands*: the final status must be
+    successful and the final path must end in `ACTIVATION_EXPECTED_PATH_SUFFIX`.
+    Mubi prefixes a locale (/tv -> /en/tv), so only the suffix is compared; a
+    move to e.g. /connect/device is reported by name.
+
+    Deliberately not a first-hop Location check: mubi.com 301s /activate,
+    /tv/activate and the retired /android alike to /tv/<path>, which then 404s.
+    That is a legacy rewrite rule, not a pointer to the activation page, and a
+    baseline built on it reports "healthy" for a dead target.
 
     Return (ok: bool, detail: str).
     """
     try:
         resp = requests.get(
-            ACTIVATION_PROBE_URL,
+            ACTIVATION_URL,
             headers={"User-Agent": USER_AGENT},
             timeout=TIMEOUT,
-            allow_redirects=False,
+            allow_redirects=True,
         )
     except requests.RequestException as exc:
         return False, f"unreachable: {exc.__class__.__name__}: {exc}"
 
-    if not (300 <= resp.status_code < 400):
+    final_path = urlsplit(resp.url).path
+    if resp.status_code >= 400:
         return False, (
-            f"expected a redirect to {ACTIVATION_EXPECTED_REDIRECT_PATH!r}, "
-            f"got HTTP {resp.status_code} (Mubi changed activation behaviour)"
+            f"activation page {ACTIVATION_URL} ends at {final_path!r} with "
+            f"HTTP {resp.status_code} -- update MUBI_LOGIN_ACTIVATION_URL in constants.py"
         )
-
-    location = resp.headers.get("Location", "")
-    # Compare only the path so an absolute vs relative Location doesn't matter.
-    actual_path = urlsplit(location).path
-    if actual_path == ACTIVATION_EXPECTED_REDIRECT_PATH:
-        return True, f"HTTP {resp.status_code} -> {actual_path}"
+    if final_path.rstrip("/").endswith(ACTIVATION_EXPECTED_PATH_SUFFIX):
+        return True, f"HTTP {resp.status_code} -> {final_path}"
     return False, (
-        f"activation URL DRIFTED: /activate now redirects to {actual_path!r} "
-        f"(baseline {ACTIVATION_EXPECTED_REDIRECT_PATH!r}) -- update "
-        f"MUBI_LOGIN_ACTIVATION_URL / the baseline in constants.py"
+        f"activation URL DRIFTED: {ACTIVATION_URL} now resolves to {final_path!r} "
+        f"(expected a path ending in {ACTIVATION_EXPECTED_PATH_SUFFIX!r}) -- update "
+        f"MUBI_LOGIN_ACTIVATION_URL / the suffix in constants.py"
     )
 
 
@@ -119,11 +121,11 @@ def main():
             failures.append((url, detail))
 
     # Drift canary (separate from the plain 200 checks above).
-    ok, detail = check_activation_redirect()
+    ok, detail = check_activation_page()
     symbol = "OK  " if ok else "FAIL"
-    print(f"  [{symbol}] activation-redirect canary  ({detail})")
+    print(f"  [{symbol}] activation-page canary  ({detail})")
     if not ok:
-        failures.append((ACTIVATION_PROBE_URL, detail))
+        failures.append((ACTIVATION_URL, detail))
 
     total = len(HEALTHCHECK_URLS) + 1
     print()

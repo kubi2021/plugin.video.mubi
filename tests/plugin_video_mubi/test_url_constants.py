@@ -19,7 +19,6 @@ class TestUrlConstants:
             "TMDB_API_URL",
             "OMDB_API_URL",
             "IMDB_TITLE_URL_TEMPLATE",
-            "MUBI_ACTIVATION_PROBE_URL",
         ):
             value = getattr(constants, name)
             assert value.startswith("https://"), f"{name} must be https"
@@ -57,10 +56,16 @@ class TestUrlConstants:
 
         assert data_source.GithubDataSource.GITHUB_URL == constants.CATALOG_FILMS_URL
 
-    def test_activation_drift_canary_baselines_present(self):
-        assert constants.MUBI_ACTIVATION_PROBE_URL.startswith("https://")
-        # The expected redirect target is compared as a path, so it must be one.
-        assert constants.MUBI_ACTIVATION_EXPECTED_REDIRECT_PATH.startswith("/")
+    def test_activation_canary_suffix_matches_the_login_url(self):
+        # scripts/healthcheck.py follows MUBI_LOGIN_ACTIVATION_URL's redirects and
+        # requires the final path to end in this suffix, so the suffix must be a
+        # path fragment and the login URL itself must satisfy it.
+        from urllib.parse import urlsplit
+
+        suffix = constants.MUBI_ACTIVATION_EXPECTED_PATH_SUFFIX
+        assert suffix.startswith("/")
+        login_path = urlsplit(constants.MUBI_LOGIN_ACTIVATION_URL).path.rstrip("/")
+        assert login_path.endswith(suffix)
 
 
 class TestNoUrlLiteralsOutsideConstants:

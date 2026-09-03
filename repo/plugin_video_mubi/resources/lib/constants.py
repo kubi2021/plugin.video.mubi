@@ -83,15 +83,14 @@ HEALTHCHECK_URLS = [
 
 # Activation-URL drift canary.
 #
-# `https://mubi.com/activate` is Mubi's server-side pointer to wherever device
-# activation currently lives: it permanently (301) redirects to the real path.
-# Today that first hop is `/tv/activate`. Watching *that Location header* is an
-# authoritative early signal that Mubi moved the activation page (as it did when
-# it retired /android): the redirect target changes before/independently of our
-# hardcoded MUBI_LOGIN_ACTIVATION_URL breaking, and it names the new path.
+# scripts/healthcheck.py follows MUBI_LOGIN_ACTIVATION_URL's redirect chain (the
+# page the user is told to open) and requires that it lands on a successful
+# status with a final path ending in the suffix below. Mubi prefixes a locale
+# (/tv -> /en/tv), so only the suffix is compared: a different locale on the CI
+# runner is not drift, while a move to e.g. /connect/device is, and the failure
+# message names the new path.
 #
-# The healthcheck reads the first-hop Location (redirects OFF) and compares its
-# path to the baseline below; a mismatch means "review the login URL". Only the
-# path is compared, so Mubi returning an absolute vs relative Location is fine.
-MUBI_ACTIVATION_PROBE_URL = "https://mubi.com/activate"
-MUBI_ACTIVATION_EXPECTED_REDIRECT_PATH = "/tv/activate"
+# Do NOT baseline on a first-hop Location header: mubi.com 301s /activate,
+# /tv/activate and the retired /android alike to /tv/<path>, and those then
+# 404. That is a legacy rewrite rule, not a pointer to the activation page.
+MUBI_ACTIVATION_EXPECTED_PATH_SUFFIX = "/tv"
