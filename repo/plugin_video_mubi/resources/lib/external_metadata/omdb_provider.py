@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 import requests
 import xbmc
 
+from ..constants import OMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
 from .base import BaseMetadataProvider, ExternalMetadataResult
 from .title_utils import TitleNormalizer, RetryStrategy
 
@@ -12,7 +13,7 @@ from .title_utils import TitleNormalizer, RetryStrategy
 class OMDBProvider(BaseMetadataProvider):
     """OMDB-based metadata provider with caching."""
 
-    API_URL = "http://www.omdbapi.com/"
+    API_URL = OMDB_API_URL
 
     def __init__(self, api_key: str, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(api_key, config)
@@ -88,7 +89,7 @@ class OMDBProvider(BaseMetadataProvider):
 
             if data.get("imdbID"):
                 imdb_id = data["imdbID"]
-                imdb_url = f"https://www.imdb.com/title/{imdb_id}/"
+                imdb_url = IMDB_TITLE_URL_TEMPLATE.format(imdb_id=imdb_id)
                 xbmc.log(
                     f"OMDB: Found IMDB ID {imdb_id} for '{params.get('t')}'",
                     xbmc.LOGINFO,

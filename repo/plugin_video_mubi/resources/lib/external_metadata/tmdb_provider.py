@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 import requests
 import xbmc
 
+from ..constants import TMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
 from .base import BaseMetadataProvider, ExternalMetadataResult
 from .title_utils import TitleNormalizer, RetryStrategy
 
@@ -20,7 +21,7 @@ class TMDBProvider(BaseMetadataProvider):
     - Free API with higher rate limits
     """
     
-    BASE_URL = "https://api.themoviedb.org/3"
+    BASE_URL = TMDB_API_URL
     
     def __init__(self, api_key: str, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize TMDB provider with API key."""
@@ -197,7 +198,7 @@ class TMDBProvider(BaseMetadataProvider):
             
             if imdb_id:
                 result_data["imdb_id"] = imdb_id
-                result_data["imdb_url"] = f"https://www.imdb.com/title/{imdb_id}/"
+                result_data["imdb_url"] = IMDB_TITLE_URL_TEMPLATE.format(imdb_id=imdb_id)
                 
             return ExternalMetadataResult(**result_data)
             

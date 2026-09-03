@@ -28,7 +28,7 @@ from requests.packages.urllib3.util.retry import Retry
 from typing import Optional, Tuple
 from .metadata import Metadata
 from .film import Film
-from .constants import MUBI_API_URL, MUBI_WEB_URL
+from .constants import MUBI_API_URL, MUBI_WEB_URL, GEOIP_COUNTRY_URLS
 from .library import Library
 from .playback import generate_drm_license_key
 
@@ -359,12 +359,8 @@ class Mubi:
         import requests as fresh_requests
 
         # Try multiple IP geolocation services for reliability
-        geo_services = [
-            ('https://get.geojs.io/v1/ip/country', 'text'),  # Returns just country code like "US"
-            ('https://ifconfig.co/country-iso', 'text'),      # Returns just country code like "US"
-            ('https://ipapi.co/country/', 'text'),            # Returns just country code like "US"
-            ('https://ipinfo.io/country', 'text'),            # Returns just country code like "US"
-        ]
+        # Each service returns just the country code as text, e.g. "US"
+        geo_services = [(url, 'text') for url in GEOIP_COUNTRY_URLS]
 
         for service_url, response_type in geo_services:
             try:

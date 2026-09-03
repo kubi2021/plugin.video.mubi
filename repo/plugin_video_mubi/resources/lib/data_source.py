@@ -241,7 +241,7 @@ class MubiApiDataSource(FilmDataSource):
 class GithubDataSource(FilmDataSource):
     """
     Fetches film data from a pre-computed JSON file hosted on GitHub.
-    URL: https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz
+    URL: see constants.CATALOG_FILMS_URL
     """
 
     GITHUB_URL = CATALOG_FILMS_URL

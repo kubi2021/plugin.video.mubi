@@ -28,6 +28,27 @@ MUBI_LOGIN_ACTIVATION_URL = "https://mubi.com/tv"
 DRM_LICENSE_URL = "https://lic.drmtoday.com/license-proxy-widevine/cenc/"
 
 
+# --- Third-party services -------------------------------------------------
+
+# IP geolocation services tried in order by Mubi.get_cli_country(). Each
+# answers a bare GET with a 2-letter country code as plain text. Any one may
+# vanish without notice (as https://mubi.com/android did), so the plugin falls
+# through the list and the healthcheck watches the stable ones.
+GEOIP_COUNTRY_URLS = [
+    "https://get.geojs.io/v1/ip/country",
+    "https://ifconfig.co/country-iso",
+    "https://ipapi.co/country/",
+    "https://ipinfo.io/country",
+]
+
+# External metadata providers (plugin-side legacy matcher; backend copy is canonical).
+TMDB_API_URL = "https://api.themoviedb.org/3"
+OMDB_API_URL = "https://www.omdbapi.com/"
+
+# Public IMDb title page, used to build the imdb_url metadata field.
+IMDB_TITLE_URL_TEMPLATE = "https://www.imdb.com/title/{imdb_id}/"
+
+
 # --- Plugin's own hosted data -------------------------------------------
 
 # Pre-computed, compressed catalog published on this repo's `database` branch.
@@ -46,10 +67,18 @@ CATALOG_FILMS_URL = (
 # GET (there is no root endpoint), so it cannot be liveness-checked without an
 # authenticated call. The DRM license endpoint is likewise excluded (it only
 # responds to authenticated license POSTs).
+#
+# ipapi.co is excluded: it answers 403 to browser User-Agents and 200 to
+# python-requests, i.e. it is bot-gated and would produce false alarms.
 HEALTHCHECK_URLS = [
     MUBI_WEB_URL,
     MUBI_LOGIN_ACTIVATION_URL,
     CATALOG_FILMS_URL,
+    "https://get.geojs.io/v1/ip/country",
+    "https://ifconfig.co/country-iso",
+    "https://ipinfo.io/country",
+    TMDB_API_URL,  # bare GET -> 204
+    OMDB_API_URL,  # bare GET -> 200 (JSON error body, no key needed)
 ]
 
 # Activation-URL drift canary.
