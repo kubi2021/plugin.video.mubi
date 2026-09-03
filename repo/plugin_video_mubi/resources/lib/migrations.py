@@ -106,6 +106,30 @@ def mark_first_run(plugin):
     plugin.setSettingBool('first_run_completed', True)
 
 
+def migrate_to_fast_sync(plugin):
+    """
+    One-time migration that switches existing users from the legacy "slow"
+    per-country MUBI sync to the pre-computed GitHub "fast" sync.
+
+    Kodi preserves each user's settings.xml across add-on updates, so changing
+    the shipped default of enable_fast_sync only affects fresh installs. This
+    flips the setting once for users who upgrade.
+
+    A separate hidden marker (fast_sync_migration_done) guards the flip so it
+    runs exactly once: the enable_fast_sync value itself cannot be the guard,
+    because True is also a legitimate user choice. After the migration the user
+    remains free to toggle enable_fast_sync back off; we never force it again.
+    """
+    if plugin.getSettingBool('fast_sync_migration_done'):
+        # Already migrated - respect whatever the user has set since.
+        return False
+
+    plugin.setSettingBool('enable_fast_sync', True)
+    plugin.setSettingBool('fast_sync_migration_done', True)
+    xbmc.log("Migrated user to fast sync (one-time)", level=xbmc.LOGINFO)
+    return True
+
+
 def migrate_genre_settings(plugin):
     """
     Migrate from old text-based skip_genres setting to new toggle-based settings.

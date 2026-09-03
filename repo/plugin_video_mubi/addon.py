@@ -17,7 +17,8 @@ import xbmc
 from urllib.parse import parse_qsl, unquote_plus
 import xbmcgui
 from resources.lib.migrations import (
-    add_mubi_source, is_first_run, mark_first_run, migrate_genre_settings
+    add_mubi_source, is_first_run, mark_first_run, migrate_genre_settings,
+    migrate_to_fast_sync
 )
 
 def main(argv):
@@ -42,6 +43,11 @@ def main(argv):
     # Migrate old text-based genre settings to new toggle-based settings
     # This only runs once if the old skip_genres setting has a value
     migrate_genre_settings(plugin)
+
+    # One-time: move existing users onto the fast (GitHub) sync, sunsetting the
+    # legacy slow sync. Guarded by fast_sync_migration_done so it runs once and
+    # the user can still opt back out afterwards.
+    migrate_to_fast_sync(plugin)
 
 
 
