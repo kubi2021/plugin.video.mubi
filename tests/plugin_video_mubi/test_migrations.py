@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch, MagicMock
 import xml.etree.ElementTree as ET
 from plugin_video_mubi.resources.lib.migrations import (
     add_mubi_source, read_xml, write_xml, show_source_added_message,
-    is_first_run, mark_first_run, migrate_genre_settings
+    is_first_run, mark_first_run, migrate_genre_settings, migrate_to_fast_sync
 )
 
 
@@ -453,3 +453,47 @@ class TestMigrateGenreSettings:
         assert result is True
         calls = mock_addon.setSettingBool.call_args_list
         assert len(calls) == 3
+
+
+class TestMigrateToFastSync:
+    """Test cases for the one-time fast-sync migration."""
+
+    @patch('xbmc.log')
+    def test_migrate_to_fast_sync_flips_setting_on_first_run(self, mock_log, mock_addon):
+        """An un-migrated user gets enable_fast_sync forced True and the marker set."""
+        # Marker not yet set -> migration should run.
+        mock_addon.getSettingBool.return_value = False
+
+        result = migrate_to_fast_sync(mock_addon)
+
+        assert result is True
+        mock_addon.setSettingBool.assert_any_call('enable_fast_sync', True)
+        mock_addon.setSettingBool.assert_any_call('fast_sync_migration_done', True)
+
+    @patch('xbmc.log')
+    def test_migrate_to_fast_sync_is_idempotent(self, mock_log, mock_addon):
+        """Once the marker is set the migration never touches enable_fast_sync again."""
+        # Marker already set -> migration is a no-op.
+        mock_addon.getSettingBool.return_value = True
+
+        result = migrate_to_fast_sync(mock_addon)
+
+        assert result is False
+        mock_addon.setSettingBool.assert_not_called()
+
+    @patch('xbmc.log')
+    def test_migrate_to_fast_sync_respects_user_opt_out_after_migration(self, mock_log, mock_addon):
+        """A user who turned fast sync back off is not re-forced on a later launch.
+
+        Regression guard: the marker, not the enable_fast_sync value, is the
+        idempotency key, so opting back out must survive subsequent launches.
+        """
+        mock_addon.getSettingBool.side_effect = lambda key: {
+            'fast_sync_migration_done': True,
+            'enable_fast_sync': False,  # user opted back out
+        }[key]
+
+        result = migrate_to_fast_sync(mock_addon)
+
+        assert result is False
+        mock_addon.setSettingBool.assert_not_called()

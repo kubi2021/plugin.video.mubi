@@ -1230,7 +1230,7 @@ msgid "Sync"
 msgstr ""
 
 msgctxt "#30801"
-msgid "Enable Fast Sync (Beta)"
+msgid "Enable Fast Sync"
 msgstr ""
 
 msgctxt "#30802"
