@@ -14,6 +14,14 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+# validate_schema hard-exits at import time if jsonschema is absent, and jsonschema
+# is deliberately not a test dependency (see tests/backend/test_schema_v1.py). Skip
+# the module if it is missing, matching that convention.
+try:
+    import jsonschema  # noqa: F401
+except ImportError:
+    pytest.skip("jsonschema not installed", allow_module_level=True)
+
 from backend import validate_schema
 
 
