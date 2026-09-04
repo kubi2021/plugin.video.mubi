@@ -2451,6 +2451,39 @@ class TestMubi:
             f"progress total_countries should all equal {len(countries)}, got {totals}"
         )
 
+    def test_worldwide_github_sync_passes_no_country_filter(self, mubi_instance):
+        """Regression (issue #65): a worldwide GitHub sync must not inherit the
+        client-country resolution.
+
+        The "Sync worldwide catalogue" menu item calls
+        ``get_all_films(countries=None, data_source=GithubDataSource())``.
+        ``GithubDataSource`` treats a country list as a *filter* and ``None`` as
+        "return the full worldwide catalogue". If ``get_all_films`` resolves
+        ``None`` to the configured ``client_country`` before the fetch, the
+        worldwide sync is silently narrowed to that one country. A caller-supplied
+        data source must therefore receive ``countries`` verbatim — ``None`` stays
+        ``None``.
+        """
+        from plugin_video_mubi.resources.lib.data_source import GithubDataSource
+
+        received = {}
+
+        class SpyGithubSource(GithubDataSource):
+            def get_films(self, playable_only=True, progress_callback=None, countries=None):
+                received["countries"] = countries
+                return []
+
+        # A client country IS configured — the pre-fix code would resolve None to
+        # ["CH"] and hand that filter to the GitHub source.
+        with patch("xbmcaddon.Addon") as mock_addon:
+            mock_addon.return_value.getSetting.return_value = "CH"
+            mubi_instance.get_all_films(countries=None, data_source=SpyGithubSource())
+
+        assert received.get("countries") is None, (
+            "worldwide GitHub sync must pass no country filter to the data source, "
+            f"got {received.get('countries')!r} -> catalogue silently narrowed"
+        )
+
     def test_get_all_films_with_progress_callback(self, mubi_instance):
         """Test get_all_films with progress callback for multi-country sync."""
         # Mock the API response - single page per country

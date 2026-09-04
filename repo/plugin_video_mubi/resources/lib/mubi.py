@@ -730,17 +730,25 @@ class Mubi:
         from .data_source import MubiApiDataSource, resolve_sync_countries
         from .filters import FilmFilter
 
-        # Resolve the country set once so the processing-phase progress total
-        # below matches the countries the fetch actually covers (issue #65).
-        countries = resolve_sync_countries(countries)
-
         # 1. Fetch (DataSource)
         # Use provided data source or default to MubiApiDataSource
         source = data_source if data_source else MubiApiDataSource(self)
 
+        # Resolve the country set ONLY for the default MubiApiDataSource, whose
+        # fetch and processing-phase progress total must agree (issue #65). A
+        # caller-supplied data_source (e.g. GithubDataSource) keeps ``countries``
+        # verbatim: for a worldwide GitHub sync it is None, and resolving it here
+        # would silently narrow the "worldwide" catalogue to the client country.
+        if data_source:
+            fetch_countries = countries
+            processing_total = len(countries) if countries else 0
+        else:
+            fetch_countries = resolve_sync_countries(countries)
+            processing_total = len(fetch_countries)
+
         # progress_callback is handled inside data source for the fetching phase
         raw_films = source.get_films(
-            playable_only=playable_only, progress_callback=progress_callback, countries=countries
+            playable_only=playable_only, progress_callback=progress_callback, countries=fetch_countries
         )
 
         xbmc.log(f"Pipeline: Fetched {len(raw_films)} raw films.", xbmc.LOGINFO)
@@ -759,8 +767,8 @@ class Mubi:
                 progress_callback(
                     current_films=len(raw_films),  # Total known
                     total_films=len(filtered_films),  # Films to process
-                    current_country=len(countries),  # Done — all countries fetched
-                    total_countries=len(countries),
+                    current_country=processing_total,  # Done — all countries fetched
+                    total_countries=processing_total,
                     country_code="PROCESSING",
                 )
             except Exception:
