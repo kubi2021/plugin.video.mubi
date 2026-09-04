@@ -8,8 +8,38 @@ Framework: pytest with mocker fixture for isolation
 """
 
 from unittest.mock import Mock, patch, call
-from plugin_video_mubi.resources.lib.data_source import MubiApiDataSource
+from plugin_video_mubi.resources.lib.data_source import (
+    MubiApiDataSource,
+    resolve_sync_countries,
+)
+from plugin_video_mubi.resources.lib.constants import SYNC_COUNTRIES
 import pytest
+
+
+class TestResolveSyncCountries:
+    """Tests for resolve_sync_countries — the single source of truth for which
+    countries a sync covers (issue #65)."""
+
+    def test_explicit_list_is_returned_unchanged(self):
+        """An explicit country list wins over any setting."""
+        assert resolve_sync_countries(["us", "GB"]) == ["us", "GB"]
+
+    def test_none_uses_client_country_when_set(self):
+        """With no explicit list, the configured client_country is used alone,
+        upper-cased."""
+        with patch("xbmcaddon.Addon") as mock_addon:
+            mock_addon.return_value.getSetting.return_value = "ch"
+            assert resolve_sync_countries(None) == ["CH"]
+
+    def test_none_falls_back_to_full_catalogue_set(self):
+        """With no explicit list and no client_country, falls back to the full
+        SYNC_COUNTRIES catalogue set."""
+        with patch("xbmcaddon.Addon") as mock_addon:
+            mock_addon.return_value.getSetting.return_value = ""
+            result = resolve_sync_countries(None)
+            assert result == SYNC_COUNTRIES
+            # A copy, not the shared constant, so callers can't mutate the source.
+            assert result is not SYNC_COUNTRIES
 
 class TestMubiApiDataSource:
     """Test cases for the MubiApiDataSource class."""

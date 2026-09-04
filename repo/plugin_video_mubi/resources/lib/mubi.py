@@ -490,10 +490,6 @@ class Mubi:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
     ]
 
-    # Countries to sync catalogues from (ISO 3166-1 alpha-2 codes)
-    # Different countries have different film availability on MUBI
-    SYNC_COUNTRIES = ["CH", "DE", "US", "GB", "FR", "JP"]
-
     def _get_random_user_agent(self):
         """
         Returns a random User-Agent from the pool of common browser UAs.
@@ -731,8 +727,12 @@ class Mubi:
         :param data_source: Optional FilmDataSource instance to use.
         :return: Library instance with all films.
         """
-        from .data_source import MubiApiDataSource
+        from .data_source import MubiApiDataSource, resolve_sync_countries
         from .filters import FilmFilter
+
+        # Resolve the country set once so the processing-phase progress total
+        # below matches the countries the fetch actually covers (issue #65).
+        countries = resolve_sync_countries(countries)
 
         # 1. Fetch (DataSource)
         # Use provided data source or default to MubiApiDataSource
@@ -759,8 +759,8 @@ class Mubi:
                 progress_callback(
                     current_films=len(raw_films),  # Total known
                     total_films=len(filtered_films),  # Films to process
-                    current_country=len(self.SYNC_COUNTRIES),  # Done
-                    total_countries=len(self.SYNC_COUNTRIES),
+                    current_country=len(countries),  # Done — all countries fetched
+                    total_countries=len(countries),
                     country_code="PROCESSING",
                 )
             except Exception:

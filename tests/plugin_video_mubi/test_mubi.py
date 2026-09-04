@@ -15,6 +15,7 @@ from unittest.mock import Mock, patch, MagicMock
 import json
 from plugin_video_mubi.resources.lib.mubi import Mubi
 from plugin_video_mubi.resources.lib.library import Library
+from plugin_video_mubi.resources.lib.constants import SYNC_COUNTRIES
 
 class TestMubi:
     """Test cases for the Mubi class."""
@@ -2374,7 +2375,7 @@ class TestMubi:
 
             # Explicitly pass SYNC_COUNTRIES to test multi-country behavior
             # (default now uses client_country from settings)
-            expected_countries = mubi_instance.SYNC_COUNTRIES
+            expected_countries = SYNC_COUNTRIES
             library = mubi_instance.get_all_films(countries=expected_countries)
 
             # Verify API was called for each country in SYNC_COUNTRIES
@@ -2406,6 +2407,49 @@ class TestMubi:
             assert len(library.films) == 0
             # API call should have been attempted at least once
             assert mock_api_call.call_count >= 1
+
+    def test_sync_countries_has_single_definition(self):
+        """Regression (issue #65): SYNC_COUNTRIES has exactly one home.
+
+        ``data_source`` imports the same object defined in ``constants``, and
+        the ``Mubi`` class carries no divergent copy that could silently drift.
+        """
+        from plugin_video_mubi.resources.lib import constants, data_source
+
+        assert data_source.SYNC_COUNTRIES is constants.SYNC_COUNTRIES
+        assert not hasattr(Mubi, "SYNC_COUNTRIES")
+
+    def test_get_all_films_progress_total_matches_synced_countries(self, mubi_instance):
+        """Regression (issue #65): the sync progress ``total_countries`` is
+        derived from the countries actually being synced, not a second copy of
+        the list.
+
+        Previously the processing-phase tick reported ``len(Mubi.SYNC_COUNTRIES)``
+        (6) regardless of how many countries the fetch covered, so syncing a
+        subset misreported the total. Here a 2-country sync must report 2.
+        """
+        from plugin_video_mubi.resources.lib.data_source import MubiApiDataSource
+
+        countries = ["CH", "FR"]  # deliberately shorter than the full set
+        assert len(countries) != len(SYNC_COUNTRIES)
+
+        # Stub the data source so the fetch is controlled and fast; the
+        # processing-phase progress tick is what we assert on.
+        fake_source = Mock(spec=MubiApiDataSource)
+        fake_source.get_films.return_value = []
+
+        progress_calls = []
+        mubi_instance.get_all_films(
+            countries=countries,
+            progress_callback=lambda **kwargs: progress_calls.append(kwargs),
+            data_source=fake_source,
+        )
+
+        assert progress_calls, "progress_callback should have been invoked"
+        totals = {call["total_countries"] for call in progress_calls}
+        assert totals == {len(countries)}, (
+            f"progress total_countries should all equal {len(countries)}, got {totals}"
+        )
 
     def test_get_all_films_with_progress_callback(self, mubi_instance):
         """Test get_all_films with progress callback for multi-country sync."""
@@ -2463,7 +2507,7 @@ class TestMubi:
 
             # Explicitly pass SYNC_COUNTRIES to test multi-country behavior
             # (default now uses client_country from settings)
-            expected_countries = mubi_instance.SYNC_COUNTRIES
+            expected_countries = SYNC_COUNTRIES
             library = mubi_instance.get_all_films(
                 playable_only=True,
                 progress_callback=mock_progress_callback,

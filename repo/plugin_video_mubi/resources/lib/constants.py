@@ -27,6 +27,12 @@ MUBI_LOGIN_ACTIVATION_URL = "https://mubi.com/tv"
 # Widevine DRM license proxy used for playback.
 DRM_LICENSE_URL = "https://lic.drmtoday.com/license-proxy-widevine/cenc/"
 
+# Countries whose catalogues a full (no client-country) sync fetches, as ISO
+# 3166-1 alpha-2 codes. Different countries surface different films on MUBI.
+# Sole definition: both the fetch (data_source.resolve_sync_countries) and the
+# sync progress reporting derive from this one list, so they cannot disagree.
+SYNC_COUNTRIES = ["CH", "DE", "US", "GB", "FR", "JP"]
+
 
 # --- Third-party services -------------------------------------------------
 

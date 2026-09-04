@@ -1,15 +1,43 @@
 # -*- coding: utf-8 -*-
 import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import xbmc
 
 try:
     from .availability import is_country_available
-    from .constants import CATALOG_FILMS_URL
+    from .constants import CATALOG_FILMS_URL, SYNC_COUNTRIES
 except ImportError:  # imported as a top-level module (e.g. some test harnesses)
     from availability import is_country_available
-    from constants import CATALOG_FILMS_URL
+    from constants import CATALOG_FILMS_URL, SYNC_COUNTRIES
+
+
+def resolve_sync_countries(countries: Optional[List[str]] = None) -> List[str]:
+    """Resolve which countries a sync should cover.
+
+    Single source of truth for the country set, so the fetch and the sync
+    progress reporting can never disagree (issue #65):
+
+    - An explicit ``countries`` list wins and is returned unchanged.
+    - Otherwise, the configured ``client_country`` (if set) is used alone.
+    - Otherwise, falls back to the full :data:`SYNC_COUNTRIES` catalogue set.
+
+    :param countries: Explicit ISO 3166-1 alpha-2 codes, or ``None`` to resolve
+        from settings.
+    :return: The country codes to sync from (a new list; never ``None``).
+    """
+    if countries is not None:
+        return countries
+
+    import xbmcaddon
+
+    client_country = xbmcaddon.Addon().getSetting("client_country")
+    if client_country:
+        xbmc.log(f"Using client country from settings: {client_country}", xbmc.LOGINFO)
+        return [client_country.upper()]
+
+    xbmc.log("No client country configured, using all SYNC_COUNTRIES", xbmc.LOGWARNING)
+    return list(SYNC_COUNTRIES)
 
 
 class FilmDataSource:
@@ -28,9 +56,6 @@ class MubiApiDataSource(FilmDataSource):
     Replicates the logic previously in mubi.py's get_all_films.
     """
 
-    # Countries to sync catalogues from (ISO 3166-1 alpha-2 codes)
-    SYNC_COUNTRIES = ["CH", "DE", "US", "GB", "FR", "JP"]
-
     def __init__(self, mubi_client):
         """
         :param mubi_client: Instance of the Mubi class to use for API calls
@@ -48,19 +73,9 @@ class MubiApiDataSource(FilmDataSource):
         :param countries: List of ISO 3166-1 alpha-2 country codes to sync from.
         :return: List of raw film data dictionaries, merged and deduped.
         """
-        # Default to client country or SYNC_COUNTRIES logic
-        if countries is None:
-            # We need to access settings via xbmcaddon, but to avoid circular imports or extra deps,
-            # we can rely on mubi client if it had this info, but mubi client logic was:
-            import xbmcaddon
-
-            client_country = xbmcaddon.Addon().getSetting("client_country")
-            if client_country:
-                countries = [client_country.upper()]
-                xbmc.log(f"Using client country from settings: {client_country}", xbmc.LOGINFO)
-            else:
-                countries = self.SYNC_COUNTRIES
-                xbmc.log("No client country configured, using all SYNC_COUNTRIES", xbmc.LOGWARNING)
+        # Resolve the country set once, via the shared helper, so the fetch and
+        # the sync progress reporting always agree (issue #65).
+        countries = resolve_sync_countries(countries)
 
         # Statistics tracking
         country_stats = {}  # {country: {'total': n, 'unique_ids': set}}
