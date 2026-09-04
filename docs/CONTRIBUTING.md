@@ -68,13 +68,13 @@ pytest tests/
 # Run a specific test file
 pytest tests/plugin_video_mubi/test_library.py
 
-# Run with coverage (matches CI: minimum 65%)
+# Run with coverage (matches CI: minimum 80%)
 pytest tests/ --cov=repo/plugin_video_mubi --cov=backend \
   --cov-config=.coveragerc --cov-report=term-missing
 ```
 
 CI (`.github/workflows/test.yml`) runs the suite across Python 3.8–3.11 and enforces
-coverage ≥ 65%.
+coverage ≥ 80%.
 
 ## Manual Repository Generation
 

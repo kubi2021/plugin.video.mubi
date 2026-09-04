@@ -13,7 +13,7 @@ Rules below are terse on purpose. Rationale lives in `docs/DEVELOPMENT_PRINCIPLE
 | Data | branch `database`, `v1/films.json.gz` + `.md5` | | Consumed by `resources/lib/data_source.py`, `SUPPORTED_VERSIONS=[1]` |
 | URLs | `resources/lib/constants.py` | | Sole home of external URLs. `scripts/healthcheck.py` GETs `HEALTHCHECK_URLS` daily |
 | Tests | `tests/{plugin_video_mubi,backend,repository_kubi2021,integration}` | | Kodi stubs: `tests/plugin_video_mubi/kodi_stubs.py`; golden: `tests/fixtures/golden_film_sample.json` |
-| CI | `.github/workflows/` | | `test.yml` (py3.8–3.11, cov ≥65), 3 sync jobs, `healthcheck`, `weekly-digest`, `auto-release` (manual) |
+| CI | `.github/workflows/` | | `test.yml` (py3.8–3.11, cov ≥80), 3 sync jobs, `healthcheck`, `weekly-digest`, `auto-release` (manual) |
 
 ## Commands
 
@@ -76,6 +76,7 @@ Never edit `v1_schema.json` alone. Use `/schema-change` (schema + test + models 
 - A redirect's `Location` is not proof its target exists. mubi.com 301s `/activate`, `/tv/activate` and the retired `/android` alike to `/tv/<path>`, which then 404s. Follow the chain and check the final status before baselining a URL.
 - Notify-on-failure steps gate on `steps.<id>.outcome == 'failure'`, not bare `failure()`, or a broken `pip install` files an "endpoint failed" issue.
 - `str(e)` of a `requests` exception embeds the full request URL, so a key sent as a query parameter (OMDb `apikey`, TMDb `api_key`) lands in the log through `f"... {e}"`. Wrap with `redact_secrets` (`backend/metadata_utils.py`; plugin mirror `external_metadata/title_utils.py`). GitHub masks only a secret's exact full string, so one key out of a comma-separated `OMDB_API_KEYS` is not masked.
+- The coverage floor is written in three places: `--cov-fail-under` in `.github/workflows/test.yml`, the layout table in `CLAUDE.md`, and two lines in `docs/CONTRIBUTING.md`. Change all three together or the docs lie about the CI gate (PR #72 raised the gate to 80 but left the docs at 65).
 
 ## Skills
 
