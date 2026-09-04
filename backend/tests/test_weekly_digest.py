@@ -165,6 +165,40 @@ def test_get_first_seen_parsing():
     assert get_first_seen({"first_seen_at": "not-a-date"}) is None
 
 
+def test_get_first_seen_naive_is_utc():
+    """Regression (hostile-audit F1): a first_seen_at with no tz offset parses
+    successfully as a NAIVE datetime, which then raises TypeError when compared
+    against the aware cutoff. get_first_seen must normalise naive -> UTC, exactly
+    like get_earliest_availability does, so the value is comparable."""
+    dt = get_first_seen({"first_seen_at": "2025-01-05T00:00:00"})  # no offset
+    assert dt is not None
+    assert dt.tzinfo is not None
+
+
+def test_naive_first_seen_does_not_crash_digest(tmp_path):
+    """Regression (hostile-audit F1): a single film carrying a tz-naive
+    first_seen_at must not abort the entire digest with
+    'can't compare offset-naive and offset-aware datetimes'."""
+    mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
+    input_file = tmp_path / "films.json"
+    output_file = tmp_path / "digest.md"
+
+    film = {
+        "mubi_id": 1,
+        "title": "Naive First Seen",
+        "ratings": [{"source": "bayesian", "score_over_10": 7.0}],
+        "first_seen_at": "2025-01-05T00:00:00",  # naive, within lookback window
+        "available_countries": {"US": {"available_at": "2025-01-05T00:00:00Z"}},
+    }
+    input_file.write_text(json.dumps({"items": [film]}), encoding="utf-8")
+
+    generate_digest(input_file, output_file, now_override=mock_now)
+
+    json_content = json.loads(output_file.with_suffix(".json").read_text())
+    # Naive value is treated as UTC -> the film is featured, no crash.
+    assert [m["id"] for m in json_content["newArrivals"]] == [1]
+
+
 def test_rotated_old_film_is_not_new(tmp_path):
     """Regression: a film with a recent available_at but an OLD first_seen_at
     (rotated back into a country) must NOT be treated as new."""

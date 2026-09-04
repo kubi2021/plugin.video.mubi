@@ -85,7 +85,13 @@ def get_first_seen(film: dict) -> Optional[datetime]:
     try:
         if val.endswith("Z"):
             val = val[:-1] + "+00:00"
-        return datetime.fromisoformat(val)
+        dt = datetime.fromisoformat(val)
+        # A tz-less timestamp parses as naive; force UTC so it can be compared
+        # against the aware cutoff without raising TypeError. Mirrors
+        # get_earliest_availability — keep the two ISO parsers identical.
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     except (ValueError, AttributeError):
         return None
 
