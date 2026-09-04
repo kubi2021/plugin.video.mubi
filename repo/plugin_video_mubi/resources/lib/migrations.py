@@ -7,9 +7,9 @@ import xbmcvfs
 
 
 def add_mubi_source():
-    sources_file = xbmcvfs.translatePath('special://profile/sources.xml')
+    sources_file = xbmcvfs.translatePath("special://profile/sources.xml")
     mubi_source_name = "MUBI Movies"
-    mubi_path = 'special://userdata/addon_data/plugin.video.mubi'
+    mubi_path = "special://userdata/addon_data/plugin.video.mubi"
 
     try:
         # Check if the sources.xml file exists
@@ -64,10 +64,11 @@ def add_mubi_source():
     except Exception as e:
         xbmc.log(f"An error occurred in add_mubi_source: {e}", level=xbmc.LOGERROR)
 
+
 def read_xml(file_path):
     try:
         if xbmcvfs.exists(file_path):
-            with xbmcvfs.File(file_path, 'r') as f:
+            with xbmcvfs.File(file_path, "r") as f:
                 content = f.read()
             tree = ET.ElementTree(ET.fromstring(content))
             xbmc.log(f"Successfully read XML file: {file_path}", level=xbmc.LOGDEBUG)
@@ -79,10 +80,11 @@ def read_xml(file_path):
         xbmc.log(f"Error reading XML file {file_path}: {e}", level=xbmc.LOGERROR)
         return None
 
+
 def write_xml(tree, file_path):
     try:
-        content = ET.tostring(tree.getroot(), encoding='unicode', method='xml')
-        with xbmcvfs.File(file_path, 'w') as f:
+        content = ET.tostring(tree.getroot(), encoding="unicode", method="xml")
+        with xbmcvfs.File(file_path, "w") as f:
             f.write(content)
         xbmc.log(f"Successfully wrote XML file: {file_path}", level=xbmc.LOGDEBUG)
     except Exception as e:
@@ -99,13 +101,15 @@ def show_source_added_message():
     )
     dialog.ok("MUBI Source Added", message)
 
+
 def is_first_run(plugin):
     # Check if the addon is running for the first time by checking a setting
-    return not plugin.getSettingBool('first_run_completed')
+    return not plugin.getSettingBool("first_run_completed")
+
 
 def mark_first_run(plugin):
     # Mark that the first run has been completed
-    plugin.setSettingBool('first_run_completed', True)
+    plugin.setSettingBool("first_run_completed", True)
 
 
 def migrate_to_fast_sync(plugin):
@@ -122,12 +126,12 @@ def migrate_to_fast_sync(plugin):
     because True is also a legitimate user choice. After the migration the user
     remains free to toggle enable_fast_sync back off; we never force it again.
     """
-    if plugin.getSettingBool('fast_sync_migration_done'):
+    if plugin.getSettingBool("fast_sync_migration_done"):
         # Already migrated - respect whatever the user has set since.
         return False
 
-    plugin.setSettingBool('enable_fast_sync', True)
-    plugin.setSettingBool('fast_sync_migration_done', True)
+    plugin.setSettingBool("enable_fast_sync", True)
+    plugin.setSettingBool("fast_sync_migration_done", True)
     xbmc.log("Migrated user to fast sync (one-time)", level=xbmc.LOGINFO)
     return True
 
@@ -142,7 +146,7 @@ def migrate_genre_settings(plugin):
     This runs only if the old skip_genres setting has a value.
     After migration, the old setting is cleared to prevent re-running.
     """
-    old_setting = plugin.getSetting('skip_genres')
+    old_setting = plugin.getSetting("skip_genres")
 
     if not old_setting or not old_setting.strip():
         # No migration needed - old setting is empty or doesn't exist
@@ -152,30 +156,30 @@ def migrate_genre_settings(plugin):
 
     # Mapping from genre names to new setting IDs
     genre_mapping = {
-        'action': 'skip_genre_action',
-        'adventure': 'skip_genre_adventure',
-        'animation': 'skip_genre_animation',
-        'avant-garde': 'skip_genre_avant_garde',
-        'comedy': 'skip_genre_comedy',
-        'commercial': 'skip_genre_commercial',
-        'crime': 'skip_genre_crime',
-        'cult': 'skip_genre_cult',
-        'documentary': 'skip_genre_documentary',
-        'drama': 'skip_genre_drama',
-        'erotica': 'skip_genre_erotica',
-        'fantasy': 'skip_genre_fantasy',
-        'horror': 'skip_genre_horror',
-        'lgbtq+': 'skip_genre_lgbtq',
-        'mystery': 'skip_genre_mystery',
-        'romance': 'skip_genre_romance',
-        'sci-fi': 'skip_genre_sci_fi',
-        'short': 'skip_genre_short',
-        'thriller': 'skip_genre_thriller',
-        'tv movie': 'skip_genre_tv_movie',
+        "action": "skip_genre_action",
+        "adventure": "skip_genre_adventure",
+        "animation": "skip_genre_animation",
+        "avant-garde": "skip_genre_avant_garde",
+        "comedy": "skip_genre_comedy",
+        "commercial": "skip_genre_commercial",
+        "crime": "skip_genre_crime",
+        "cult": "skip_genre_cult",
+        "documentary": "skip_genre_documentary",
+        "drama": "skip_genre_drama",
+        "erotica": "skip_genre_erotica",
+        "fantasy": "skip_genre_fantasy",
+        "horror": "skip_genre_horror",
+        "lgbtq+": "skip_genre_lgbtq",
+        "mystery": "skip_genre_mystery",
+        "romance": "skip_genre_romance",
+        "sci-fi": "skip_genre_sci_fi",
+        "short": "skip_genre_short",
+        "thriller": "skip_genre_thriller",
+        "tv movie": "skip_genre_tv_movie",
     }
 
     # Parse the old comma-separated list
-    genres_to_skip = [g.strip().lower() for g in old_setting.split(',')]
+    genres_to_skip = [g.strip().lower() for g in old_setting.split(",")]
     migrated_count = 0
 
     for genre in genres_to_skip:
@@ -188,7 +192,7 @@ def migrate_genre_settings(plugin):
             xbmc.log(f"Unknown genre '{genre}' - skipping migration", level=xbmc.LOGWARNING)
 
     # Clear the old setting to prevent re-running migration
-    plugin.setSetting('skip_genres', '')
+    plugin.setSetting("skip_genres", "")
 
     xbmc.log(f"Genre settings migration complete: {migrated_count} genres migrated", level=xbmc.LOGINFO)
     return True

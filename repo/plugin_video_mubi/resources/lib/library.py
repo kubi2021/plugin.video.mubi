@@ -19,7 +19,7 @@ class Library:
     def add_film(self, film: Film):
         if not film or not film.mubi_id or not film.title or not film.metadata:
             raise ValueError("Invalid film: missing required fields (mubi_id, title, or metadata).")
-        
+
         if film.mubi_id in self.films:
             # Film exists, merge availability data
             existing_film = self.films[film.mubi_id]
@@ -44,11 +44,11 @@ class Library:
 
         # Log films that contain problematic characters for debugging
         for film in self.films.values():
-            if '#' in film.title or any(char in film.title for char in '<>:"/\\|?*^%$&{}@!;`~'):
+            if "#" in film.title or any(char in film.title for char in '<>:"/\\|?*^%$&{}@!;`~'):
                 xbmc.log(
                     f"Processing film with special characters: '{film.title}' "
                     f"-> sanitized: '{film.get_sanitized_folder_name()}'",
-                    xbmc.LOGINFO
+                    xbmc.LOGINFO,
                 )
 
         # Initialize counters
@@ -68,28 +68,33 @@ class Library:
         # Get concurrency setting (default to 5 for safety on low-end devices)
         # 1 = Serial, 5 = Standard, 10+ = High Performance
         try:
-             max_workers = xbmcaddon.Addon().getSettingInt("sync_concurrency")
-             
-             if max_workers == 0:
-                 # Auto mode: 90% of threads
-                 cpu_count = os.cpu_count() or 1
-                 max_workers = max(1, int(cpu_count * 0.9))
-                 xbmc.log(f"MUBI Sync: Auto-concurrency detected {cpu_count} CPUs. Using {max_workers} threads (90%).", xbmc.LOGINFO)
-             elif max_workers < 1:
-                 # Fallback for invalid negative values
-                 max_workers = 5
+            max_workers = xbmcaddon.Addon().getSettingInt("sync_concurrency")
+
+            if max_workers == 0:
+                # Auto mode: 90% of threads
+                cpu_count = os.cpu_count() or 1
+                max_workers = max(1, int(cpu_count * 0.9))
+                xbmc.log(
+                    f"MUBI Sync: Auto-concurrency detected {cpu_count} CPUs. Using {max_workers} threads (90%).",
+                    xbmc.LOGINFO,
+                )
+            elif max_workers < 1:
+                # Fallback for invalid negative values
+                max_workers = 5
         except Exception:
-             max_workers = 5
-             
+            max_workers = 5
+
         xbmc.log(f"Starting sync with {max_workers} worker threads.", xbmc.LOGDEBUG)
-        
+
         processed_count = 0
 
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all tasks
                 future_to_film = {
-                    executor.submit(self.prepare_files_for_film, film, base_url, plugin_userdata_path, skip_external_metadata): film
+                    executor.submit(
+                        self.prepare_files_for_film, film, base_url, plugin_userdata_path, skip_external_metadata
+                    ): film
                     for film in self.films.values()
                     if self.is_film_valid(film)
                 }
@@ -108,7 +113,7 @@ class Library:
 
                     film = future_to_film[future]
                     processed_count += 1
-                    
+
                     # Update progress
                     percent = int((processed_count / films_to_process) * 100)
                     progress_msg = f"Processing movie {processed_count} of {films_to_process}:\n{film.title}"
@@ -146,11 +151,11 @@ class Library:
                 f"Failed to add: {failed_to_add}\n"
                 f"Obsolete movies removed: {obsolete_films_count}"
             )
-            
+
             # Trigger individual updates for modified ratings
             if films_to_kodi_update:
                 xbmc.log(f"Triggering metadata refresh for {len(films_to_kodi_update)} films...", xbmc.LOGINFO)
-                
+
                 # OPTIMIZATION: Fetch all Mubi movies in one go to avoid N RPC calls
                 movie_lookup = {}
                 try:
@@ -161,9 +166,9 @@ class Library:
                         "method": "VideoLibrary.GetMovies",
                         "params": {
                             "filter": {"field": "path", "operator": "contains", "value": folder_filter},
-                            "properties": ["file"]
+                            "properties": ["file"],
                         },
-                        "id": "mubi_lookup"
+                        "id": "mubi_lookup",
                     }
                     rpc_res = json.loads(xbmc.executeJSONRPC(json.dumps(rpc_query)))
                     if "result" in rpc_res and "movies" in rpc_res["result"]:
@@ -174,7 +179,7 @@ class Library:
 
                 refresh_count = 0
                 total_to_refresh = len(films_to_kodi_update)
-                
+
                 for strm_path in films_to_kodi_update:
                     refresh_count += 1
                     # Update progress UI for the refresh phase
@@ -182,37 +187,35 @@ class Library:
                         p_percent = int((refresh_count / total_to_refresh) * 100)
                         p_msg = f"Refreshing Kodi metadata ({refresh_count}/{total_to_refresh}):\n{strm_path.name}"
                         pDialog.update(p_percent, p_msg)
-                    
+
                     # Pass the pre-fetched movie_id if available
                     m_id = movie_lookup.get(str(strm_path))
                     self.refresh_film_metadata(strm_path, movie_id=m_id)
-            
+
             # Log results
             xbmc.log(
                 f"Sync completed. New: {newly_added}, Updated: {rating_updated}, Failed: {failed_to_add}, "
                 f"Obsolete removed: {obsolete_films_count}",
-                xbmc.LOGDEBUG
+                xbmc.LOGDEBUG,
             )
-            
+
             # Show summary dialog
             xbmcgui.Dialog().ok("MUBI", message)
         finally:
             # Ensure the dialog is closed in the end
             pDialog.close()
 
-
-
     def is_film_valid(self, film: Film) -> bool:
         # Check that film has all necessary attributes AND at least one available country
         if not film.mubi_id or not film.title or not film.metadata:
             return False
-            
+
         # Check integrity of available_countries
         # Case 1: Empty dictionary (True Zombie) - Caught by 'and film.available_countries'
         # Case 2: Keys with empty values (Semi-Zombie) - e.g. {'DK': {}} due to null consumable
         if not film.available_countries:
             return False
-            
+
         # Ensure film is actually playable based on date ranges
         return film.is_playable()
 
@@ -248,16 +251,16 @@ class Library:
                 # Check if rating needs update (only for GitHub sync/when we have Bayesian data)
                 # If rating is NOT synced, we shouldn't return None; we should proceed to overwrite NFO.
                 rating_synced = film.is_rating_synced(nfo_file)
-                
+
                 if rating_synced:
                     # Update country availability in NFO file (quick operation)
                     xbmc.log(f"Updating availability for '{film.title}' (NFO exists & rating synced).", xbmc.LOGDEBUG)
                     film.update_nfo_availability(nfo_file)
                     return None  # Indicate availability was updated (not a new film)
                 else:
-                     xbmc.log(f"Forcing NFO update for '{film.title}' due to rating change.", xbmc.LOGINFO)
-                     # Fall through to create_nfo_file which overwrites
-                     # We will return special status later if successful
+                    xbmc.log(f"Forcing NFO update for '{film.title}' due to rating change.", xbmc.LOGINFO)
+                    # Fall through to create_nfo_file which overwrites
+                    # We will return special status later if successful
         except PermissionError as e:
             xbmc.log(f"PermissionError when accessing files for film '{film.title}': {e}", xbmc.LOGERROR)
             return False  # Indicate failure due to permission error
@@ -274,8 +277,7 @@ class Library:
             # Verify if the NFO file was created successfully
             if not nfo_file.exists():
                 xbmc.log(
-                    f"Skipping creation of STRM file for '{film.title}' as NFO file was not created.",
-                    xbmc.LOGWARNING
+                    f"Skipping creation of STRM file for '{film.title}' as NFO file was not created.", xbmc.LOGWARNING
                 )
                 # Remove the movie folder since NFO creation failed
                 shutil.rmtree(film_path)
@@ -289,8 +291,7 @@ class Library:
             # BUG #9 FIX: Verify that the STRM file was actually created
             if not strm_file.exists():
                 xbmc.log(
-                    f"STRM file creation failed for '{film.title}' - file does not exist after creation.",
-                    xbmc.LOGERROR
+                    f"STRM file creation failed for '{film.title}' - file does not exist after creation.", xbmc.LOGERROR
                 )
                 # Remove the movie folder since STRM creation failed
                 shutil.rmtree(film_path)
@@ -299,7 +300,7 @@ class Library:
 
             xbmc.log(f"Successfully created STRM file for '{film.title}'.", xbmc.LOGDEBUG)
             xbmc.log(f"Successfully created STRM file for '{film.title}'.", xbmc.LOGDEBUG)
-            
+
             if nfo_exists:
                 return "RATING_UPDATED"
             return True  # Indicate successful creation of both files
@@ -313,18 +314,17 @@ class Library:
                 xbmc.log(f"Removed folder '{film_path}' due to error.", xbmc.LOGDEBUG)
             return False  # Indicate failure due to exception
 
-
-
-
     def remove_obsolete_files(self, plugin_userdata_path: Path) -> int:
         """
         Remove folders in plugin_userdata_path that do not correspond to any film in the library.
-        
+
         :param plugin_userdata_path: Path where the film folders are stored.
         :return: The number of obsolete film folders removed.
         """
         # Get a set of sanitized folder names for the current films in the library
-        current_film_folders = {film.get_sanitized_folder_name() for film in self.films.values() if self.is_film_valid(film)}
+        current_film_folders = {
+            film.get_sanitized_folder_name() for film in self.films.values() if self.is_film_valid(film)
+        }
 
         # Track obsolete folder count
         obsolete_folders_count = 0
@@ -342,51 +342,51 @@ class Library:
         """
         Force a metadata refresh for a specific film using JSON-RPC.
         This is more reliable than UpdateLibrary for existing items where only metadata changed.
-        
+
         :param strm_path: Absolute path to the .strm file of the film.
         :param movie_id: Optional pre-fetched Kodi movieid.
         """
         try:
             # 1. Use provided movie_id or find it using VideoLibrary.GetMovies
             path_str = str(strm_path)
-            
+
             if not movie_id:
                 # Construct JSON-RPC request to find the movie
                 # We filter by 'file' to find the specific item
                 find_req = {
-                    "jsonrpc": "2.0", 
-                    "method": "VideoLibrary.GetMovies", 
+                    "jsonrpc": "2.0",
+                    "method": "VideoLibrary.GetMovies",
                     "params": {
                         "filter": {"field": "file", "operator": "is", "value": path_str},
-                        "properties": ["title"] 
-                    }, 
-                    "id": 1
+                        "properties": ["title"],
+                    },
+                    "id": 1,
                 }
-                
+
                 find_resp_str = xbmc.executeJSONRPC(json.dumps(find_req))
                 find_resp = json.loads(find_resp_str)
-                
+
                 if "result" in find_resp and "movies" in find_resp["result"]:
                     movies = find_resp["result"]["movies"]
                     if movies:
                         movie_id = movies[0].get("movieid")
-                
+
                 # 2. Fallback: Search by filename if exact path match failed
                 if not movie_id:
                     xbmc.log(f"Exact path match failed for '{path_str}', trying filename match...", xbmc.LOGDEBUG)
                     filename = strm_path.name
                     find_req_fallback = {
-                        "jsonrpc": "2.0", 
-                        "method": "VideoLibrary.GetMovies", 
+                        "jsonrpc": "2.0",
+                        "method": "VideoLibrary.GetMovies",
                         "params": {
                             "filter": {"field": "filename", "operator": "is", "value": filename},
-                            "properties": ["title", "file"] 
-                        }, 
-                        "id": 2
+                            "properties": ["title", "file"],
+                        },
+                        "id": 2,
                     }
                     find_resp_str_fallback = xbmc.executeJSONRPC(json.dumps(find_req_fallback))
                     find_resp_fallback = json.loads(find_resp_str_fallback)
-                    
+
                     if "result" in find_resp_fallback and "movies" in find_resp_fallback["result"]:
                         movies = find_resp_fallback["result"]["movies"]
                         if movies:
@@ -395,17 +395,14 @@ class Library:
 
             if movie_id:
                 xbmc.log(f"Found movieid {movie_id} for '{path_str}'. Refreshing...", xbmc.LOGDEBUG)
-                
+
                 # 3. Refresh the specific movie using VideoLibrary.RefreshMovie
                 # ignorenfo=false is default, so it will read our newly updated NFO
                 refresh_req = {
                     "jsonrpc": "2.0",
                     "method": "VideoLibrary.RefreshMovie",
-                    "params": {
-                        "movieid": movie_id,
-                        "ignorenfo": False 
-                    },
-                    "id": 1
+                    "params": {"movieid": movie_id, "ignorenfo": False},
+                    "id": 1,
                 }
                 xbmc.executeJSONRPC(json.dumps(refresh_req))
                 xbmc.log(f"Triggered RefreshMovie for movieid {movie_id}", xbmc.LOGINFO)
@@ -413,8 +410,7 @@ class Library:
                 xbmc.log(f"Could not find movieid for '{path_str}'. Fallback to UpdateLibrary scan.", xbmc.LOGWARNING)
                 # Fallback: scan the parent folder
                 parent_dir = strm_path.parent
-                xbmc.executebuiltin(f'UpdateLibrary(video, {parent_dir})')
+                xbmc.executebuiltin(f"UpdateLibrary(video, {parent_dir})")
 
         except Exception as e:
             xbmc.log(f"Error refreshing metadata for '{strm_path}': {e}", xbmc.LOGERROR)
-

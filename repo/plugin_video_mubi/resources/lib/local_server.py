@@ -11,6 +11,7 @@ class LocalServer:
     A simple threaded HTTP server to serve files from Kodi's temp directory.
     This bypasses inputstream.adaptive's inability to read local files on some platforms.
     """
+
     _instance = None
     _lock = threading.Lock()
 
@@ -43,9 +44,9 @@ class LocalServer:
                     pass
 
             # Create server on ephemeral port
-            self.server = ThreadingTCPServer(('127.0.0.1', 0), Handler)
+            self.server = ThreadingTCPServer(("127.0.0.1", 0), Handler)
             self.port = self.server.server_address[1]
-            
+
             self.thread = threading.Thread(target=self.server.serve_forever)
             self.thread.daemon = True
             self.thread.start()
@@ -56,7 +57,7 @@ class LocalServer:
         Use special://temp/filename or absolute path.
         """
         self.start()
-        
+
         # We only serve from temp dir, so extract filename
         filename = os.path.basename(file_path)
         return f"http://127.0.0.1:{self.port}/{filename}"
@@ -65,18 +66,19 @@ class LocalServer:
         """
         Tests if the LocalServer is working by making a quick HTTP request.
         Returns True if server responds, False otherwise.
-        
+
         This catches issues like Linux ABI mismatches that cause crashes
         when switching between localhost and remote CDN contexts.
         """
         if not self.server:
             return False
-        
+
         try:
             import urllib.request
+
             # Quick timeout test - just check if server responds
             test_url = f"http://127.0.0.1:{self.port}/"
-            req = urllib.request.Request(test_url, method='HEAD')
+            req = urllib.request.Request(test_url, method="HEAD")
             with urllib.request.urlopen(req, timeout=2):
                 # Any response (even 404) means server is working
                 return True

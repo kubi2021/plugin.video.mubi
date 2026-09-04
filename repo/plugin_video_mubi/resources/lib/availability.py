@@ -10,6 +10,7 @@ never as strings: lexical comparison of ISO-8601 strings only happens to work
 when every value shares an identical format and offset suffix, and silently
 mis-orders otherwise (e.g. ``...T07:53:51+02:00`` vs ``...T06:53:51Z``).
 """
+
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -57,8 +58,8 @@ def is_country_available(details: dict, now: Optional[datetime] = None) -> bool:
     if now is None:
         now = datetime.now(timezone.utc)
 
-    available_at = details.get('available_at')
-    ends_at = details.get('expires_at') or details.get('availability_ends_at')
+    available_at = details.get("available_at")
+    ends_at = details.get("expires_at") or details.get("availability_ends_at")
 
     if available_at or ends_at:
         try:
@@ -72,10 +73,9 @@ def is_country_available(details: dict, now: Optional[datetime] = None) -> bool:
             # not enough to be "available" — fall through to the status check.
         except (ValueError, OverflowError, TypeError) as e:
             xbmc.log(
-                f"Error parsing availability dates ({e}); "
-                f"falling back to status check",
+                f"Error parsing availability dates ({e}); falling back to status check",
                 xbmc.LOGWARNING,
             )
             # Fall through to the legacy status check below.
 
-    return details.get('availability') == 'live'
+    return details.get("availability") == "live"

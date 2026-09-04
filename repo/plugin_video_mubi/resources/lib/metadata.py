@@ -31,7 +31,7 @@ class Metadata:
         tagline: Optional[str] = "",
         audio_channels: Optional[List[str]] = None,
         bayesian_rating: Optional[float] = None,
-        bayesian_votes: Optional[int] = None
+        bayesian_votes: Optional[int] = None,
     ):
         try:
             self.title = title
@@ -77,34 +77,33 @@ class Metadata:
         """
         try:
             return {
-                'title': self.title,
-                'director': self.director,
-                'year': self.year,
-                'duration': self.duration,
-                'country': self.country,
-                'plot': self.plot,
-                'plotoutline': self.plotoutline,
-                'genre': self.genre,
-                'originaltitle': self.originaltitle,
-                'rating': self.rating,
-                'votes': self.votes,
-                'castandrole': self.castandrole,
-                'dateadded': self.dateadded,
-                'trailer': self.trailer,
-                'image': self.image,
-                'mpaa': self.mpaa,
-                'artwork_urls': self.artwork_urls,
-                'audio_languages': self.audio_languages,
-                'subtitle_languages': self.subtitle_languages,
-                'media_features': self.media_features,
-                'premiered': self.premiered,
-                'content_warnings': self.content_warnings,
-                'tagline': self.tagline,
-                'audio_channels': self.audio_channels,
-                'bayesian_rating': self.bayesian_rating,
-                'bayesian_votes': self.bayesian_votes
+                "title": self.title,
+                "director": self.director,
+                "year": self.year,
+                "duration": self.duration,
+                "country": self.country,
+                "plot": self.plot,
+                "plotoutline": self.plotoutline,
+                "genre": self.genre,
+                "originaltitle": self.originaltitle,
+                "rating": self.rating,
+                "votes": self.votes,
+                "castandrole": self.castandrole,
+                "dateadded": self.dateadded,
+                "trailer": self.trailer,
+                "image": self.image,
+                "mpaa": self.mpaa,
+                "artwork_urls": self.artwork_urls,
+                "audio_languages": self.audio_languages,
+                "subtitle_languages": self.subtitle_languages,
+                "media_features": self.media_features,
+                "premiered": self.premiered,
+                "content_warnings": self.content_warnings,
+                "tagline": self.tagline,
+                "audio_channels": self.audio_channels,
+                "bayesian_rating": self.bayesian_rating,
+                "bayesian_votes": self.bayesian_votes,
             }
         except Exception as e:
             xbmc.log(f"Error converting Metadata to dict: {e}", xbmc.LOGERROR)
             return {}
-

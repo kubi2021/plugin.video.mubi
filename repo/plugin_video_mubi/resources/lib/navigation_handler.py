@@ -23,14 +23,15 @@ class LibraryMonitor(xbmc.Monitor):
         self.scan_finished = False
 
     def onCleanFinished(self, library):
-        if library == 'video':
+        if library == "video":
             xbmc.log("Library clean finished.", xbmc.LOGDEBUG)
             self.clean_finished = True
 
     def onScanFinished(self, library):
-        if library == 'video':
+        if library == "video":
             xbmc.log("Library scan (update) finished.", xbmc.LOGDEBUG)
             self.scan_finished = True
+
 
 class NavigationHandler:
     """
@@ -59,7 +60,6 @@ class NavigationHandler:
         # Log the handle when NavigationHandler is initialized
         xbmc.log(f"NavigationHandler initialized with handle: {self.handle}", xbmc.LOGDEBUG)
 
-
     def get_url(self, **kwargs) -> str:
         """
         Create a plugin URL with the given keyword arguments.
@@ -74,12 +74,12 @@ class NavigationHandler:
         Build the main navigation menu presented to the user.
         """
         try:
-            self.session.is_logged_in = self.plugin.getSettingBool('logged') and self.session.token
+            self.session.is_logged_in = self.plugin.getSettingBool("logged") and self.session.token
             xbmcplugin.setPluginCategory(self.handle, "Mubi")
             xbmcplugin.setContent(self.handle, "videos")
 
             main_navigation_items = self._get_main_menu_items()
-            
+
             for item in main_navigation_items:
                 self._add_menu_item(item)
 
@@ -90,24 +90,29 @@ class NavigationHandler:
             xbmc.log(f"Error in main navigation: {e}", xbmc.LOGERROR)
 
     def _get_main_menu_items(self) -> list:
-        """ Helper method to retrieve main menu items based on login status. """
+        """Helper method to retrieve main menu items based on login status."""
         if self.session.is_logged_in:
             # Check fast sync setting
-            enable_fast_sync = self.plugin.getSettingBool('enable_fast_sync')
-            
+            enable_fast_sync = self.plugin.getSettingBool("enable_fast_sync")
+
             # Get client country for sync menu label
             sync_label, sync_description = self._get_sync_menu_label()
             worldwide_label, worldwide_description = self._get_sync_worldwide_menu_label()
-            
+
             # Base menu items
             menu_items = [
-                {"label": "Browse your Mubi watchlist", "description": "Browse your Mubi watchlist", "action": "watchlist", "is_folder": True}
+                {
+                    "label": "Browse your Mubi watchlist",
+                    "description": "Browse your Mubi watchlist",
+                    "action": "watchlist",
+                    "is_folder": True,
+                }
             ]
-            
+
             # Conditionally add sync options based on fast sync setting
             if enable_fast_sync:
                 # Fast sync enabled: show both local and worldwide options using GitHub
-                
+
                 # Local Sync (GitHub)
                 local_label = f"Sync {self._get_client_country_name()} catalogue"
                 local_desc = (
@@ -116,35 +121,62 @@ class NavigationHandler:
                 )
                 menu_items.append(
                     {
-                        "label": local_label, 
-                        "description": local_desc, 
-                        "action": "sync_github", 
+                        "label": local_label,
+                        "description": local_desc,
+                        "action": "sync_github",
                         "is_folder": False,
                         # Pass country as URL param handled in addon.py -> sync_from_github
-                        "params": {"country": self.plugin.getSetting("client_country")} 
+                        "params": {"country": self.plugin.getSetting("client_country")},
                     }
                 )
 
                 # Worldwide Sync (GitHub)
                 menu_items.append(
-                    {"label": "Sync worldwide catalogue", "description": worldwide_description, "action": "sync_github", "is_folder": False}
+                    {
+                        "label": "Sync worldwide catalogue",
+                        "description": worldwide_description,
+                        "action": "sync_github",
+                        "is_folder": False,
+                    }
                 )
             else:
                 # Fast sync disabled: show traditional MUBI sync options
-                menu_items.extend([
-                    {"label": sync_label, "description": sync_description, "action": "sync_locally", "is_folder": False},
-                    {"label": worldwide_label, "description": worldwide_description, "action": "sync_worldwide", "is_folder": False}
-                ])
-            
+                menu_items.extend(
+                    [
+                        {
+                            "label": sync_label,
+                            "description": sync_description,
+                            "action": "sync_locally",
+                            "is_folder": False,
+                        },
+                        {
+                            "label": worldwide_label,
+                            "description": worldwide_description,
+                            "action": "sync_worldwide",
+                            "is_folder": False,
+                        },
+                    ]
+                )
+
             # Add logout option
             menu_items.append(
-                {"label": "Log Out", "description": "Log out from your Mubi account", "action": "log_out", "is_folder": False}
+                {
+                    "label": "Log Out",
+                    "description": "Log out from your Mubi account",
+                    "action": "log_out",
+                    "is_folder": False,
+                }
             )
-            
+
             return menu_items
         else:
             return [
-                {"label": "Log In", "description": "Log in to your Mubi account", "action": "log_in", "is_folder": False}
+                {
+                    "label": "Log In",
+                    "description": "Log in to your Mubi account",
+                    "action": "log_in",
+                    "is_folder": False,
+                }
             ]
 
     def _get_sync_menu_label(self) -> tuple:
@@ -153,6 +185,7 @@ class NavigationHandler:
         Returns a tuple of (label, description with help info).
         """
         from .countries import COUNTRIES
+
         try:
             country_code = self.plugin.getSetting("client_country")
             if country_code:
@@ -180,6 +213,7 @@ class NavigationHandler:
         # Try to get coverage stats for a more informative label
         try:
             from .coverage_optimizer import get_coverage_stats
+
             country_code = self.plugin.getSetting("client_country") or "CH"
             stats = get_coverage_stats(country_code)
             if stats:
@@ -206,6 +240,7 @@ class NavigationHandler:
     def _get_client_country_name(self) -> str:
         """Get the client country name from settings."""
         from .countries import COUNTRIES
+
         try:
             country_code = self.plugin.getSetting("client_country")
             if country_code:
@@ -232,12 +267,7 @@ class NavigationHandler:
         )
 
         # yesno returns True if user clicks Yes, False if No
-        result = dialog.yesno(
-            "MUBI Sync",
-            message,
-            yeslabel="Start Sync",
-            nolabel="Cancel"
-        )
+        result = dialog.yesno("MUBI Sync", message, yeslabel="Start Sync", nolabel="Cancel")
 
         return result
 
@@ -253,14 +283,10 @@ class NavigationHandler:
                 url = self.get_url(action=item["action"], **item["params"])
             else:
                 url = self.get_url(action=item["action"])
-            
+
             xbmcplugin.addDirectoryItem(self.handle, url, list_item, item["is_folder"])
         except Exception as e:
             xbmc.log(f"Error adding menu item {item['label']}: {e}", xbmc.LOGERROR)
-
-
-
-
 
     def list_watchlist(self):
         """
@@ -281,8 +307,6 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error listing videos: {e}", xbmc.LOGERROR)
 
-
-
     def _add_film_item(self, film):
         try:
             list_item = xbmcgui.ListItem(label=film.title)
@@ -291,83 +315,85 @@ class NavigationHandler:
             # Set basic metadata
             info_tag.setTitle(film.title)
 
-            if hasattr(film.metadata, 'originaltitle') and film.metadata.originaltitle:
+            if hasattr(film.metadata, "originaltitle") and film.metadata.originaltitle:
                 info_tag.setOriginalTitle(film.metadata.originaltitle)
 
-            if hasattr(film.metadata, 'genre') and film.metadata.genre:
+            if hasattr(film.metadata, "genre") and film.metadata.genre:
                 genres = film.metadata.genre
                 if isinstance(genres, str):
                     genres = [genres]
                 info_tag.setGenres(genres)  # Expects a list
 
-            if hasattr(film.metadata, 'plot') and film.metadata.plot:
+            if hasattr(film.metadata, "plot") and film.metadata.plot:
                 info_tag.setPlot(film.metadata.plot)
 
-            if hasattr(film.metadata, 'year') and film.metadata.year:
+            if hasattr(film.metadata, "year") and film.metadata.year:
                 info_tag.setYear(int(film.metadata.year))
 
-            if hasattr(film.metadata, 'duration') and film.metadata.duration:
+            if hasattr(film.metadata, "duration") and film.metadata.duration:
                 info_tag.setDuration(int(film.metadata.duration))  # Duration in seconds
 
-            if hasattr(film.metadata, 'director') and film.metadata.director:
+            if hasattr(film.metadata, "director") and film.metadata.director:
                 directors = film.metadata.director
                 if isinstance(directors, str):
                     directors = [directors]
                 info_tag.setDirectors(directors)  # Expects a list
 
-            if hasattr(film.metadata, 'cast') and film.metadata.cast:
+            if hasattr(film.metadata, "cast") and film.metadata.cast:
                 info_tag.setCast(film.metadata.cast)  # Expects a list of dicts with 'name' keys
 
-            if hasattr(film.metadata, 'rating') and film.metadata.rating:
+            if hasattr(film.metadata, "rating") and film.metadata.rating:
                 info_tag.setRating(float(film.metadata.rating))
 
-            if hasattr(film.metadata, 'votes') and film.metadata.votes:
+            if hasattr(film.metadata, "votes") and film.metadata.votes:
                 info_tag.setVotes(int(film.metadata.votes))
 
-            if hasattr(film.metadata, 'imdb_id') and film.metadata.imdb_id:
-                info_tag.setUniqueID(film.metadata.imdb_id, 'imdb')
+            if hasattr(film.metadata, "imdb_id") and film.metadata.imdb_id:
+                info_tag.setUniqueID(film.metadata.imdb_id, "imdb")
 
             # Kodi 20+ (Nexus) features: Countries
-            if hasattr(film.metadata, 'country') and film.metadata.country:
+            if hasattr(film.metadata, "country") and film.metadata.country:
                 countries = film.metadata.country
                 if isinstance(countries, str):
                     countries = [countries]
                 info_tag.setCountries(countries)  # Expects a list
 
             # Kodi 20+ (Nexus) features: Premiered date (preferred over year)
-            if hasattr(film.metadata, 'premiered') and film.metadata.premiered:
+            if hasattr(film.metadata, "premiered") and film.metadata.premiered:
                 info_tag.setPremiered(film.metadata.premiered)
 
             # Kodi 20+ (Nexus) features: Content rating (MPAA)
-            if hasattr(film.metadata, 'mpaa') and film.metadata.mpaa:
+            if hasattr(film.metadata, "mpaa") and film.metadata.mpaa:
                 info_tag.setMpaa(film.metadata.mpaa)
 
             # Kodi 20+ (Nexus) features: Content warnings as tags
-            if hasattr(film.metadata, 'content_warnings') and film.metadata.content_warnings:
+            if hasattr(film.metadata, "content_warnings") and film.metadata.content_warnings:
                 tags = [str(w).strip() for w in film.metadata.content_warnings if w and str(w).strip()]
                 if tags:
                     info_tag.setTags(tags)
 
             # Kodi 20+ (Nexus) features: Press quote as tagline
-            if hasattr(film.metadata, 'tagline') and film.metadata.tagline:
+            if hasattr(film.metadata, "tagline") and film.metadata.tagline:
                 info_tag.setTagLine(film.metadata.tagline)
 
             # Kodi 20+ (Nexus) features: Audio and subtitle stream details
             self._add_stream_details(info_tag, film.metadata)
 
-            info_tag.setMediaType('movie')
+            info_tag.setMediaType("movie")
 
             # Set artwork
-            if hasattr(film.metadata, 'image') and film.metadata.image:
-                list_item.setArt({
-                    "thumb": film.metadata.image,
-                    "poster": film.metadata.image,
-                    "fanart": film.metadata.image,
-                    "landscape": film.metadata.image
-                })
+            if hasattr(film.metadata, "image") and film.metadata.image:
+                list_item.setArt(
+                    {
+                        "thumb": film.metadata.image,
+                        "poster": film.metadata.image,
+                        "fanart": film.metadata.image,
+                        "landscape": film.metadata.image,
+                    }
+                )
 
             # Set 'IsPlayable' property to inform Kodi this is a playable item
-            list_item.setProperty('IsPlayable', 'true')
+            list_item.setProperty("IsPlayable", "true")
 
             # Set the URL and path to the plugin URL
             url = self.get_url(action="play_mubi_video", film_id=film.mubi_id)
@@ -379,6 +405,7 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error adding film item {film.title}: {e}", xbmc.LOGERROR)
             import traceback
+
             xbmc.log(traceback.format_exc(), xbmc.LOGERROR)
 
     def _add_stream_details(self, info_tag, metadata):
@@ -389,47 +416,37 @@ class NavigationHandler:
         """
         try:
             # Add audio streams with language and channel information
-            if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
-                audio_channels = getattr(metadata, 'audio_channels', [])
+            if hasattr(metadata, "audio_languages") and metadata.audio_languages:
+                audio_channels = getattr(metadata, "audio_channels", [])
                 for i, lang in enumerate(metadata.audio_languages):
                     if lang and str(lang).strip():
                         # Determine channel count from audio_channels if available
                         channels = 2  # Default to stereo
                         if i < len(audio_channels) and audio_channels[i]:
                             channel_str = str(audio_channels[i]).strip().lower()
-                            if channel_str == '5.1':
+                            if channel_str == "5.1":
                                 channels = 6
-                            elif channel_str == '7.1':
+                            elif channel_str == "7.1":
                                 channels = 8
-                            elif channel_str in ('stereo', '2.0'):
+                            elif channel_str in ("stereo", "2.0"):
                                 channels = 2
-                            elif channel_str in ('mono', '1.0'):
+                            elif channel_str in ("mono", "1.0"):
                                 channels = 1
 
                         # Create AudioStreamDetail (Kodi 20+)
-                        audio_stream = xbmc.AudioStreamDetail(
-                            channels=channels,
-                            language=str(lang).strip()
-                        )
+                        audio_stream = xbmc.AudioStreamDetail(channels=channels, language=str(lang).strip())
                         info_tag.addAudioStream(audio_stream)
 
             # Add subtitle streams with language information
-            if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
+            if hasattr(metadata, "subtitle_languages") and metadata.subtitle_languages:
                 for lang in metadata.subtitle_languages:
                     if lang and str(lang).strip():
                         # Create SubtitleStreamDetail (Kodi 20+)
-                        subtitle_stream = xbmc.SubtitleStreamDetail(
-                            language=str(lang).strip()
-                        )
+                        subtitle_stream = xbmc.SubtitleStreamDetail(language=str(lang).strip())
                         info_tag.addSubtitleStream(subtitle_stream)
 
         except Exception as e:
             xbmc.log(f"Error adding stream details: {e}", xbmc.LOGDEBUG)
-
-
-
-
-
 
     def _is_safe_url(self, url: str) -> bool:
         """
@@ -445,7 +462,7 @@ class NavigationHandler:
             parsed = urlparse(url)
 
             # Check for valid scheme (http/https only)
-            if parsed.scheme not in ['http', 'https']:
+            if parsed.scheme not in ["http", "https"]:
                 xbmc.log(f"Unsafe URL scheme: {parsed.scheme}", xbmc.LOGWARNING)
                 return False
 
@@ -459,7 +476,7 @@ class NavigationHandler:
             netloc = parsed.netloc.lower() if parsed.netloc else ""
 
             # Check for dangerous characters in netloc (hostname:port)
-            dangerous_chars = [';', '|', '&', '`', '$']
+            dangerous_chars = [";", "|", "&", "`", "$"]
             # Note: Parentheses might appear in some valid URLs
             for char in dangerous_chars:
                 if char in netloc:
@@ -468,20 +485,32 @@ class NavigationHandler:
 
             if hostname:
                 hostname = hostname.lower()
-                if hostname in ['localhost', '127.0.0.1', '::1', '0.0.0.0', '[::]']:
+                if hostname in ["localhost", "127.0.0.1", "::1", "0.0.0.0", "[::]"]:
                     xbmc.log(f"Blocked localhost URL: {hostname}", xbmc.LOGWARNING)
                     return False
 
                 # Block private IP ranges and cloud metadata services
                 blocked_prefixes = [
-                    '192.168.',  # Private Class C
-                    '10.',       # Private Class A
-                    '172.16.', '172.17.', '172.18.', '172.19.',  # Private Class B
-                    '172.20.', '172.21.', '172.22.', '172.23.',
-                    '172.24.', '172.25.', '172.26.', '172.27.',
-                    '172.28.', '172.29.', '172.30.', '172.31.',
-                    '169.254.',  # Link-local (AWS/Azure metadata)
-                    '100.64.',   # Carrier-grade NAT
+                    "192.168.",  # Private Class C
+                    "10.",  # Private Class A
+                    "172.16.",
+                    "172.17.",
+                    "172.18.",
+                    "172.19.",  # Private Class B
+                    "172.20.",
+                    "172.21.",
+                    "172.22.",
+                    "172.23.",
+                    "172.24.",
+                    "172.25.",
+                    "172.26.",
+                    "172.27.",
+                    "172.28.",
+                    "172.29.",
+                    "172.30.",
+                    "172.31.",
+                    "169.254.",  # Link-local (AWS/Azure metadata)
+                    "100.64.",  # Carrier-grade NAT
                 ]
 
                 for prefix in blocked_prefixes:
@@ -491,7 +520,7 @@ class NavigationHandler:
 
             # Check for dangerous characters in URL path that could indicate injection
             if parsed.path:
-                dangerous_chars = [';', '|', '&', '`', '$']
+                dangerous_chars = [";", "|", "&", "`", "$"]
                 # Note: Parentheses are common in URLs and generally safe
                 for char in dangerous_chars:
                     if char in parsed.path:
@@ -517,20 +546,20 @@ class NavigationHandler:
             if not self._is_safe_url(web_url):
                 xbmcgui.Dialog().ok("MUBI", "Invalid or unsafe URL provided.")
                 return
-            
+
             import os
             import subprocess
-            
-            if xbmc.getCondVisibility('System.Platform.Windows'):
+
+            if xbmc.getCondVisibility("System.Platform.Windows"):
                 # Windows platform
                 os.startfile(web_url)
-            elif xbmc.getCondVisibility('System.Platform.OSX'):
+            elif xbmc.getCondVisibility("System.Platform.OSX"):
                 # macOS platform
-                subprocess.Popen(['open', web_url], shell=False)
-            elif xbmc.getCondVisibility('System.Platform.Linux'):
+                subprocess.Popen(["open", web_url], shell=False)
+            elif xbmc.getCondVisibility("System.Platform.Linux"):
                 # Linux platform
-                subprocess.Popen(['xdg-open', web_url], shell=False)
-            elif xbmc.getCondVisibility('System.Platform.Android'):
+                subprocess.Popen(["xdg-open", web_url], shell=False)
+            elif xbmc.getCondVisibility("System.Platform.Android"):
                 # Android platform
                 xbmc.executebuiltin(f'StartAndroidActivity("", "", "android.intent.action.VIEW", "{web_url}")')
             else:
@@ -539,8 +568,6 @@ class NavigationHandler:
         except Exception as e:
             xbmc.log(f"Error opening external video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().ok("MUBI", f"Error opening external video: {e}")
-
-
 
     def _get_available_countries_data_from_nfo(self, film_id: str) -> dict:
         """
@@ -573,31 +600,31 @@ class NavigationHandler:
                 # Helper to extract availability dict from availability element
                 def extract_availability(mubi_availability_node) -> dict:
                     if mubi_availability_node is None:
-                         return {}
-                    
+                        return {}
+
                     data = {}
                     for country in mubi_availability_node.findall("country"):
                         code = country.get("code")
                         if not code:
-                             continue
-                        
+                            continue
+
                         details = {}
                         # Extract availability status
                         avail_node = country.find("availability")
                         if avail_node is not None and avail_node.text:
-                            details['availability'] = avail_node.text
+                            details["availability"] = avail_node.text
                         else:
-                            details['availability'] = 'live' # Default if missing but country present
-                        
+                            details["availability"] = "live"  # Default if missing but country present
+
                         # Extract other fields if needed
-                        for field in ['available_at', 'expires_at', 'availability_ends_at']:
+                        for field in ["available_at", "expires_at", "availability_ends_at"]:
                             node = country.find(field)
                             if node is not None and node.text:
                                 details[field] = node.text
-                        
+
                         data[code] = details
                     return data
-                
+
                 # Check if this NFO matches the film_id (look for the STRM file or film ID)
                 uniqueid = root.find(".//uniqueid[@type='mubi']")
                 if uniqueid is not None and uniqueid.text == film_id:
@@ -649,25 +676,21 @@ class NavigationHandler:
         from .countries import COUNTRIES
 
         suggestions = []
-        
+
         # Handle if list is passed (legacy fallback)
         if isinstance(available_countries_data, list):
-             available_countries_data = {c: {'availability': 'live'} for c in available_countries_data}
+            available_countries_data = {c: {"availability": "live"} for c in available_countries_data}
 
         for code, details in available_countries_data.items():
             code_lower = code.lower()
-            
+
             # Filter: must be currently available (date check or 'live' status)
             if not self._is_country_available(details):
                 continue
 
             if code_lower in COUNTRIES:
                 country_data = COUNTRIES[code_lower]
-                suggestions.append((
-                    code.upper(),
-                    country_data["name"],
-                    country_data.get("vpn_tier", 4)
-                ))
+                suggestions.append((code.upper(), country_data["name"], country_data.get("vpn_tier", 4)))
 
         # Sort by VPN tier (lower is better), then alphabetically by name
         suggestions.sort(key=lambda x: (x[2], x[1]))
@@ -728,10 +751,7 @@ class NavigationHandler:
                     f"Already connected?"
                 )
             else:
-                message = (
-                    f"This movie is not available in {client_country_name}.\n\n"
-                    f"Connect to a VPN and try again."
-                )
+                message = f"This movie is not available in {client_country_name}.\n\nConnect to a VPN and try again."
                 # No VPN suggestions — just inform, no play option
                 xbmcgui.Dialog().ok("MUBI - Not Available", message)
                 xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
@@ -740,12 +760,7 @@ class NavigationHandler:
             xbmc.log(f"Film not available in {client_country}: showing VPN dialog", xbmc.LOGINFO)
 
             # yesno: Yes = "I'm connected, play!" / No = "Cancel"
-            should_play = xbmcgui.Dialog().yesno(
-                "MUBI - Not Available",
-                message,
-                yeslabel="Play",
-                nolabel="Cancel"
-            )
+            should_play = xbmcgui.Dialog().yesno("MUBI - Not Available", message, yeslabel="Play", nolabel="Cancel")
 
             if not should_play:
                 xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
@@ -754,13 +769,10 @@ class NavigationHandler:
             # Country is in the list — check if it's actually live (not upcoming/expired)
             details = available_countries_data.get(client_country, {})
             if not self._is_country_available(details):
-                availability_status = details.get('availability', 'unknown')
+                availability_status = details.get("availability", "unknown")
                 xbmc.log(f"Film {film_id} in {client_country} status: {availability_status}", xbmc.LOGINFO)
 
-                message = (
-                    f"This movie is currently {availability_status} in your country.\n\n"
-                    f"Play anyway?"
-                )
+                message = f"This movie is currently {availability_status} in your country.\n\nPlay anyway?"
                 if not xbmcgui.Dialog().yesno("MUBI - Availability Warning", message):
                     xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
                     return
@@ -770,8 +782,8 @@ class NavigationHandler:
             stream_info = self.mubi.get_secure_stream_info(film_id)
             xbmc.log(f"Stream info for film_id {film_id}: {stream_info}", xbmc.LOGDEBUG)
 
-            if 'error' in stream_info:
-                error_msg = stream_info['error']
+            if "error" in stream_info:
+                error_msg = stream_info["error"]
                 xbmc.log(f"Error in stream info: {error_msg}", xbmc.LOGERROR)
                 xbmcgui.Dialog().notification("MUBI", f"Error: {error_msg}", xbmcgui.NOTIFICATION_ERROR)
                 xbmcplugin.setResolvedUrl(self.handle, False, xbmcgui.ListItem())
@@ -787,21 +799,30 @@ class NavigationHandler:
                 raise Exception("No suitable stream found")
 
             # Extract subtitle tracks
-            subtitles = stream_info.get('text_track_urls', [])
+            subtitles = stream_info.get("text_track_urls", [])
             xbmc.log(f"Available subtitles: {subtitles}", xbmc.LOGDEBUG)
 
             # Play video using InputStream Adaptive
-            xbmc.log(f"Calling play_with_inputstream_adaptive with handle: {self.handle}, stream URL: {best_stream_url}", xbmc.LOGDEBUG)
-            play_with_inputstream_adaptive(self.handle, best_stream_url, stream_info['license_key'], subtitles,
-                                         self.session.token, self.session.user_id)
+            xbmc.log(
+                f"Calling play_with_inputstream_adaptive with handle: {self.handle}, stream URL: {best_stream_url}",
+                xbmc.LOGDEBUG,
+            )
+            play_with_inputstream_adaptive(
+                self.handle,
+                best_stream_url,
+                stream_info["license_key"],
+                subtitles,
+                self.session.token,
+                self.session.user_id,
+            )
 
         except requests.RequestException as e:
             xbmc.log(f"Network error playing Mubi video: {e}", xbmc.LOGERROR)
             xbmcgui.Dialog().notification("MUBI", f"Network Error: {str(e)}", xbmcgui.NOTIFICATION_ERROR)
 
             if web_url:
-                 if xbmcgui.Dialog().yesno("MUBI", "Network error. Try opening in web browser?"):
-                     self.play_video_ext(web_url)
+                if xbmcgui.Dialog().yesno("MUBI", "Network error. Try opening in web browser?"):
+                    self.play_video_ext(web_url)
 
         except Exception as e:
             xbmc.log(f"Error playing Mubi video: {e}", xbmc.LOGERROR)
@@ -814,11 +835,9 @@ class NavigationHandler:
                 if xbmcgui.Dialog().yesno("MUBI", "Failed to play the video. Do you want to open it in a web browser?"):
                     self.play_video_ext(web_url)
             else:
-                xbmcgui.Dialog().notification("MUBI", "Unable to open in web browser. Web URL is missing.", xbmcgui.NOTIFICATION_ERROR)
-
-
-
-
+                xbmcgui.Dialog().notification(
+                    "MUBI", "Unable to open in web browser. Web URL is missing.", xbmcgui.NOTIFICATION_ERROR
+                )
 
     def _resolve_trailer_url(self, url: str) -> str:
         """
@@ -842,7 +861,7 @@ class NavigationHandler:
             # Only validate HTTP(S) links
             if not url.startswith("http"):
                 return True
-                
+
             response = requests.head(url, timeout=5, allow_redirects=True)
             return response.status_code < 400
         except requests.RequestException:
@@ -857,7 +876,7 @@ class NavigationHandler:
         try:
             # 1. Resolve YouTube URLs
             resolved_url = self._resolve_trailer_url(url)
-            
+
             # 2. If it's a web URL (not a plugin:// URL), validate it
             # We skip validation for plugin:// URLs as they are handled by other addons
             if resolved_url.startswith("http"):
@@ -865,12 +884,7 @@ class NavigationHandler:
                 if not is_valid:
                     xbmc.log(f"Trailer URL is unreachable: {resolved_url}", xbmc.LOGWARNING)
                     dialog = xbmcgui.Dialog()
-                    dialog.notification(
-                        "MUBI",
-                        "Trailer unavailable",
-                        xbmcgui.NOTIFICATION_ERROR,
-                        3000
-                    )
+                    dialog.notification("MUBI", "Trailer unavailable", xbmcgui.NOTIFICATION_ERROR, 3000)
                     # We still set resolved URL to false to tell Kodi we failed
                     xbmcplugin.setResolvedUrl(self.handle, False, listitem=xbmcgui.ListItem())
                     return
@@ -883,42 +897,42 @@ class NavigationHandler:
             # Ensure we don't leave Kodi hanging
             xbmcplugin.setResolvedUrl(self.handle, False, listitem=xbmcgui.ListItem())
 
-
-
     def log_in(self):
         """
         Handle user login by generating a link code and authenticating with Mubi.
         """
         try:
             code_info = self.mubi.get_link_code()
-            if 'auth_token' in code_info and 'link_code' in code_info:
+            if "auth_token" in code_info and "link_code" in code_info:
                 self._display_login_code(code_info)
-                auth_response = self.mubi.authenticate(code_info['auth_token'])
+                auth_response = self.mubi.authenticate(code_info["auth_token"])
 
-                if auth_response and 'token' in auth_response:
+                if auth_response and "token" in auth_response:
                     # Token and user ID are already set in session inside authenticate method
                     xbmcgui.Dialog().notification("MUBI", "Successfully logged in!", xbmcgui.NOTIFICATION_INFO)
-                    xbmc.executebuiltin('Container.Refresh')
+                    xbmc.executebuiltin("Container.Refresh")
                 else:
                     self._handle_login_error(auth_response)
             else:
-                xbmcgui.Dialog().notification('MUBI', 'Error during code generation.', xbmcgui.NOTIFICATION_ERROR)
+                xbmcgui.Dialog().notification("MUBI", "Error during code generation.", xbmcgui.NOTIFICATION_ERROR)
 
         except Exception as e:
             xbmc.log(f"Exception during login: {e}", xbmc.LOGERROR)
-            xbmcgui.Dialog().notification('MUBI', 'An unexpected error occurred during login.', xbmcgui.NOTIFICATION_ERROR)
-
-
+            xbmcgui.Dialog().notification(
+                "MUBI", "An unexpected error occurred during login.", xbmcgui.NOTIFICATION_ERROR
+            )
 
     def _display_login_code(self, code_info: dict):
-        """ Helper method to display login code to the user """
-        link_code = code_info['link_code']
-        xbmcgui.Dialog().ok("Log In", f"Enter code [COLOR=yellow][B]{link_code}[/B][/COLOR] on [B]{MUBI_LOGIN_ACTIVATION_URL}[/B]")
+        """Helper method to display login code to the user"""
+        link_code = code_info["link_code"]
+        xbmcgui.Dialog().ok(
+            "Log In", f"Enter code [COLOR=yellow][B]{link_code}[/B][/COLOR] on [B]{MUBI_LOGIN_ACTIVATION_URL}[/B]"
+        )
 
     def _handle_login_error(self, auth_response: dict):
-        """ Handle login errors from the Mubi API """
-        error_message = auth_response.get('message', 'Unknown error')
-        xbmcgui.Dialog().notification('MUBI', f"Error: {error_message}", xbmcgui.NOTIFICATION_ERROR)
+        """Handle login errors from the Mubi API"""
+        error_message = auth_response.get("message", "Unknown error")
+        xbmcgui.Dialog().notification("MUBI", f"Error: {error_message}", xbmcgui.NOTIFICATION_ERROR)
 
     def log_out(self):
         """
@@ -929,13 +943,13 @@ class NavigationHandler:
             if success:
                 self.session.set_logged_out()
                 xbmcgui.Dialog().notification("MUBI", "Successfully logged out!", xbmcgui.NOTIFICATION_INFO)
-                xbmc.executebuiltin('Container.Refresh')
+                xbmc.executebuiltin("Container.Refresh")
             else:
-                xbmcgui.Dialog().notification('MUBI', 'Error during logout. You are still logged in.', xbmcgui.NOTIFICATION_ERROR)
+                xbmcgui.Dialog().notification(
+                    "MUBI", "Error during logout. You are still logged in.", xbmcgui.NOTIFICATION_ERROR
+                )
         except Exception as e:
             xbmc.log(f"Error during logout: {e}", xbmc.LOGERROR)
-
-
 
     def sync_films(self, countries: list, dialog_title: Optional[str] = None):
         """
@@ -947,6 +961,7 @@ class NavigationHandler:
             return
 
         from .countries import COUNTRIES
+
         # Determine dialog title
         if dialog_title is None:
             num_countries = len(countries)
@@ -962,24 +977,27 @@ class NavigationHandler:
     def sync_from_github(self, country: str = None):
         """
         Sync MUBI films locally by downloading a pre-computed database from GitHub.
-        
+
         :param country: Optional ISO 3166-1 alpha-2 country code to filter by.
         """
         from .data_source import GithubDataSource
+
         github_source = GithubDataSource()
-        
+
         countries = [country.upper()] if country else None
         title = f"Syncing ({country.upper() if country else 'Worldwide'})..."
-        
+
         # Skip external metadata checks/fetches for GitHub sync as the JSON is already enriched
         self._perform_sync(
-            dialog_title=title, 
-            data_source=github_source, 
+            dialog_title=title,
+            data_source=github_source,
             skip_external_metadata=True,
-            countries=countries # Pass filter to data source
+            countries=countries,  # Pass filter to data source
         )
 
-    def _perform_sync(self, dialog_title: str, countries: list = None, data_source=None, skip_external_metadata: bool = False):
+    def _perform_sync(
+        self, dialog_title: str, countries: list = None, data_source=None, skip_external_metadata: bool = False
+    ):
         """
         Helper method to execute the common sync logic (locking, provider check, fetching, library update).
         """
@@ -990,10 +1008,7 @@ class NavigationHandler:
         with NavigationHandler._sync_lock:
             if NavigationHandler._sync_in_progress:
                 xbmcgui.Dialog().notification(
-                    "MUBI",
-                    "Sync already in progress. Please wait for it to complete.",
-                    xbmcgui.NOTIFICATION_INFO,
-                    5000
+                    "MUBI", "Sync already in progress. Please wait for it to complete.", xbmcgui.NOTIFICATION_INFO, 5000
                 )
                 xbmc.log("Sync operation blocked - another sync already in progress", xbmc.LOGINFO)
                 return
@@ -1004,7 +1019,7 @@ class NavigationHandler:
             # Check if metadata providers are configured, unless skipping
             if not skip_external_metadata:
                 provider = MetadataProviderFactory.get_provider()
-                
+
                 if not provider:
                     dialog = xbmcgui.Dialog()
                     ret = dialog.yesno(
@@ -1013,22 +1028,23 @@ class NavigationHandler:
                         "you need to configure an external metadata provider.\n\n"
                         "Please execute the Settings to configure TMDB (free) or OMDb API key.",
                         yeslabel="Go to Settings",
-                        nolabel="Cancel"
+                        nolabel="Cancel",
                     )
 
                     if ret:
                         MetadataProviderFactory.open_settings()
                         provider = MetadataProviderFactory.get_provider()
-                        if not provider: return
+                        if not provider:
+                            return
                     else:
                         return
 
                 if not provider.test_connection():
                     xbmcgui.Dialog().notification(
-                        "MUBI", 
-                        f"Invalid API Key for {provider.provider_name}. Sync aborted.", 
+                        "MUBI",
+                        f"Invalid API Key for {provider.provider_name}. Sync aborted.",
                         xbmcgui.NOTIFICATION_ERROR,
-                        5000
+                        5000,
                     )
                     xbmc.log(f"Sync aborted: Invalid API key for {provider.provider_name}", xbmc.LOGERROR)
                     return
@@ -1056,7 +1072,7 @@ class NavigationHandler:
                     message = f"Fetching films from {country_name}...\n{current_films} films found"
                 else:
                     # GitHub sync (no total countries usually, or treated differently)
-                    percent = 50 # Indeterminate or based on generic progress
+                    percent = 50  # Indeterminate or based on generic progress
                     message = "Fetching database..."
 
                 pDialog.update(percent, message)
@@ -1067,39 +1083,35 @@ class NavigationHandler:
                     playable_only=True,
                     progress_callback=update_fetch_progress,
                     countries=countries,
-                    data_source=data_source
+                    data_source=data_source,
                 )
             except (ValueError, Exception) as e:
                 # Handle specific known errors (ValueError might be MD5 or validation)
                 msg = str(e)
-                
+
                 # Check for cancellation first (raised as general Exception sometimes)
                 if "canceled" in msg.lower():
                     pDialog.close()
                     xbmc.log("User canceled the sync process during film fetching.", xbmc.LOGDEBUG)
                     return None
-                
+
                 # Identify error type for cleaner notification
                 if "MD5" in msg:
                     error_body = "Download integrity check failed."
                 elif "JSON" in msg or "parsing" in msg.lower():
                     error_body = "Data format error from server."
                 elif "HTTP" in msg or "Connection" in msg or "Max retries" in msg:
-                        error_body = "Network error or server unavailable."
+                    error_body = "Network error or server unavailable."
                 else:
-                        error_body = f"Error: {msg}"
+                    error_body = f"Error: {msg}"
 
                 import traceback
+
                 xbmc.log(f"Sync failed with error: {e}", xbmc.LOGERROR)
                 xbmc.log(f"Full traceback:\n{traceback.format_exc()}", xbmc.LOGERROR)
                 pDialog.close()
-                
-                xbmcgui.Dialog().notification(
-                    "MUBI", 
-                    error_body,
-                    xbmcgui.NOTIFICATION_ERROR,
-                    5000
-                )
+
+                xbmcgui.Dialog().notification("MUBI", error_body, xbmcgui.NOTIFICATION_ERROR, 5000)
                 return None
 
             # Update progress dialog for file creation phase
@@ -1114,9 +1126,10 @@ class NavigationHandler:
 
             plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
             pDialog.close()
-            
+
             # Small delay
             import time
+
             time.sleep(0.1)
 
             # Sync files locally
@@ -1129,14 +1142,17 @@ class NavigationHandler:
             if self.plugin.getSettingBool("auto_clean_library"):
                 self.clean_kodi_library(monitor)
             else:
-                    xbmc.log("Library cleaning disabled by setting", xbmc.LOGDEBUG)
+                xbmc.log("Library cleaning disabled by setting", xbmc.LOGDEBUG)
             self.update_kodi_library()
 
         except Exception as e:
             xbmc.log(f"Error during sync: {e}", xbmc.LOGERROR)
             import traceback
+
             xbmc.log(traceback.format_exc(), xbmc.LOGERROR)
-            xbmcgui.Dialog().notification("MUBI", "An unexpected error occurred during sync.", xbmcgui.NOTIFICATION_ERROR)
+            xbmcgui.Dialog().notification(
+                "MUBI", "An unexpected error occurred during sync.", xbmcgui.NOTIFICATION_ERROR
+            )
         finally:
             with NavigationHandler._sync_lock:
                 NavigationHandler._sync_in_progress = False
@@ -1145,24 +1161,25 @@ class NavigationHandler:
     def wait_for_library_idle(self, timeout=30):
         """
         Wait until the Kodi library is idle (not scanning or cleaning).
-        
+
         :param timeout: Maximum time to wait in seconds.
         """
         import time
+
         start_time = time.time()
         while time.time() - start_time < timeout:
             if xbmc.abortRequested:
                 break
-                
-            is_scanning = xbmc.getCondVisibility('Library.IsScanningVideo')
-            is_cleaning = xbmc.getCondVisibility('Library.IsCleaning')
-            
+
+            is_scanning = xbmc.getCondVisibility("Library.IsScanningVideo")
+            is_cleaning = xbmc.getCondVisibility("Library.IsCleaning")
+
             if not is_scanning and not is_cleaning:
                 return
-            
+
             xbmc.log("Waiting for library to become idle...", xbmc.LOGDEBUG)
             time.sleep(1)
-            
+
         xbmc.log("Timeout waiting for library to become idle. Proceeding anyway.", xbmc.LOGWARNING)
 
     def update_kodi_library(self):
@@ -1173,11 +1190,10 @@ class NavigationHandler:
         try:
             self.wait_for_library_idle()
             xbmc.log("Triggering Kodi library update...", xbmc.LOGDEBUG)
-            xbmc.executebuiltin('UpdateLibrary(video)')
+            xbmc.executebuiltin("UpdateLibrary(video)")
             xbmc.log("Library update triggered successfully - running in background", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library update: {e}", xbmc.LOGERROR)
-
 
     def clean_kodi_library(self, monitor):
         """
@@ -1187,7 +1203,7 @@ class NavigationHandler:
         try:
             self.wait_for_library_idle()
             xbmc.log("Triggering Kodi library clean...", xbmc.LOGDEBUG)
-            xbmc.executebuiltin('CleanLibrary(video)')
+            xbmc.executebuiltin("CleanLibrary(video)")
 
             # Wait for the clean operation to finish
             xbmc.log("Waiting for library clean to complete...", xbmc.LOGDEBUG)
@@ -1198,4 +1214,3 @@ class NavigationHandler:
             xbmc.log("Library clean completed", xbmc.LOGDEBUG)
         except Exception as e:
             xbmc.log(f"Error triggering Kodi library clean: {e}", xbmc.LOGERROR)
-

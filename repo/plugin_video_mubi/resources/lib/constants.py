@@ -52,9 +52,7 @@ IMDB_TITLE_URL_TEMPLATE = "https://www.imdb.com/title/{imdb_id}/"
 # --- Plugin's own hosted data -------------------------------------------
 
 # Pre-computed, compressed catalog published on this repo's `database` branch.
-CATALOG_FILMS_URL = (
-    "https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz"
-)
+CATALOG_FILMS_URL = "https://github.com/kubi2021/plugin.video.mubi/raw/database/v1/films.json.gz"
 
 
 # --- Healthcheck --------------------------------------------------------

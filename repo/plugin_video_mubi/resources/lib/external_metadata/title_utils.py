@@ -121,7 +121,7 @@ class TitleNormalizer:
                 # But 'Color' -> 'Colour', 'color' -> 'colour'.
                 # Naive replacement:
                 pattern = re.compile(re.escape(word), re.IGNORECASE)
-                
+
                 def replace_case_match(match):
                     g = match.group()
                     if g.isupper():
@@ -131,7 +131,7 @@ class TitleNormalizer:
                     return replacement
 
                 new_title = pattern.sub(replace_case_match, title)
-                
+
                 # Verify we actually changed something and it's not effectively same
                 if new_title.lower() != title.lower() and new_title not in alternatives:
                     alternatives.append(new_title)
@@ -149,11 +149,11 @@ class TitleNormalizer:
             r"Redux",
             r"\[MV\]",  # Music Video
         ]
-        
+
         cleaned = title
         for pattern in patterns:
             cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
-            
+
         return re.sub(r"\s+", " ", cleaned).strip()
 
     def generate_title_variants(
@@ -165,10 +165,10 @@ class TitleNormalizer:
         variants: List[str] = []
 
         normalized_title = title.strip()
-        
+
         # 1. Original MUBI title
         variants.append(normalized_title)
-        
+
         # 2. Original title (from metadata)
         if original_title and original_title.strip().lower() != normalized_title.lower():
             variants.append(original_title.strip())
@@ -234,7 +234,7 @@ class RetryStrategy:
                 if status_code in [401, 402, 429]:
                     retry_after = error.response.headers.get("Retry-After")
                     wait_time = backoff
-                    
+
                     if retry_after:
                         try:
                             wait_time = float(retry_after) + 1  # Add small buffer

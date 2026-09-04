@@ -35,6 +35,7 @@ def redact_secrets(text: Any, secrets: Iterable[Optional[str]]) -> str:
 @dataclass
 class ExternalMetadataResult:
     """Result returned by an external metadata provider."""
+
     imdb_id: Optional[str] = None
     imdb_url: Optional[str] = None
     tmdb_id: Optional[str] = None
@@ -45,7 +46,7 @@ class ExternalMetadataResult:
     # Rating data from provider
     vote_average: Optional[float] = None
     vote_count: Optional[int] = None
-    
+
     # Verification / Evaluation Data
     matched_title: Optional[str] = None
     matched_original_title: Optional[str] = None
@@ -53,6 +54,7 @@ class ExternalMetadataResult:
     matched_directors: List[str] = None
     match_score: int = 0
     match_details: dict = None  # To store raw discrepancies (year delta, score breakdown)
+
 
 class TitleNormalizer:
     """Utilities for normalizing titles and generating spelling variants."""
@@ -142,7 +144,7 @@ class TitleNormalizer:
             if word in lower_title:
                 # Use regex for case-insensitive replacement while preserving case of match
                 pattern = re.compile(re.escape(word), re.IGNORECASE)
-                
+
                 def replace_case_match(match):
                     g = match.group()
                     if g.isupper():
@@ -152,7 +154,7 @@ class TitleNormalizer:
                     return replacement
 
                 new_title = pattern.sub(replace_case_match, title)
-                
+
                 # Verify we actually changed something and it's not effectively same
                 if new_title.lower() != title.lower() and new_title not in alternatives:
                     alternatives.append(new_title)
@@ -170,11 +172,11 @@ class TitleNormalizer:
             r"Redux",
             r"\[MV\]",  # Music Video
         ]
-        
+
         cleaned = title
         for pattern in patterns:
             cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
-            
+
         return re.sub(r"\s+", " ", cleaned).strip()
 
     def generate_title_variants(
@@ -186,10 +188,10 @@ class TitleNormalizer:
         variants: List[str] = []
 
         normalized_title = title.strip()
-        
+
         # 1. Original MUBI title
         variants.append(normalized_title)
-        
+
         # 2. Original title (from metadata)
         if original_title and original_title.strip().lower() != normalized_title.lower():
             variants.append(original_title.strip())
@@ -245,16 +247,16 @@ class RetryStrategy:
                 result = func()
                 if result.success:
                     return result
-                
-                # If explicitly failed without exception (e.g. not found), we might still want to retry 
+
+                # If explicitly failed without exception (e.g. not found), we might still want to retry
                 # if the logic was purely connection based, but here we assume logic decided valid 'not found'.
                 # However, for 429 logic below, it's inside exception block.
                 # If logic returns result.success=False for "Not Found", verify if we should retry?
                 # Usually "Not Found" is final. Rate limts raise HTTPError.
                 if result.error_message == "Title not found (404)":
-                     return result
+                    return result
 
-                # If result is failure but not 404, loop might continue? 
+                # If result is failure but not 404, loop might continue?
                 # Current implementation just returns result if not success??
                 # Wait, original code:
                 # if result.success: return result
@@ -264,10 +266,10 @@ class RetryStrategy:
 
             except requests.exceptions.HTTPError as error:
                 status_code = error.response.status_code if error.response else None
-                if status_code in [401, 402, 429, 500, 502, 503, 504]: # Added 5xx for safer server error handling
+                if status_code in [401, 402, 429, 500, 502, 503, 504]:  # Added 5xx for safer server error handling
                     retry_after = error.response.headers.get("Retry-After")
                     wait_time = backoff
-                    
+
                     if retry_after:
                         try:
                             wait_time = float(retry_after) + 1  # Add small buffer
@@ -279,14 +281,14 @@ class RetryStrategy:
                     time.sleep(wait_time)
                     backoff *= self.multiplier
                     continue
-                
+
                 if status_code == 404:
                     logger.debug(f"Title '{title}' not found (404)")
                     return ExternalMetadataResult(
                         success=False,
                         error_message="Title not found (404)",
                     )
-                
+
                 logger.error(f"HTTP error {status_code}: {redact_secrets(error, self.secrets)}")
                 return ExternalMetadataResult(
                     success=False,

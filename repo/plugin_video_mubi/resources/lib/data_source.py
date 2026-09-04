@@ -11,22 +11,25 @@ except ImportError:  # imported as a top-level module (e.g. some test harnesses)
     from availability import is_country_available
     from constants import CATALOG_FILMS_URL
 
+
 class FilmDataSource:
     """
     Interface for a film data source.
     Must return a list of raw film data dictionaries.
     """
+
     def get_films(self, *args, **kwargs) -> List[Dict[str, Any]]:
         raise NotImplementedError
+
 
 class MubiApiDataSource(FilmDataSource):
     """
     Fetches film data directly from the Mubi API.
     Replicates the logic previously in mubi.py's get_all_films.
     """
-    
+
     # Countries to sync catalogues from (ISO 3166-1 alpha-2 codes)
-    SYNC_COUNTRIES = ['CH', 'DE', 'US', 'GB', 'FR', 'JP']
+    SYNC_COUNTRIES = ["CH", "DE", "US", "GB", "FR", "JP"]
 
     def __init__(self, mubi_client):
         """
@@ -35,14 +38,11 @@ class MubiApiDataSource(FilmDataSource):
         self.mubi = mubi_client
 
     def get_films(
-        self, 
-        playable_only: bool = True, 
-        progress_callback=None, 
-        countries: List[str] = None
+        self, playable_only: bool = True, progress_callback=None, countries: List[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Retrieves all films from MUBI API by syncing across specified countries.
-        
+
         :param playable_only: If True, only fetch currently playable films.
         :param progress_callback: Optional callback function to report progress.
         :param countries: List of ISO 3166-1 alpha-2 country codes to sync from.
@@ -53,6 +53,7 @@ class MubiApiDataSource(FilmDataSource):
             # We need to access settings via xbmcaddon, but to avoid circular imports or extra deps,
             # we can rely on mubi client if it had this info, but mubi client logic was:
             import xbmcaddon
+
             client_country = xbmcaddon.Addon().getSetting("client_country")
             if client_country:
                 countries = [client_country.upper()]
@@ -94,19 +95,18 @@ class MubiApiDataSource(FilmDataSource):
                                 total_films=0,
                                 current_country=c_idx,
                                 total_countries=c_total,
-                                country_code=c_code
+                                country_code=c_code,
                             )
                         except Exception as e:
                             xbmc.log(f"Progress callback exception (user cancel): {e}", xbmc.LOGINFO)
                             user_cancelled = True
                             return False  # Signal to stop fetching
                     return True  # Continue
+
                 return page_callback
 
             base_film_count = len(all_film_ids)
-            page_cb = create_page_callback(
-                country_idx, country, len(countries), base_film_count, running_new_films
-            )
+            page_cb = create_page_callback(country_idx, country, len(countries), base_film_count, running_new_films)
 
             # Initial progress update before fetching
             if progress_callback:
@@ -116,7 +116,7 @@ class MubiApiDataSource(FilmDataSource):
                         total_films=0,
                         current_country=country_idx,
                         total_countries=len(countries),
-                        country_code=country
+                        country_code=country,
                     )
                 except Exception as e:
                     xbmc.log(f"Progress callback exception (user cancel): {e}", xbmc.LOGINFO)
@@ -124,13 +124,10 @@ class MubiApiDataSource(FilmDataSource):
 
             # Use the mubi client's internal helper to fetch pages
             # We assume mubi._fetch_films_for_country is still available or we move it here?
-            # Ideally we move it here or make it public. 
+            # Ideally we move it here or make it public.
             # For now, we will access it as protected member since Mubi class is passed in.
             film_ids, film_data, total_count, pages = self.mubi._fetch_films_for_country(
-                country_code=country,
-                playable_only=playable_only,
-                page_callback=page_cb,
-                global_film_ids=all_film_ids
+                country_code=country, playable_only=playable_only, page_callback=page_cb, global_film_ids=all_film_ids
             )
 
             # Check if user cancelled during fetch
@@ -139,10 +136,10 @@ class MubiApiDataSource(FilmDataSource):
 
             # Track statistics
             country_stats[country] = {
-                'total_reported': total_count,
-                'unique_fetched': len(film_ids),
-                'pages': pages,
-                'film_ids': film_ids
+                "total_reported": total_count,
+                "unique_fetched": len(film_ids),
+                "pages": pages,
+                "film_ids": film_ids,
             }
             total_pages_fetched += pages
 
@@ -150,17 +147,17 @@ class MubiApiDataSource(FilmDataSource):
             for film_id in film_ids:
                 if film_id not in film_country_map:
                     film_country_map[film_id] = {}
-                
+
                 # Extract consumable data for this film in this country
                 this_film_data = film_data.get(film_id, {})
-                consumable = this_film_data.get('consumable') or {}  # Handle explicit null
-                
+                consumable = this_film_data.get("consumable") or {}  # Handle explicit null
+
                 if consumable:
                     # Prune playback_languages from country-specific data (now global)
-                    if 'playback_languages' in consumable:
+                    if "playback_languages" in consumable:
                         consumable = consumable.copy()
-                        consumable.pop('playback_languages', None)
-                    
+                        consumable.pop("playback_languages", None)
+
                     film_country_map[film_id][country] = consumable
 
             # Merge new films into all_film_data
@@ -170,19 +167,19 @@ class MubiApiDataSource(FilmDataSource):
                     # Clean the data - remove global 'consumable' if it exists to avoid confusion
                     # We store country-specific consumable data in film_country_map
                     clean_data = data.copy()
-                    
+
                     # EXTRACT PLAYBACK LANGUAGES (Schema Update)
                     # We promote playback_languages to top-level if present in consumable
-                    consumable = clean_data.get('consumable') or {}  # Handle explicit null
-                    if consumable and 'playback_languages' in consumable:
-                        clean_data['playback_languages'] = consumable['playback_languages']
-                    
-                    clean_data.pop('consumable', None) # Remove core consumable
-                    
+                    consumable = clean_data.get("consumable") or {}  # Handle explicit null
+                    if consumable and "playback_languages" in consumable:
+                        clean_data["playback_languages"] = consumable["playback_languages"]
+
+                    clean_data.pop("consumable", None)  # Remove core consumable
+
                     all_film_data[film_id] = clean_data
                     all_film_ids.add(film_id)
                     new_films_count += 1
-            
+
             xbmc.log(f"[{country}] Added {new_films_count} new unique films to merged catalogue", xbmc.LOGINFO)
 
         # Log comprehensive statistics
@@ -193,9 +190,9 @@ class MubiApiDataSource(FilmDataSource):
         for film_id, data in all_film_data.items():
             # We inject the available countries into the raw data dictionary
             # This avoids changing the API structure but allows passing this info along
-            data['available_countries'] = film_country_map.get(film_id, {})
+            data["available_countries"] = film_country_map.get(film_id, {})
             output_list.append(data)
-            
+
         return output_list
 
     def _log_stats(self, countries, total_pages_fetched, all_film_ids, country_stats, film_country_map):
@@ -249,9 +246,9 @@ class GithubDataSource(FilmDataSource):
     def get_films(self, *args, **kwargs) -> List[Dict[str, Any]]:
         """
         Downloads, decompresses, and parses films.json.gz from GitHub.
-        
-        :kwargs countries: List[str] of country codes to filter by (optional). 
-                           If provided, only films available in at least one of these countries 
+
+        :kwargs countries: List[str] of country codes to filter by (optional).
+                           If provided, only films available in at least one of these countries
                            (and currently live/within date range) will be returned.
         """
         import gzip
@@ -262,29 +259,29 @@ class GithubDataSource(FilmDataSource):
         import requests
         from requests.adapters import HTTPAdapter
         from requests.packages.urllib3.util.retry import Retry
-        
+
         xbmc.log(f"Starting GitHub Sync from {self.GITHUB_URL}", xbmc.LOGINFO)
-        
+
         # Configure retry strategy
         retry_strategy = Retry(
             total=3,
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "OPTIONS"]
+            allowed_methods=["HEAD", "GET", "OPTIONS"],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session = requests.Session()
         session.mount("https://", adapter)
         session.mount("http://", adapter)
-        
+
         try:
             # 1. Download MD5 checksum
             md5_url = self.GITHUB_URL + ".md5"
             xbmc.log(f"Downloading MD5 checksum from {md5_url}", xbmc.LOGINFO)
             md5_response = session.get(md5_url, timeout=10)
             md5_response.raise_for_status()
-            expected_md5 = md5_response.text.strip().split()[0] # Handle potentially "hash filename" format
-            
+            expected_md5 = md5_response.text.strip().split()[0]  # Handle potentially "hash filename" format
+
             # 2. Download the file content
             xbmc.log(f"Downloading database from {self.GITHUB_URL}", xbmc.LOGINFO)
             response = session.get(self.GITHUB_URL, stream=True, timeout=30)
@@ -297,55 +294,57 @@ class GithubDataSource(FilmDataSource):
                 # Log detailed error for debugging
                 xbmc.log(f"MD5 Mismatch! Expected: {expected_md5}, Calculated: {calculated_md5}", xbmc.LOGERROR)
                 raise ValueError(f"MD5 verification failed. Integrity check failed for {self.GITHUB_URL}")
-            
+
             xbmc.log("MD5 verification successful", xbmc.LOGINFO)
 
             # 4. Decompress and parse
             with gzip.GzipFile(fileobj=io.BytesIO(content)) as gz:
                 data = json.load(gz)
-            
+
             # 5. Check version compatibility
             meta = data.get("meta", {})
             version = meta.get("version", 1)
             version_label = meta.get("version_label", "unknown")
-            
+
             if version not in self.SUPPORTED_VERSIONS:
-                xbmc.log(f"Warning: Schema version {version} ({version_label}) not officially supported", xbmc.LOGWARNING)
+                xbmc.log(
+                    f"Warning: Schema version {version} ({version_label}) not officially supported", xbmc.LOGWARNING
+                )
             else:
                 xbmc.log(f"Schema version: {version} ({version_label})", xbmc.LOGINFO)
-            
+
             # 6. Parse films (best-effort - outer exception handler will catch failures)
             films_list = data.get("items", [])
-            
+
             # Normalization: Map 'mubi_id' to 'id' if 'id' is missing
             # The plugin expects 'id'
             for film in films_list:
-                if 'id' not in film and 'mubi_id' in film:
-                    film['id'] = film['mubi_id']
-                
+                if "id" not in film and "mubi_id" in film:
+                    film["id"] = film["mubi_id"]
+
                 # Normalize 'directors' from list of strings to list of dicts
                 # API returns [{'name': 'Director Name'}], GitHub JSON has ['Director Name']
-                if 'directors' in film and isinstance(film['directors'], list):
-                    if film['directors'] and isinstance(film['directors'][0], str):
-                        film['directors'] = [{'name': d} for d in film['directors']]
+                if "directors" in film and isinstance(film["directors"], list):
+                    if film["directors"] and isinstance(film["directors"][0], str):
+                        film["directors"] = [{"name": d} for d in film["directors"]]
 
             xbmc.log(f"Successfully downloaded and parsed {len(films_list)} films from GitHub", xbmc.LOGINFO)
-            
+
             # --- FILTERING LOGIC ---
-            target_countries = kwargs.get('countries')
+            target_countries = kwargs.get("countries")
             if target_countries:
                 # Normalize countries to uppercase
                 target_countries = [c.upper() for c in target_countries]
                 xbmc.log(f"Filtering films for countries: {target_countries}", xbmc.LOGINFO)
-                
+
                 filtered_list = []
                 now = datetime.datetime.now(datetime.timezone.utc)
-                
+
                 for film in films_list:
-                    available_countries = film.get('available_countries', {})
+                    available_countries = film.get("available_countries", {})
                     if not available_countries:
                         continue
-                        
+
                     is_available = False
 
                     # Check if film is available in ANY of the target countries.
@@ -357,11 +356,11 @@ class GithubDataSource(FilmDataSource):
                             details = available_countries[country_code]
                             if is_country_available(details, now):
                                 is_available = True
-                                break # Found a valid country, keep the film
-                    
+                                break  # Found a valid country, keep the film
+
                     if is_available:
                         filtered_list.append(film)
-                
+
                 xbmc.log(f"Filtered count: {len(filtered_list)} (from {len(films_list)} total)", xbmc.LOGINFO)
                 return filtered_list
 
@@ -378,4 +377,3 @@ class GithubDataSource(FilmDataSource):
             raise
         finally:
             session.close()
-

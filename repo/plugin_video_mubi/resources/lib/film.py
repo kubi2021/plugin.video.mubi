@@ -13,8 +13,9 @@ from .external_metadata import MetadataProviderFactory
 
 
 class Film:
-    def __init__(self, mubi_id: str, title: str, artwork: str, web_url: str, metadata,
-                 available_countries: dict = None):
+    def __init__(
+        self, mubi_id: str, title: str, artwork: str, web_url: str, metadata, available_countries: dict = None
+    ):
         if not mubi_id or not metadata:
             raise ValueError("Film must have a mubi_id and metadata")
 
@@ -41,7 +42,7 @@ class Film:
     def is_playable(self) -> bool:
         """
         Check if the film is currently available to play in at least one country.
-        
+
         Logic:
         - Iterates through available_countries.
         - Delegates each country to the shared availability-window check
@@ -60,7 +61,6 @@ class Film:
                 return True
 
         return False
-
 
     def __hash__(self):
         return hash(self.mubi_id)
@@ -94,32 +94,51 @@ class Film:
 
         # LEVEL 2: Remove path traversal sequences (security)
         # Remove any sequence of 2 or more consecutive dots
-        sanitized = re.sub(r'\.{2,}', '', sanitized)
+        sanitized = re.sub(r"\.{2,}", "", sanitized)
 
         # LEVEL 2: Remove ONLY filesystem-dangerous characters
         # These characters cause issues on Windows/Mac/Linux filesystems
-        sanitized = re.sub(r'[<>:"/\\|?*]', '', sanitized)
+        sanitized = re.sub(r'[<>:"/\\|?*]', "", sanitized)
 
         # LEVEL 2: Remove control characters (security)
-        sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', sanitized)
+        sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", sanitized)
 
         # LEVEL 2: Remove dangerous Unicode sequences (security)
-        sanitized = re.sub(r'[\u0000-\u001F\u007F-\u009F]', '', sanitized)  # Control chars
+        sanitized = re.sub(r"[\u0000-\u001F\u007F-\u009F]", "", sanitized)  # Control chars
         # Zero-width and directional characters
-        sanitized = re.sub(r'[\u200B-\u200F\u202A-\u202E\u2060-\u206F]', '', sanitized)
-        sanitized = re.sub(r'[\uFEFF\uFFFE\uFFFF]', '', sanitized)  # BOM and non-characters
+        sanitized = re.sub(r"[\u200B-\u200F\u202A-\u202E\u2060-\u206F]", "", sanitized)
+        sanitized = re.sub(r"[\uFEFF\uFFFE\uFFFF]", "", sanitized)  # BOM and non-characters
 
         # LEVEL 2: Handle Windows reserved names
         reserved_names = {
-            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5",
-            "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4",
-            "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+            "CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            "COM1",
+            "COM2",
+            "COM3",
+            "COM4",
+            "COM5",
+            "COM6",
+            "COM7",
+            "COM8",
+            "COM9",
+            "LPT1",
+            "LPT2",
+            "LPT3",
+            "LPT4",
+            "LPT5",
+            "LPT6",
+            "LPT7",
+            "LPT8",
+            "LPT9",
         }
         if sanitized.upper() in reserved_names:
             sanitized = f"{sanitized}_"  # Add suffix to avoid reserved name conflict
 
         # LEVEL 2: Normalize whitespace (preserve single spaces)
-        sanitized = re.sub(r'\s+', ' ', sanitized)  # Replace multiple spaces with single space
+        sanitized = re.sub(r"\s+", " ", sanitized)  # Replace multiple spaces with single space
 
         # Strip trailing periods and spaces
         sanitized = sanitized.rstrip(". ")
@@ -172,30 +191,30 @@ class Film:
         # Note: ElementTree automatically escapes XML special characters (&, <, >, etc.)
 
         # Remove control characters that could break XML parsing
-        sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', sanitized)
+        sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", sanitized)
 
         # Remove dangerous Unicode sequences
-        sanitized = re.sub(r'[\u0000-\u001F\u007F-\u009F]', '', sanitized)
-        sanitized = re.sub(r'[\u200B-\u200F\u202A-\u202E\u2060-\u206F]', '', sanitized)
-        sanitized = re.sub(r'[\uFEFF\uFFFE\uFFFF]', '', sanitized)
+        sanitized = re.sub(r"[\u0000-\u001F\u007F-\u009F]", "", sanitized)
+        sanitized = re.sub(r"[\u200B-\u200F\u202A-\u202E\u2060-\u206F]", "", sanitized)
+        sanitized = re.sub(r"[\uFEFF\uFFFE\uFFFF]", "", sanitized)
 
         # LEVEL 2: Preserve all normal punctuation for movie titles
         # This includes: ? : & , ' " ( ) + = @ # ~ ! $ % ^ [ ] { } etc.
         # Only remove truly dangerous patterns if needed for security
 
         # SECURITY FIX: Remove dangerous Unicode sequences
-        sanitized = re.sub(r'[\u0000-\u001F\u007F-\u009F]', '', sanitized)  # Control chars
-        sanitized = re.sub(r'[\u200B-\u200F\u202A-\u202E\u2060-\u206F]', '', sanitized)  # Zero-width and directional
-        sanitized = re.sub(r'[\uFEFF\uFFFE\uFFFF]', '', sanitized)  # BOM and non-characters
+        sanitized = re.sub(r"[\u0000-\u001F\u007F-\u009F]", "", sanitized)  # Control chars
+        sanitized = re.sub(r"[\u200B-\u200F\u202A-\u202E\u2060-\u206F]", "", sanitized)  # Zero-width and directional
+        sanitized = re.sub(r"[\uFEFF\uFFFE\uFFFF]", "", sanitized)  # BOM and non-characters
 
         # Remove script tags and javascript URLs
-        sanitized = re.sub(r'(?i)<script[^>]*>.*?</script>', '', sanitized)
-        sanitized = re.sub(r'(?i)javascript:', '', sanitized)
+        sanitized = re.sub(r"(?i)<script[^>]*>.*?</script>", "", sanitized)
+        sanitized = re.sub(r"(?i)javascript:", "", sanitized)
 
         # Remove XML processing instructions and DOCTYPE declarations
-        sanitized = re.sub(r'<\?xml[^>]*\?>', '', sanitized)
-        sanitized = re.sub(r'<!DOCTYPE[^>]*>', '', sanitized)
-        sanitized = re.sub(r'<!ENTITY[^>]*>', '', sanitized)
+        sanitized = re.sub(r"<\?xml[^>]*\?>", "", sanitized)
+        sanitized = re.sub(r"<!DOCTYPE[^>]*>", "", sanitized)
+        sanitized = re.sub(r"<!ENTITY[^>]*>", "", sanitized)
 
         # The XML library will handle proper escaping of &, <, >, etc.
         # when we assign to .text, so we don't need to manually escape those
@@ -242,11 +261,7 @@ class Film:
         film_strm_file = film_path / film_file_name
 
         # Build the query parameters (country info is now in NFO, not STRM)
-        query_params = {
-            'action': 'play_mubi_video',
-            'film_id': self.mubi_id,
-            'web_url': self.web_url
-        }
+        query_params = {"action": "play_mubi_video", "film_id": self.mubi_id, "web_url": self.web_url}
 
         encoded_params = urlencode(query_params)
         kodi_movie_url = f"{base_url}?{encoded_params}"
@@ -273,20 +288,20 @@ class Film:
         try:
             imdb_id = ""
             tmdb_id = ""
-            
+
             # Try to fetch external metadata using the factory's automatic selection
             # Factory now handles configuration internally
             # Skip if explicitly requested (e.g. GitHub sync)
             if not skip_external_metadata:
                 provider = MetadataProviderFactory.get_provider()
-                
+
                 if provider:
-                    time.sleep(1) # Small delay to be nice to APIs
+                    time.sleep(1)  # Small delay to be nice to APIs
                     result = provider.get_imdb_id(
                         title=self.title,
                         original_title=self.metadata.originaltitle,
                         year=self.metadata.year,
-                        media_type="movie"
+                        media_type="movie",
                     )
 
                     if result.success:
@@ -294,18 +309,15 @@ class Film:
                             imdb_id = result.imdb_id
                             xbmc.log(
                                 f"Retrieved IMDB ID for '{self.title}' from {result.source_provider}: {imdb_id}",
-                                xbmc.LOGINFO
+                                xbmc.LOGINFO,
                             )
                         if result.tmdb_id:
                             tmdb_id = result.tmdb_id
-                            xbmc.log(
-                                f"Retrieved TMDB ID for '{self.title}': {tmdb_id}",
-                                xbmc.LOGINFO
-                            )
+                            xbmc.log(f"Retrieved TMDB ID for '{self.title}': {tmdb_id}", xbmc.LOGINFO)
                     else:
                         xbmc.log(
                             f"Could not retrieve external metadata for '{self.title}': {result.error_message}",
-                            xbmc.LOGWARNING
+                            xbmc.LOGWARNING,
                         )
                 else:
                     xbmc.log("Skipping external metadata - no API keys configured", xbmc.LOGINFO)
@@ -366,44 +378,47 @@ class Film:
         """
         Check if the rating in the NFO file matches the current film metadata.
         This is used to detect if an update is needed (e.g., switching from MUBI to Bayesian rating).
-        
+
         :param nfo_file: Path to the existing NFO file.
         :return: True if synced (no update needed), False if mismatch (update needed).
         """
         if not nfo_file.exists():
             return False
-            
+
         try:
             tree = ET.parse(nfo_file)
             root = tree.getroot()
-            
+
             # Find rating elements
             # XML path: movie -> ratings -> rating
             ratings_node = root.find("ratings")
             if ratings_node is None:
                 # No ratings in NFO, but we might have data -> mismatched
                 return False
-                
+
             rating_nodes = ratings_node.findall("rating")
-            
+
             # Logic:
             # 1. If we have Bayesian rating in metadata, we expect a 'bayesian' rating in NFO.
             # 2. If we DON'T have Bayesian rating, we expect a 'MUBI' rating.
-            
-            has_bayesian_metadata = hasattr(self.metadata, 'bayesian_rating') and self.metadata.bayesian_rating is not None
-            
+
+            has_bayesian_metadata = (
+                hasattr(self.metadata, "bayesian_rating") and self.metadata.bayesian_rating is not None
+            )
+
             found_matching_rating = False
-            
+
             for r_node in rating_nodes:
                 name = r_node.get("name")
                 value_node = r_node.find("value")
-                if value_node is None: continue
-                
+                if value_node is None:
+                    continue
+
                 try:
                     value = float(value_node.text)
                 except (ValueError, TypeError):
                     continue
-                    
+
                 if has_bayesian_metadata:
                     if name == "bayesian":
                         # Check if value matches (close enough floating point comparison)
@@ -415,18 +430,22 @@ class Film:
                         if abs(value - float(self.metadata.rating)) < 0.01:
                             found_matching_rating = True
                             break
-                            
+
             if not found_matching_rating:
-                xbmc.log(f"Rating mismatch for '{self.title}'. Metadata has Bayesian={has_bayesian_metadata}. Triggering update.", xbmc.LOGDEBUG)
-                
+                xbmc.log(
+                    f"Rating mismatch for '{self.title}'. Metadata has Bayesian={has_bayesian_metadata}. Triggering update.",
+                    xbmc.LOGDEBUG,
+                )
+
             return found_matching_rating
 
         except Exception as e:
             xbmc.log(f"Error checking rating sync for '{self.title}': {e}", xbmc.LOGWARNING)
             return False
 
-
-    def _get_nfo_tree(self, metadata, kodi_trailer_url: str, imdb_id: str, tmdb_id: str = "", artwork_paths: dict = None) -> bytes:
+    def _get_nfo_tree(
+        self, metadata, kodi_trailer_url: str, imdb_id: str, tmdb_id: str = "", artwork_paths: dict = None
+    ) -> bytes:
         """Generate the NFO XML tree structure, including IMDb ID if available."""
         if not metadata.title:
             raise ValueError("Metadata must contain a title")
@@ -438,10 +457,10 @@ class Film:
         ET.SubElement(movie, "originaltitle").text = self._sanitize_xml_content(metadata.originaltitle)
 
         ratings = ET.SubElement(movie, "ratings")
-        
+
         # Check for Bayesian rating (indicates GitHub sync/enhanced data)
         # Assuming if we have a bayesian_rating, we want to use THAT exclusively
-        if hasattr(metadata, 'bayesian_rating') and metadata.bayesian_rating is not None:
+        if hasattr(metadata, "bayesian_rating") and metadata.bayesian_rating is not None:
             rating = ET.SubElement(ratings, "rating")
             rating.set("name", "bayesian")
             rating.set("max", "10")
@@ -460,11 +479,11 @@ class Film:
         ET.SubElement(movie, "runtime").text = str(metadata.duration)
 
         # Add content rating (age rating)
-        if hasattr(metadata, 'mpaa') and metadata.mpaa and metadata.mpaa.get('US'):
-            ET.SubElement(movie, "mpaa").text = self._sanitize_xml_content(metadata.mpaa['US'])
+        if hasattr(metadata, "mpaa") and metadata.mpaa and metadata.mpaa.get("US"):
+            ET.SubElement(movie, "mpaa").text = self._sanitize_xml_content(metadata.mpaa["US"])
 
         # Add tagline from press_quote (if available)
-        if hasattr(metadata, 'tagline') and metadata.tagline:
+        if hasattr(metadata, "tagline") and metadata.tagline:
             ET.SubElement(movie, "tagline").text = self._sanitize_xml_content(metadata.tagline)
 
         # Support multiple country tags (previously only used first)
@@ -481,11 +500,11 @@ class Film:
         ET.SubElement(movie, "year").text = str(metadata.year)
 
         # Add premiered date (Kodi v20+ prefers this over deprecated <year>)
-        if hasattr(metadata, 'premiered') and metadata.premiered:
+        if hasattr(metadata, "premiered") and metadata.premiered:
             ET.SubElement(movie, "premiered").text = self._sanitize_xml_content(metadata.premiered)
 
         # Add content warnings as library tags
-        if hasattr(metadata, 'content_warnings') and metadata.content_warnings:
+        if hasattr(metadata, "content_warnings") and metadata.content_warnings:
             for warning in metadata.content_warnings:
                 if warning and str(warning).strip():
                     ET.SubElement(movie, "tag").text = self._sanitize_xml_content(str(warning).strip())
@@ -499,68 +518,67 @@ class Film:
         # Thumbnail/Landscape artwork
         thumb = ET.SubElement(movie, "thumb")
         thumb.set("aspect", "landscape")
-        if 'thumb' in artwork_paths and Path(artwork_paths['thumb']).exists():
-            thumb.text = Path(artwork_paths['thumb']).name
+        if "thumb" in artwork_paths and Path(artwork_paths["thumb"]).exists():
+            thumb.text = Path(artwork_paths["thumb"]).name
             xbmc.log(f"Using local thumbnail: {Path(artwork_paths['thumb']).name}", xbmc.LOGDEBUG)
         else:
             thumb.text = metadata.image
             xbmc.log(f"Using remote thumbnail URL: {metadata.image}", xbmc.LOGDEBUG)
 
         # Poster artwork (vertical)
-        if artwork_paths and 'poster' in artwork_paths and Path(artwork_paths['poster']).exists():
+        if artwork_paths and "poster" in artwork_paths and Path(artwork_paths["poster"]).exists():
             poster = ET.SubElement(movie, "poster")
-            poster.text = Path(artwork_paths['poster']).name
+            poster.text = Path(artwork_paths["poster"]).name
             xbmc.log(f"Using local poster: {Path(artwork_paths['poster']).name}", xbmc.LOGDEBUG)
 
         # Fanart artwork (background)
-        if artwork_paths and 'fanart' in artwork_paths and Path(artwork_paths['fanart']).exists():
+        if artwork_paths and "fanart" in artwork_paths and Path(artwork_paths["fanart"]).exists():
             fanart = ET.SubElement(movie, "fanart")
             fanart_thumb = ET.SubElement(fanart, "thumb")
-            fanart_thumb.text = Path(artwork_paths['fanart']).name
+            fanart_thumb.text = Path(artwork_paths["fanart"]).name
             xbmc.log(f"Using local fanart: {Path(artwork_paths['fanart']).name}", xbmc.LOGDEBUG)
 
         # Clear logo (transparent title)
-        if (artwork_paths and 'clearlogo' in artwork_paths
-                and Path(artwork_paths['clearlogo']).exists()):
+        if artwork_paths and "clearlogo" in artwork_paths and Path(artwork_paths["clearlogo"]).exists():
             clearlogo = ET.SubElement(movie, "clearlogo")
-            clearlogo.text = Path(artwork_paths['clearlogo']).name
-            clearlogo_name = Path(artwork_paths['clearlogo']).name
+            clearlogo.text = Path(artwork_paths["clearlogo"]).name
+            clearlogo_name = Path(artwork_paths["clearlogo"]).name
             xbmc.log(f"Using local clearlogo: {clearlogo_name}", xbmc.LOGDEBUG)
 
         # Banner artwork (horizontal wide image for list views)
-        if (artwork_paths and 'banner' in artwork_paths
-                and Path(artwork_paths['banner']).exists()):
+        if artwork_paths and "banner" in artwork_paths and Path(artwork_paths["banner"]).exists():
             banner = ET.SubElement(movie, "banner")
-            banner.text = Path(artwork_paths['banner']).name
+            banner.text = Path(artwork_paths["banner"]).name
             xbmc.log(f"Using local banner: {Path(artwork_paths['banner']).name}", xbmc.LOGDEBUG)
 
         ET.SubElement(movie, "dateadded").text = self._sanitize_xml_content(str(metadata.dateadded))
 
         # Add detailed stream formatting for Media Flags (Resolution, Codec, Audio Channels)
         # Parse media_features (e.g., ["4k", "5.1", "hdr"]) to guess technical details
-        media_features = [str(f).lower() for f in getattr(metadata, 'media_features', []) if f]
-        
+        media_features = [str(f).lower() for f in getattr(metadata, "media_features", []) if f]
+
         # --- VIDEO DETAILS ---
         # Default to 1080p/h264 if not specified
         video_width = "1920"
         video_height = "1080"
         video_codec = "h264"
-        video_aspect = "1.78" # 16:9 assumption
-        
+        video_aspect = "1.78"  # 16:9 assumption
+
         if "4k" in media_features or "uhd" in media_features:
             video_width = "3840"
             video_height = "2160"
-            video_codec = "h265" # Assume HEVC for 4K
+            video_codec = "h265"  # Assume HEVC for 4K
         elif "720p" in media_features:
             video_width = "1280"
             video_height = "720"
-            
+
         # Audio and subtitle language information using official Kodi structure
         # Only add fileinfo/streamdetails if we have data to write
-        if ((hasattr(metadata, 'audio_languages') and metadata.audio_languages) or
-            (hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages) or
-            True): # Always create streamdetails for Video flags now
-
+        if (
+            (hasattr(metadata, "audio_languages") and metadata.audio_languages)
+            or (hasattr(metadata, "subtitle_languages") and metadata.subtitle_languages)
+            or True
+        ):  # Always create streamdetails for Video flags now
             fileinfo = ET.SubElement(movie, "fileinfo")
             streamdetails = ET.SubElement(fileinfo, "streamdetails")
 
@@ -572,41 +590,43 @@ class Film:
             ET.SubElement(video_elem, "height").text = video_height
             # Add duration in seconds (optional but good for flags)
             if metadata.duration:
-                 ET.SubElement(video_elem, "durationinseconds").text = str(metadata.duration * 60) # duration is usually in mins
-            
+                ET.SubElement(video_elem, "durationinseconds").text = str(
+                    metadata.duration * 60
+                )  # duration is usually in mins
+
             # Add HDR flag if present
             if "hdr" in media_features or "dolby vision" in media_features:
-                 # "hdr10" or "dolbyvision" usually triggers flags
-                 hdr_type = "hdr10"
-                 if "dolby vision" in media_features:
-                     hdr_type = "dolbyvision"
-                 ET.SubElement(video_elem, "hdrtype").text = hdr_type
+                # "hdr10" or "dolbyvision" usually triggers flags
+                hdr_type = "hdr10"
+                if "dolby vision" in media_features:
+                    hdr_type = "dolbyvision"
+                ET.SubElement(video_elem, "hdrtype").text = hdr_type
 
             # --- AUDIO DETAILS ---
             # Audio streams - create separate <audio> element for each language
             # Includes channel information mapped from media_features or audio_channels
-            if hasattr(metadata, 'audio_languages') and metadata.audio_languages:
-                audio_channels_list = getattr(metadata, 'audio_channels', [])
-                
+            if hasattr(metadata, "audio_languages") and metadata.audio_languages:
+                audio_channels_list = getattr(metadata, "audio_channels", [])
+
                 # Check for global audio features if per-track info isn't specific enough
                 global_channels = "2"
                 global_codec = "aac"
-                
+
                 if "5.1" in media_features:
                     global_channels = "6"
-                    global_codec = "eac3" # DD+ is standard for 5.1 streaming
+                    global_codec = "eac3"  # DD+ is standard for 5.1 streaming
                 elif "7.1" in media_features:
                     global_channels = "8"
                     global_codec = "eac3"
                 elif "atmos" in media_features:
-                    global_channels = "8" # Atmos usually piggybacks on 7.1 eac3
+                    global_channels = "8"  # Atmos usually piggybacks on 7.1 eac3
                     global_codec = "eac3"
-                
+
                 for i, lang in enumerate(metadata.audio_languages):
                     if lang and str(lang).strip():  # Skip empty/None values
                         audio_elem = ET.SubElement(streamdetails, "audio")
                         audio_lang = ET.SubElement(audio_elem, "language")
-                        
+
                         # Fix Media Flags: Convert full language name to ISO 639-2 code
                         # User Request: Default back to sanitizing raw input instead of converting
                         audio_lang.text = self._sanitize_xml_content(str(lang).strip())
@@ -614,28 +634,28 @@ class Film:
                         # Determine channels for this specific track
                         channels_text = global_channels
                         codec_text = global_codec
-                        
+
                         # Override with specific track info if available
                         if i < len(audio_channels_list) and audio_channels_list[i]:
                             channel_str = str(audio_channels_list[i]).strip().lower()
-                            if channel_str == '5.1':
-                                channels_text = '6'
-                                codec_text = 'eac3'
-                            elif channel_str == '7.1':
-                                channels_text = '8'
-                                codec_text = 'eac3'
-                            elif channel_str in ('stereo', '2.0'):
-                                channels_text = '2'
-                                codec_text = 'aac'
-                            elif channel_str in ('mono', '1.0'):
-                                channels_text = '1'
-                                codec_text = 'aac'
-                            
+                            if channel_str == "5.1":
+                                channels_text = "6"
+                                codec_text = "eac3"
+                            elif channel_str == "7.1":
+                                channels_text = "8"
+                                codec_text = "eac3"
+                            elif channel_str in ("stereo", "2.0"):
+                                channels_text = "2"
+                                codec_text = "aac"
+                            elif channel_str in ("mono", "1.0"):
+                                channels_text = "1"
+                                codec_text = "aac"
+
                         ET.SubElement(audio_elem, "channels").text = channels_text
                         ET.SubElement(audio_elem, "codec").text = codec_text
 
             # Subtitle streams - create separate <subtitle> element for each language
-            if hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages:
+            if hasattr(metadata, "subtitle_languages") and metadata.subtitle_languages:
                 for lang in metadata.subtitle_languages:
                     if lang and str(lang).strip():  # Skip empty/None values
                         subtitle_elem = ET.SubElement(streamdetails, "subtitle")
@@ -661,7 +681,7 @@ class Film:
             uid.set("type", "imdb")
             # Removed default="true" - MUBI ID must be default
             uid.text = self._sanitize_xml_content(imdb_id)
-        
+
         # Add TMDB ID if available
         if tmdb_id:
             uid_tmdb = ET.SubElement(movie, "uniqueid")
@@ -697,29 +717,33 @@ class Film:
             country_elem = ET.SubElement(mubi_availability, "country")
             # Store ISO code as attribute
             country_elem.set("code", self._sanitize_xml_content(country_code.upper()))
-            
+
             # Look up full country name
             country_data = COUNTRIES.get(country_code.lower(), {})
             country_name = country_data.get("name", country_code)
-            
+
             # Add Name
             ET.SubElement(country_elem, "name").text = self._sanitize_xml_content(country_name)
-            
+
             # Add Availability Details if present
-            if not details: 
+            if not details:
                 continue
 
-            if 'availability' in details:
-                 ET.SubElement(country_elem, "availability").text = self._sanitize_xml_content(details['availability'])
-            
-            if 'available_at' in details:
-                 ET.SubElement(country_elem, "available_at").text = self._sanitize_xml_content(str(details['available_at']))
-            
-            if 'expires_at' in details:
-                 ET.SubElement(country_elem, "expires_at").text = self._sanitize_xml_content(str(details['expires_at']))
+            if "availability" in details:
+                ET.SubElement(country_elem, "availability").text = self._sanitize_xml_content(details["availability"])
 
-            if 'availability_ends_at' in details:
-                 ET.SubElement(country_elem, "availability_ends_at").text = self._sanitize_xml_content(str(details['availability_ends_at']))
+            if "available_at" in details:
+                ET.SubElement(country_elem, "available_at").text = self._sanitize_xml_content(
+                    str(details["available_at"])
+                )
+
+            if "expires_at" in details:
+                ET.SubElement(country_elem, "expires_at").text = self._sanitize_xml_content(str(details["expires_at"]))
+
+            if "availability_ends_at" in details:
+                ET.SubElement(country_elem, "availability_ends_at").text = self._sanitize_xml_content(
+                    str(details["availability_ends_at"])
+                )
 
     def _download_thumbnail(self, film_path: Path, film_folder_name: str) -> Optional[str]:
         """
@@ -736,14 +760,14 @@ class Film:
         try:
             # Determine file extension from URL
             image_url = self.metadata.image
-            if '.jpg' in image_url.lower():
-                extension = '.jpg'
-            elif '.png' in image_url.lower():
-                extension = '.png'
-            elif '.jpeg' in image_url.lower():
-                extension = '.jpeg'
+            if ".jpg" in image_url.lower():
+                extension = ".jpg"
+            elif ".png" in image_url.lower():
+                extension = ".png"
+            elif ".jpeg" in image_url.lower():
+                extension = ".jpeg"
             else:
-                extension = '.jpg'  # Default fallback
+                extension = ".jpg"  # Default fallback
 
             # Create local thumbnail filename following Kodi conventions
             thumbnail_filename = f"{film_folder_name}-thumb{extension}"
@@ -760,7 +784,7 @@ class Film:
             response.raise_for_status()
 
             # Save the thumbnail locally
-            with open(local_thumbnail_path, 'wb') as f:
+            with open(local_thumbnail_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
 
@@ -791,22 +815,22 @@ class Film:
 
                 try:
                     # Determine file extension
-                    if '.jpg' in url.lower():
-                        extension = '.jpg'
-                    elif '.png' in url.lower():
-                        extension = '.png'
-                    elif '.jpeg' in url.lower():
-                        extension = '.jpeg'
+                    if ".jpg" in url.lower():
+                        extension = ".jpg"
+                    elif ".png" in url.lower():
+                        extension = ".png"
+                    elif ".jpeg" in url.lower():
+                        extension = ".jpeg"
                     else:
-                        extension = '.jpg'  # Default fallback
+                        extension = ".jpg"  # Default fallback
 
                     # Create filename following Kodi conventions
-                    if artwork_type == 'thumb':
+                    if artwork_type == "thumb":
                         filename = f"{film_folder_name}-thumb{extension}"
-                    elif artwork_type == 'poster':
+                    elif artwork_type == "poster":
                         filename = f"{film_folder_name}-poster{extension}"
 
-                    elif artwork_type == 'clearlogo':
+                    elif artwork_type == "clearlogo":
                         filename = f"{film_folder_name}-clearlogo{extension}"
                     else:
                         filename = f"{film_folder_name}-{artwork_type}{extension}"
@@ -815,7 +839,9 @@ class Film:
 
                     # Skip download if file already exists
                     if local_path.exists():
-                        xbmc.log(f"{artwork_type.title()} already exists for '{self.title}': {local_path}", xbmc.LOGDEBUG)
+                        xbmc.log(
+                            f"{artwork_type.title()} already exists for '{self.title}': {local_path}", xbmc.LOGDEBUG
+                        )
                         artwork_paths[artwork_type] = str(local_path)
                         continue
 
@@ -825,12 +851,14 @@ class Film:
                     response.raise_for_status()
 
                     # Save the artwork locally
-                    with open(local_path, 'wb') as f:
+                    with open(local_path, "wb") as f:
                         for chunk in response.iter_content(chunk_size=8192):
                             f.write(chunk)
 
                     artwork_paths[artwork_type] = str(local_path)
-                    xbmc.log(f"Successfully downloaded {artwork_type} for '{self.title}' to {local_path}", xbmc.LOGDEBUG)
+                    xbmc.log(
+                        f"Successfully downloaded {artwork_type} for '{self.title}' to {local_path}", xbmc.LOGDEBUG
+                    )
 
                 except Exception as e:
                     xbmc.log(f"Failed to download {artwork_type} for '{self.title}': {e}", xbmc.LOGWARNING)
@@ -851,11 +879,11 @@ class Film:
         artwork_urls = {}
 
         # Get artwork URLs from metadata
-        if hasattr(self.metadata, 'artwork_urls') and self.metadata.artwork_urls:
+        if hasattr(self.metadata, "artwork_urls") and self.metadata.artwork_urls:
             artwork_urls.update(self.metadata.artwork_urls)
 
         # Always include the main image as thumb
         if self.metadata.image:
-            artwork_urls['thumb'] = self.metadata.image
+            artwork_urls["thumb"] = self.metadata.image
 
         return artwork_urls
