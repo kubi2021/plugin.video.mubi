@@ -5,7 +5,7 @@ import os
 import random
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pycountry
 import requests
@@ -339,6 +339,9 @@ class MubiScraper:
         film_countries = {}  # id -> dict(country -> consumable)
         series_countries = {}  # id -> dict(country -> consumable)
         errors = []  # Track errors per country
+        # Single timestamp for the whole run, stamped on any item seen for the
+        # first time (see first_seen_at in the merge loop below).
+        run_started_at = datetime.now(timezone.utc).isoformat()
 
         # Determine paths
         # If input_path is not explicitly set, try to use output_path as input (incremental update)
@@ -557,9 +560,16 @@ class MubiScraper:
 
                             # Update or Create
                             if fid in target_dict:
+                                # Existing item: merge fresh fields, but never touch
+                                # first_seen_at — it records the very first sighting.
                                 target_dict[fid].update(new_data)
                             else:
                                 target_dict[fid] = new_data
+                                # First time this mubi_id has ever entered the database.
+                                # Stamp an immutable first_seen_at; the weekly digest uses
+                                # it to detect genuinely new films, independent of the
+                                # per-country availability windows that Mubi rotates.
+                                new_data["first_seen_at"] = run_started_at
                                 # CLEANUP: Remove legacy 'countries' if it exists when creating new
                                 target_dict[fid].pop("countries", None)
 
@@ -704,7 +714,7 @@ class MubiScraper:
             "meta": {
                 "generated_at": datetime.utcnow().isoformat() + "Z",
                 "version": 1,
-                "version_label": "1.0",  # Human-readable version for debugging
+                "version_label": "1.1",  # Human-readable version for debugging
                 "total_count": len(final_films),
                 "mode": mode,
             },
@@ -721,7 +731,7 @@ class MubiScraper:
             "meta": {
                 "generated_at": datetime.utcnow().isoformat() + "Z",
                 "version": 1,
-                "version_label": "1.0",  # Human-readable version for debugging
+                "version_label": "1.1",  # Human-readable version for debugging
                 "total_count": len(final_series),
                 "mode": mode,
             },

@@ -518,6 +518,13 @@
             ],
             "description": "Parent series info (for series content)"
         },
+        "first_seen_at": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "ISO 8601 UTC timestamp of when this mubi_id first entered the database. Set once by the scraper on first sighting and never overwritten; independent of per-country availability windows. Null for items that predate this field. Consumed by the weekly digest to detect genuinely new films."
+        },
         "ratings": {
             "type": "array",
             "items": {

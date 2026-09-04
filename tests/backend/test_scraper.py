@@ -104,6 +104,69 @@ class TestMubiScraper(unittest.TestCase):
             shutil.rmtree(test_dir)
 
     @patch('sys.exit')
+    def test_run_stamps_first_seen_at_on_new_films(self, mock_exit):
+        """New films get an immutable first_seen_at; existing ones keep theirs."""
+        self.scraper.MIN_TOTAL_FILMS = 0
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            'films': [
+                {'id': 1, 'title': 'Returning Film', 'year': 2020, 'consumable': {'status': 'live'}},
+                {'id': 2, 'title': 'Brand New Film', 'year': 2021, 'consumable': {'status': 'live'}},
+            ],
+            'meta': {'next_page': None},
+        }
+        self.scraper.session.get.return_value = mock_resp
+        self.scraper.COUNTRIES = ['US']
+
+        test_dir = tempfile.mkdtemp()
+        try:
+            output_file = os.path.join(test_dir, 'test_films.json')
+            series_file = os.path.join(test_dir, 'test_series.json')
+            input_file = os.path.join(test_dir, 'previous_films.json')
+
+            # Seed a previous DB (warm start) where film 1 was first seen long ago.
+            # This mirrors the deep-sync workflow passing --input previous_films.json.
+            existing = {
+                "meta": {"generated_at": "x", "version": 1},
+                "items": [{
+                    "mubi_id": 1,
+                    "title": "Returning Film",
+                    "first_seen_at": "2020-01-01T00:00:00+00:00",
+                    "available_countries": {"US": {"available_at": "2020-01-01T00:00:00Z"}},
+                }],
+            }
+            with open(input_file, 'w') as f:
+                json.dump(existing, f)
+
+            self.scraper.run(
+                output_path=output_file,
+                series_path=series_file,
+                mode="deep",
+                input_path=input_file,
+            )
+
+            with open(output_file, 'r') as f:
+                data = json.load(f)
+            films = {f['mubi_id']: f for f in data['items']}
+
+            # Existing film keeps its original first_seen_at (never overwritten).
+            self.assertEqual(films[1]['first_seen_at'], "2020-01-01T00:00:00+00:00")
+
+            # Brand-new film gets stamped with a fresh, parseable UTC timestamp.
+            from datetime import datetime
+            self.assertIn('first_seen_at', films[2])
+            stamped = films[2]['first_seen_at']
+            parsed = datetime.fromisoformat(stamped)
+            self.assertIsNotNone(parsed.tzinfo)
+            self.assertGreater(parsed.year, 2020)
+
+            mock_exit.assert_not_called()
+        finally:
+            shutil.rmtree(test_dir)
+
+    @patch('sys.exit')
     def test_run_panic_if_no_films(self, mock_exit):
         # Mock empty response
         mock_resp = MagicMock()

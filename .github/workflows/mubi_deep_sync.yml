@@ -54,40 +54,48 @@ jobs:
         public_key: ${{ secrets.WIREGUARD_PUBLIC_KEY }}
         endpoint: ${{ secrets.WIREGUARD_ENDPOINT }}
 
-    - name: Run Scraper (Deep Mode)
-      run: |
-        # Create output directory
-        mkdir -p database/v1
-        
-        # Run scraper in DEEP mode
-        python backend/scraper.py --mode deep --output database/v1/films.json --series-output database/v1/series.json
-        
     - name: Checkout Database Branch (History)
       uses: actions/checkout@v4
       with:
         ref: database
         path: backend/history
         fetch-depth: 1
-        
+
     - name: Prepare History File
       run: |
         echo "DEBUG: Checking history directory..."
         ls -la backend/history/v1/ || echo "backend/history/v1/ not found"
-        
+
         if [ -f backend/history/v1/films.json.gz ]; then
           echo "Found previous database. Checking hash..."
           md5sum backend/history/v1/films.json.gz || echo "No md5sum available"
-          
+
           echo "Preparing for warm start..."
           cp backend/history/v1/films.json.gz backend/previous_films.json.gz
           gzip -d backend/previous_films.json.gz
-          
+
           echo "DEBUG: previous_films.json created. Head content:"
           head -n 20 backend/previous_films.json
         else
           echo "No previous database found in branch."
         fi
-        
+
+    - name: Run Scraper (Deep Mode)
+      run: |
+        # Create output directory
+        mkdir -p database/v1
+
+        # Warm start from the previous database so immutable fields survive the
+        # full recalibration — chiefly first_seen_at, which the weekly digest uses
+        # to detect genuinely new films. Deep mode still rescrapes every country
+        # and prunes films that have disappeared; only unscraped fields are kept.
+        if [ -f backend/previous_films.json ]; then
+          python backend/scraper.py --mode deep --output database/v1/films.json --series-output database/v1/series.json --input backend/previous_films.json
+        else
+          echo "Cold start: no previous database; every film gets a fresh first_seen_at."
+          python backend/scraper.py --mode deep --output database/v1/films.json --series-output database/v1/series.json
+        fi
+
 
 
     - name: Enrich Metadata (Add IMDB/TMDB IDs)
