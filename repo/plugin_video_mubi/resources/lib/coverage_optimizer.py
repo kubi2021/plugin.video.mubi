@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 try:
     import xbmc
     import xbmcaddon
+
     RUNNING_IN_KODI = True
 except ImportError:
     RUNNING_IN_KODI = False
@@ -24,12 +25,12 @@ except ImportError:
 def _get_catalogue_path() -> str:
     """Get the path to the country catalogue JSON file."""
     if RUNNING_IN_KODI:
-        addon_path = xbmcaddon.Addon().getAddonInfo('path')
-        return os.path.join(addon_path, 'resources', 'data', 'country_catalogue.json')
+        addon_path = xbmcaddon.Addon().getAddonInfo("path")
+        return os.path.join(addon_path, "resources", "data", "country_catalogue.json")
     else:
         # For testing or standalone use
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(current_dir, '..', 'data', 'country_catalogue.json')
+        return os.path.join(current_dir, "..", "data", "country_catalogue.json")
 
 
 def load_country_catalogue() -> Optional[Dict]:
@@ -48,10 +49,10 @@ def load_country_catalogue() -> Optional[Dict]:
         return None
 
     try:
-        with open(catalogue_path, 'r', encoding='utf-8') as f:
+        with open(catalogue_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        if 'films' not in data:
+        if "films" not in data:
             if RUNNING_IN_KODI:
                 xbmc.log("Invalid country catalogue format: missing 'films' key", xbmc.LOGERROR)
             return None
@@ -86,7 +87,7 @@ def get_optimal_countries(user_country: str) -> List[str]:
     country_films = defaultdict(set)
     all_films = set()
 
-    for film_id, countries in catalogue['films'].items():
+    for film_id, countries in catalogue["films"].items():
         film_id_int = int(film_id)
         all_films.add(film_id_int)
         for country in countries:
@@ -115,13 +116,14 @@ def get_optimal_countries(user_country: str) -> List[str]:
     # Greedily select countries that cover the most uncovered films
     # Tiebreaker: prefer countries with lower VPN tier (better infrastructure)
     while covered != all_films and remaining:
+
         def country_score(c):
             new_films_count = len(remaining[c] - covered)
             # VPN tier: 1=best, 4=worst. Use negative for descending sort on coverage
-            vpn_tier = COUNTRIES.get(c, {}).get('vpn_tier', 4)
+            vpn_tier = COUNTRIES.get(c, {}).get("vpn_tier", 4)
             # Return tuple: (new_films DESC, vpn_tier ASC)
             return (-new_films_count, vpn_tier)
-        
+
         best = min(remaining.keys(), key=country_score)
         new_films = remaining[best] - covered
 
@@ -136,7 +138,7 @@ def get_optimal_countries(user_country: str) -> List[str]:
         xbmc.log(
             f"Coverage optimizer: {len(selected)} countries needed for 100% coverage "
             f"(starting with {user_country.upper()})",
-            xbmc.LOGINFO
+            xbmc.LOGINFO,
         )
 
     return selected
@@ -160,7 +162,7 @@ def get_coverage_stats(user_country: str) -> dict:
     country_films = defaultdict(set)
     all_films = set()
 
-    for film_id, countries in catalogue['films'].items():
+    for film_id, countries in catalogue["films"].items():
         film_id_int = int(film_id)
         all_films.add(film_id_int)
         for country in countries:
@@ -169,10 +171,9 @@ def get_coverage_stats(user_country: str) -> dict:
     optimal = get_optimal_countries(user_country)
 
     return {
-        'total_films': len(all_films),
-        'total_countries_available': len(country_films),
-        'optimal_countries': optimal,
-        'optimal_country_count': len(optimal),
-        'user_country_films': len(country_films.get(user_country_lower, set())),
+        "total_films": len(all_films),
+        "total_countries_available": len(country_films),
+        "optimal_countries": optimal,
+        "optimal_country_count": len(optimal),
+        "user_country_films": len(country_films.get(user_country_lower, set())),
     }
-

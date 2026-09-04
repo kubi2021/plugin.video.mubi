@@ -9,40 +9,35 @@
 
 
 import datetime
+import json
+import random
+import re
+import time
+from typing import Optional, Tuple
+
 import dateutil.parser
 import requests
-import json
-import hashlib
-import base64
-from collections import namedtuple
 import xbmc
 import xbmcgui
-import re
-import random
-from urllib.parse import urljoin
-from urllib.parse import urlencode
-import time
-import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from typing import Optional, Tuple
-from .metadata import Metadata
+
+from .constants import GEOIP_COUNTRY_URLS, MUBI_API_URL, MUBI_WEB_URL
 from .film import Film
-from .constants import MUBI_API_URL, MUBI_WEB_URL, GEOIP_COUNTRY_URLS
 from .library import Library
+from .metadata import Metadata
 from .playback import generate_drm_license_key
 
 
 class Mubi:
-
     # Country code to full name mapping for user-friendly messages
     COUNTRY_NAMES = {
-        'CH': 'Switzerland',
-        'DE': 'Germany',
-        'US': 'the United States',
-        'GB': 'the United Kingdom',
-        'FR': 'France',
-        'JP': 'Japan',
+        "CH": "Switzerland",
+        "DE": "Germany",
+        "US": "the United States",
+        "GB": "the United Kingdom",
+        "FR": "France",
+        "JP": "Japan",
     }
 
     def __init__(self, session_manager):
@@ -53,7 +48,7 @@ class Mubi:
         :type session_manager: SessionManager
         """
         self.apiURL = MUBI_API_URL
-        self.UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0'
+        self.UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0"
         self.session_manager = session_manager  # Use session manager for session-related data
         self.library = Library()  # Initialize the Library
 
@@ -69,9 +64,22 @@ class Mubi:
 
         # List of sensitive header patterns (case-insensitive)
         sensitive_patterns = [
-            'authorization', 'api-key', 'api_key', 'x-api-key', 'auth-token', 'x-auth-token',
-            'cookie', 'set-cookie', 'csrf-token', 'x-csrf-token', 'access-token', 'x-access-token',
-            'token', 'bearer', 'basic', 'digest'
+            "authorization",
+            "api-key",
+            "api_key",
+            "x-api-key",
+            "auth-token",
+            "x-auth-token",
+            "cookie",
+            "set-cookie",
+            "csrf-token",
+            "x-csrf-token",
+            "access-token",
+            "x-access-token",
+            "token",
+            "bearer",
+            "basic",
+            "digest",
         ]
 
         sanitized = {}
@@ -79,7 +87,7 @@ class Mubi:
             key_lower = key.lower()
             is_sensitive = any(pattern in key_lower for pattern in sensitive_patterns)
             if is_sensitive:
-                sanitized[key] = '***REDACTED***'
+                sanitized[key] = "***REDACTED***"
             else:
                 sanitized[key] = value
 
@@ -97,14 +105,22 @@ class Mubi:
 
         # List of sensitive parameter names (case-insensitive)
         sensitive_params = {
-            'api_key', 'token', 'password', 'secret', 'auth', 'authorization',
-            'access_token', 'refresh_token', 'session_id', 'csrf_token'
+            "api_key",
+            "token",
+            "password",
+            "secret",
+            "auth",
+            "authorization",
+            "access_token",
+            "refresh_token",
+            "session_id",
+            "csrf_token",
         }
 
         sanitized = {}
         for key, value in params.items():
             if key.lower() in sensitive_params:
-                sanitized[key] = '***REDACTED***'
+                sanitized[key] = "***REDACTED***"
             else:
                 sanitized[key] = value
 
@@ -122,14 +138,22 @@ class Mubi:
 
         # List of sensitive field names (case-insensitive)
         sensitive_fields = {
-            'password', 'api_key', 'token', 'secret', 'auth', 'authorization',
-            'access_token', 'refresh_token', 'session_id', 'csrf_token'
+            "password",
+            "api_key",
+            "token",
+            "secret",
+            "auth",
+            "authorization",
+            "access_token",
+            "refresh_token",
+            "session_id",
+            "csrf_token",
         }
 
         sanitized = {}
         for key, value in json_data.items():
             if key.lower() in sensitive_fields:
-                sanitized[key] = '***REDACTED***'
+                sanitized[key] = "***REDACTED***"
             else:
                 sanitized[key] = value
 
@@ -141,7 +165,7 @@ class Mubi:
         # Ensure headers are not None and set Accept-Encoding to gzip
         if headers is None:
             headers = {}
-        headers.setdefault('Accept-Encoding', 'gzip')
+        headers.setdefault("Accept-Encoding", "gzip")
 
         # Log API call details
         xbmc.log(f"Making API call: {method} {url}", xbmc.LOGDEBUG)
@@ -162,11 +186,11 @@ class Mubi:
             total=3,
             backoff_factor=1,
             status_forcelist=[500, 502, 503, 504],
-            allowed_methods=["GET", "POST", "DELETE", "PUT", "PATCH"]
+            allowed_methods=["GET", "POST", "DELETE", "PUT", "PATCH"],
         )
         adapter = HTTPAdapter(max_retries=retries)
-        session.mount('https://', adapter)
-        session.mount('http://', adapter)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
 
         # Retry loop for rate limiting (429 responses)
         # Use longer waits to respect MUBI's rate limits (especially for bulk operations)
@@ -176,35 +200,29 @@ class Mubi:
         for attempt in range(max_rate_limit_retries + 1):
             try:
                 response = session.request(
-                    method,
-                    url,
-                    headers=headers,
-                    params=params,
-                    data=data,
-                    json=json,
-                    timeout=10
+                    method, url, headers=headers, params=params, data=data, json=json, timeout=10
                 )
 
                 # Handle rate limiting (429 Too Many Requests)
                 if response.status_code == 429:
                     if attempt < max_rate_limit_retries:
                         # Check for Retry-After header (can be seconds or HTTP date)
-                        retry_after = response.headers.get('Retry-After')
+                        retry_after = response.headers.get("Retry-After")
                         if retry_after:
                             try:
                                 wait_time = int(retry_after)
                             except ValueError:
                                 # Might be an HTTP date, use base exponential backoff
-                                wait_time = base_wait_time * (2 ** attempt)
+                                wait_time = base_wait_time * (2**attempt)
                         else:
                             # No Retry-After header, use exponential backoff
                             # 10s, 20s, 40s, 80s, 160s = up to 5+ minutes total
-                            wait_time = base_wait_time * (2 ** attempt)
+                            wait_time = base_wait_time * (2**attempt)
 
                         xbmc.log(
                             f"Rate limited (429). Waiting {wait_time}s before retry "
                             f"(attempt {attempt + 1}/{max_rate_limit_retries})",
-                            xbmc.LOGWARNING
+                            xbmc.LOGWARNING,
                         )
                         time.sleep(wait_time)
                         continue
@@ -258,10 +276,12 @@ class Mubi:
 
             # Check for invalid token indicators
             # MUBI API returns code 8 for "Invalid login token"
-            if response_data.get('code') == 8 or \
-               'invalid' in response_data.get('message', '').lower() and 'token' in response_data.get('message', '').lower() or \
-               'expired' in response_data.get('user_message', '').lower():
-
+            if (
+                response_data.get("code") == 8
+                or "invalid" in response_data.get("message", "").lower()
+                and "token" in response_data.get("message", "").lower()
+                or "expired" in response_data.get("user_message", "").lower()
+            ):
                 xbmc.log("Invalid or expired token detected. Logging out user.", xbmc.LOGWARNING)
 
                 # Log out the user
@@ -270,16 +290,16 @@ class Mubi:
                 # Show user-friendly notification
                 try:
                     dialog = xbmcgui.Dialog()
-                    user_message = response_data.get('user_message', 'Your session has expired. Please sign in again.')
+                    user_message = response_data.get("user_message", "Your session has expired. Please sign in again.")
                     dialog.notification(
                         "MUBI - Session Expired",
                         user_message,
                         xbmcgui.NOTIFICATION_WARNING,
-                        5000  # 5 second notification
+                        5000,  # 5 second notification
                     )
 
                     # Refresh the container to show the login option
-                    xbmc.executebuiltin('Container.Refresh')
+                    xbmc.executebuiltin("Container.Refresh")
                 except Exception as notification_error:
                     xbmc.log(f"Failed to show session expired notification: {notification_error}", xbmc.LOGWARNING)
 
@@ -315,7 +335,7 @@ class Mubi:
                     "MUBI",
                     "Having trouble reaching MUBI service. Please try again later.",
                     xbmcgui.NOTIFICATION_WARNING,
-                    5000  # 5 second notification
+                    5000,  # 5 second notification
                 )
             except Exception as notification_error:
                 # Fallback if notification fails
@@ -330,18 +350,12 @@ class Mubi:
             try:
                 dialog = xbmcgui.Dialog()
                 dialog.notification(
-                    "MUBI",
-                    "Service temporarily unavailable. Please try again later.",
-                    xbmcgui.NOTIFICATION_ERROR,
-                    5000
+                    "MUBI", "Service temporarily unavailable. Please try again later.", xbmcgui.NOTIFICATION_ERROR, 5000
                 )
             except Exception:
                 pass  # Silent fallback
 
             return None
-
-
-
 
     def get_cli_country(self):
         """
@@ -360,16 +374,12 @@ class Mubi:
 
         # Try multiple IP geolocation services for reliability
         # Each service returns just the country code as text, e.g. "US"
-        geo_services = [(url, 'text') for url in GEOIP_COUNTRY_URLS]
+        geo_services = [(url, "text") for url in GEOIP_COUNTRY_URLS]
 
         for service_url, response_type in geo_services:
             try:
                 xbmc.log(f"Detecting country via IP geolocation: {service_url}", xbmc.LOGDEBUG)
-                response = fresh_requests.get(
-                    service_url,
-                    headers={'User-Agent': self.UA},
-                    timeout=5
-                )
+                response = fresh_requests.get(service_url, headers={"User-Agent": self.UA}, timeout=5)
 
                 if response and response.status_code == 200:
                     country_code = response.text.strip().upper()
@@ -386,26 +396,26 @@ class Mubi:
         xbmc.log("IP geolocation failed, falling back to MUBI website detection", xbmc.LOGWARNING)
         try:
             headers = {
-                'User-Agent': self.UA,
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
+                "User-Agent": self.UA,
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
             }
 
             fresh_session = fresh_requests.Session()
             fresh_session.cookies.clear()
-            response = fresh_session.get(f'{MUBI_WEB_URL}/', headers=headers, timeout=10)
+            response = fresh_session.get(f"{MUBI_WEB_URL}/", headers=headers, timeout=10)
 
             if response and response.status_code == 200:
                 country = re.findall(r'"Client-Country":"([^"]+?)"', response.text)
-                cli_country = country[0] if country else 'PL'
+                cli_country = country[0] if country else "PL"
                 xbmc.log(f"Client country detected from MUBI: {cli_country}", xbmc.LOGINFO)
                 return cli_country
         except Exception as e:
             xbmc.log(f"MUBI fallback detection failed: {e}", xbmc.LOGERROR)
 
         xbmc.log("All country detection methods failed, defaulting to: PL", xbmc.LOGWARNING)
-        return 'PL'
+        return "PL"
 
     def get_cli_language(self):
         """
@@ -420,10 +430,10 @@ class Mubi:
         :rtype: str
         """
         # Use cached value from session manager if available
-        if hasattr(self.session_manager, 'client_language') and self.session_manager.client_language:
+        if hasattr(self.session_manager, "client_language") and self.session_manager.client_language:
             return self.session_manager.client_language
         # Default to English - works well with MUBI's international API
-        return 'en'
+        return "en"
 
     def hea_atv_gen(self):
         """
@@ -435,20 +445,19 @@ class Mubi:
         base_url = MUBI_WEB_URL  # This is used for the Referer and Origin headers
 
         return {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
-            'Authorization': f'Bearer {self.session_manager.token}',  # Authorization token from session
-            'Anonymous_user_id': self.session_manager.device_id,  # Use session manager for device ID
-            'Client': 'web',
-            'Client-Accept-Audio-Codecs': 'aac,eac3,ac3,dts',  # Added Enhanced AC-3 and other surround sound codecs
-            'Client-Accept-Video-Codecs': 'h265,vp9,h264',  # Include support for video codecs
-            'Client-Country': self.session_manager.client_country,  # Client country from session
-            'accept-language' : self.session_manager.client_language,
-            'Referer': base_url,  # Add Referer for web-based requests
-            'Origin': base_url,  # Add Origin for web-based requests
-            'Accept-Encoding': 'gzip',
-            'accept': 'application/json'
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+            "Authorization": f"Bearer {self.session_manager.token}",  # Authorization token from session
+            "Anonymous_user_id": self.session_manager.device_id,  # Use session manager for device ID
+            "Client": "web",
+            "Client-Accept-Audio-Codecs": "aac,eac3,ac3,dts",  # Added Enhanced AC-3 and other surround sound codecs
+            "Client-Accept-Video-Codecs": "h265,vp9,h264",  # Include support for video codecs
+            "Client-Country": self.session_manager.client_country,  # Client country from session
+            "accept-language": self.session_manager.client_language,
+            "Referer": base_url,  # Add Referer for web-based requests
+            "Origin": base_url,  # Add Origin for web-based requests
+            "Accept-Encoding": "gzip",
+            "accept": "application/json",
         }
-
 
     def hea_atv_auth(self, country: str = None):
         """
@@ -462,28 +471,28 @@ class Mubi:
         token = self.session_manager.token  # Use session manager
         if not token:
             xbmc.log("No token found", xbmc.LOGERROR)
-        headers['Authorization'] = f'Bearer {token}'
+        headers["Authorization"] = f"Bearer {token}"
         # Override country if specified (for multi-country playback)
         if country:
-            headers['Client-Country'] = country
+            headers["Client-Country"] = country
             xbmc.log(f"Using override country for API: {country}", xbmc.LOGINFO)
         return headers
 
     # Common browser User-Agents for rotation to avoid fingerprinting
     COMMON_USER_AGENTS = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:131.0) Gecko/20100101 Firefox/131.0',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:131.0) Gecko/20100101 Firefox/131.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
     ]
 
     # Countries to sync catalogues from (ISO 3166-1 alpha-2 codes)
     # Different countries have different film availability on MUBI
-    SYNC_COUNTRIES = ['CH', 'DE', 'US', 'GB', 'FR', 'JP']
+    SYNC_COUNTRIES = ["CH", "DE", "US", "GB", "FR", "JP"]
 
     def _get_random_user_agent(self):
         """
@@ -511,13 +520,13 @@ class Mubi:
         client_country = country_code if country_code else self.session_manager.client_country
 
         return {
-            'Referer': base_url,
-            'Origin': base_url,
-            'User-Agent': self._get_random_user_agent(),
-            'Client': 'web',
-            'Client-Accept-Video-Codecs': 'h265,vp9,h264',
-            'Client-Country': client_country,
-            'accept-language': self.get_cli_language()
+            "Referer": base_url,
+            "Origin": base_url,
+            "User-Agent": self._get_random_user_agent(),
+            "Client": "web",
+            "Client-Accept-Video-Codecs": "h265,vp9,h264",
+            "Client-Country": client_country,
+            "accept-language": self.get_cli_language(),
         }
 
     def hea_gen(self):
@@ -534,16 +543,16 @@ class Mubi:
             xbmc.log("No token found for web headers", xbmc.LOGERROR)
 
         return {
-            'Referer': base_url,
-            'Origin': base_url,
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
-            'Authorization': f'Bearer {token}',
-            'Anonymous_user_id': self.session_manager.device_id,
-            'Client': 'web',
-            'Client-Accept-Audio-Codecs': 'eac3,aac',
-            'Client-Accept-Video-Codecs': 'h265,vp9,h264',
-            'Client-Country': self.session_manager.client_country,
-            'accept-language': self.get_cli_language()
+            "Referer": base_url,
+            "Origin": base_url,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+            "Authorization": f"Bearer {token}",
+            "Anonymous_user_id": self.session_manager.device_id,
+            "Client": "web",
+            "Client-Accept-Audio-Codecs": "eac3,aac",
+            "Client-Accept-Video-Codecs": "h265,vp9,h264",
+            "Client-Country": self.session_manager.client_country,
+            "accept-language": self.get_cli_language(),
         }
 
     def get_link_code(self):
@@ -553,7 +562,7 @@ class Mubi:
         :return: Dictionary with 'auth_token' and 'link_code'.
         :rtype: dict
         """
-        response = self._make_api_call('GET', 'v4/link_code', headers=self.hea_atv_gen())
+        response = self._make_api_call("GET", "v4/link_code", headers=self.hea_atv_gen())
         return self._safe_json_parse(response, "authentication link code generation")
 
     def authenticate(self, auth_token):
@@ -565,18 +574,16 @@ class Mubi:
         :return: Authentication response data if successful, None otherwise.
         :rtype: dict or None
         """
-        data = {'auth_token': auth_token}
-        response = self._make_api_call(
-            'POST', 'v4/authenticate', headers=self.hea_atv_gen(), json=data
-        )
+        data = {"auth_token": auth_token}
+        response = self._make_api_call("POST", "v4/authenticate", headers=self.hea_atv_gen(), json=data)
 
         response_data = self._safe_json_parse(response, "user authentication")
 
         if response_data:
             # Check if token and user data are present in the response
-            if 'token' in response_data and 'user' in response_data:
-                token = response_data['token']
-                user_id = response_data['user']['id']  # Extract user_id from the response
+            if "token" in response_data and "user" in response_data:
+                token = response_data["token"]
+                user_id = response_data["user"]["id"]  # Extract user_id from the response
 
                 # Set the token and user_id in the session
                 self.session_manager.set_logged_in(token, str(user_id))  # Store both token and user_id
@@ -584,13 +591,13 @@ class Mubi:
                 xbmc.log("User authenticated successfully", xbmc.LOGDEBUG)
                 return response_data  # Return the full response data
             else:
-                xbmc.log(f"Authentication failed: {response_data.get('message', 'No error message provided')}", xbmc.LOGERROR)
+                xbmc.log(
+                    f"Authentication failed: {response_data.get('message', 'No error message provided')}", xbmc.LOGERROR
+                )
         else:
             xbmc.log("Authentication failed: No response from server", xbmc.LOGERROR)
 
         return None  # Return None if authentication failed
-
-
 
     def log_out(self):
         """
@@ -599,14 +606,14 @@ class Mubi:
         :return: True if logout was successful, False otherwise.
         :rtype: bool
         """
-        response = self._make_api_call('DELETE', 'v4/sessions', headers=self.hea_atv_auth())
+        response = self._make_api_call("DELETE", "v4/sessions", headers=self.hea_atv_auth())
         if response and response.status_code == 200:
             return True
         else:
             return False
+
     def _fetch_films_for_country(
-        self, country_code: str, playable_only: bool = True, page_callback=None,
-        global_film_ids: set = None
+        self, country_code: str, playable_only: bool = True, page_callback=None, global_film_ids: set = None
     ) -> Tuple[set, dict, int, int]:
         """
         Fetches all films for a specific country from the MUBI API.
@@ -619,7 +626,7 @@ class Mubi:
                                 Used to count truly new films for progress display.
         :return: Tuple of (film_ids set, film_data dict {id: film_data}, total_count, pages_fetched)
         """
-        endpoint = 'v4/browse/films'
+        endpoint = "v4/browse/films"
         film_ids = set()
         film_data_map = {}  # {film_id: film_data}
         page = 1
@@ -636,13 +643,13 @@ class Mubi:
             headers = self.hea_gen_anonymous(country_code=country_code)
 
             params = {
-                'page': page,
-                'sort': 'title',
+                "page": page,
+                "sort": "title",
             }
             if playable_only:
-                params['playable'] = 'true'
+                params["playable"] = "true"
 
-            response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+            response = self._make_api_call("GET", endpoint=endpoint, headers=headers, params=params)
 
             if not response:
                 xbmc.log(f"[{country_code}] Failed to retrieve page {page}", xbmc.LOGERROR)
@@ -652,20 +659,20 @@ class Mubi:
             if not data:
                 break
 
-            films = data.get('films', [])
-            meta = data.get('meta', {})
+            films = data.get("films", [])
+            meta = data.get("meta", {})
             pages_fetched += 1
 
             # Get total count from first page
             if page == 1:
-                total_count = meta.get('total_count', 0)
-                total_pages = meta.get('total_pages', 0)
+                total_count = meta.get("total_count", 0)
+                total_pages = meta.get("total_pages", 0)
                 xbmc.log(f"[{country_code}] API reports {total_count} films across {total_pages} pages", xbmc.LOGINFO)
 
             # Process films
             globally_new_films = 0  # Films not seen in ANY country yet
             for film_entry in films:
-                film_id = film_entry.get('id')
+                film_id = film_entry.get("id")
                 if film_id and film_id not in film_ids:
                     film_ids.add(film_id)
                     film_data_map[film_id] = film_entry
@@ -681,7 +688,7 @@ class Mubi:
                     break
 
             # Check for next page
-            next_page = meta.get('next_page')
+            next_page = meta.get("next_page")
             if next_page:
                 page = next_page
                 # Small delay between pages to avoid rate limiting
@@ -691,10 +698,7 @@ class Mubi:
 
             # Safety limit
             if pages_fetched > 100:
-                xbmc.log(
-                    f"[{country_code}] Safety limit reached at {pages_fetched} pages",
-                    xbmc.LOGWARNING
-                )
+                xbmc.log(f"[{country_code}] Safety limit reached at {pages_fetched} pages", xbmc.LOGWARNING)
                 break
 
         xbmc.log(f"[{country_code}] Completed: {len(film_ids)} unique films from {pages_fetched} pages", xbmc.LOGINFO)
@@ -707,15 +711,13 @@ class Mubi:
         """
         # The data source injects keys into the raw dict.
         # But here 'film_data' is just the dict from the API (plus __available_countries__)
-        
-        fid = film_data.get('id')
-    
+
         # Check for available_countries (injected by DataSource OR from GitHub JSON)
-        available_countries = film_data.get('available_countries', {})
+        available_countries = film_data.get("available_countries", {})
 
         # Create film object
         # We need to wrap it because get_film_metadata expects {'film': ...} structure
-        film_wrapper = {'film': film_data}
+        film_wrapper = {"film": film_data}
         return self.get_film_metadata(film_wrapper, available_countries=available_countries)
 
     def get_all_films(self, playable_only=True, progress_callback=None, countries=None, data_source=None):
@@ -735,36 +737,38 @@ class Mubi:
         # 1. Fetch (DataSource)
         # Use provided data source or default to MubiApiDataSource
         source = data_source if data_source else MubiApiDataSource(self)
-        
+
         # progress_callback is handled inside data source for the fetching phase
-        raw_films = source.get_films(playable_only=playable_only, progress_callback=progress_callback, countries=countries)
-        
+        raw_films = source.get_films(
+            playable_only=playable_only, progress_callback=progress_callback, countries=countries
+        )
+
         xbmc.log(f"Pipeline: Fetched {len(raw_films)} raw films.", xbmc.LOGINFO)
 
         # 2. Filter (FilmFilter)
         film_filter = FilmFilter()
         filtered_films = film_filter.filter_films(raw_films)
-        
+
         xbmc.log(f"Pipeline: Filtering retained {len(filtered_films)} films.", xbmc.LOGINFO)
 
         # 3. Hydrate & 4. Add to Library
         all_films_library = Library()
-        
+
         if progress_callback:
-             try:
-                 progress_callback(
-                     current_films=len(raw_films), # Total known
-                     total_films=len(filtered_films), # Films to process
-                     current_country=len(self.SYNC_COUNTRIES), # Done
-                     total_countries=len(self.SYNC_COUNTRIES),
-                     country_code='PROCESSING'
-                 )
-             except Exception:
-                 pass
-        
+            try:
+                progress_callback(
+                    current_films=len(raw_films),  # Total known
+                    total_films=len(filtered_films),  # Films to process
+                    current_country=len(self.SYNC_COUNTRIES),  # Done
+                    total_countries=len(self.SYNC_COUNTRIES),
+                    country_code="PROCESSING",
+                )
+            except Exception:
+                pass
+
         xbmc.log(f"Processing {len(filtered_films)} films into library...", xbmc.LOGINFO)
         total_films_added = 0
-        
+
         for film_data in filtered_films:
             film = self.process_film_data(film_data)
             if film:
@@ -773,7 +777,6 @@ class Mubi:
 
         xbmc.log(f"Successfully added {total_films_added} films to library", xbmc.LOGINFO)
         return all_films_library
-
 
     def get_watch_list(self):
         """
@@ -787,11 +790,11 @@ class Mubi:
 
             # Process and add each film to the library
             for film_item in films_data:
-                this_film = film_item.get('film')
+                this_film = film_item.get("film")
                 if not this_film:
                     continue
-                consumable = this_film.get('consumable')
-                if consumable != None:
+                consumable = this_film.get("consumable")
+                if consumable is not None:
                     film = self.get_film_metadata(film_item)
                     if film:
                         self.library.add_film(film)
@@ -801,9 +804,6 @@ class Mubi:
             xbmc.log(f"Error retrieving films from the watchlist: {e}", xbmc.LOGERROR)
 
         return self.library
-
-
-
 
     def get_films_in_watchlist(self):
         """
@@ -821,8 +821,8 @@ class Mubi:
         if not data:
             return []  # Return empty list for graceful degradation
 
-        meta = data.get('meta')
-        total_count = meta.get('total_count') if meta else 0
+        meta = data.get("meta")
+        total_count = meta.get("total_count") if meta else 0
 
         if total_count == 0:
             return []
@@ -832,13 +832,10 @@ class Mubi:
         data = self._safe_json_parse(response, "watchlist films retrieval")
 
         if data:
-            wishes = data.get('wishes', [])
+            wishes = data.get("wishes", [])
             all_film_items.extend(wishes)
 
         return all_film_items
-
-
-
 
     def _call_wishlist_api(self, per_page: int):
         """
@@ -847,29 +844,14 @@ class Mubi:
         :return: result
         :rtype: json
         """
-        endpoint = 'v4/wishes'
+        endpoint = "v4/wishes"
         headers = self.hea_atv_auth()
-        params = {
-            'user_id': self.session_manager.user_id,
-            'per_page': per_page
-        }
+        params = {"user_id": self.session_manager.user_id, "per_page": per_page}
 
-        response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
+        response = self._make_api_call("GET", endpoint=endpoint, headers=headers, params=params)
         if not response:
-            xbmc.log(f"Failed to retrieve films from your watchlist", xbmc.LOGERROR)
+            xbmc.log("Failed to retrieve films from your watchlist", xbmc.LOGERROR)
         return response
-
-
-
-
-
-
-
-
-
-
-
-
 
     def get_film_metadata(self, film_data: dict, available_countries: dict = None) -> Film:
         """
@@ -881,16 +863,16 @@ class Mubi:
         :return: Film instance or None if not valid or is a series
         """
         try:
-            film_info = film_data.get('film', {})
+            film_info = film_data.get("film", {})
             if not film_info:
                 return None
 
             # Check if this is a series (like inspiration code does)
-            if 'series' in film_info and film_info['series'] is not None:
+            if "series" in film_info and film_info["series"] is not None:
                 return None  # Skip series content for film sync
 
-            available_at = (film_info.get('consumable') or {}).get('available_at')
-            expires_at = (film_info.get('consumable') or {}).get('expires_at')
+            available_at = (film_info.get("consumable") or {}).get("available_at")
+            expires_at = (film_info.get("consumable") or {}).get("expires_at")
             if available_at and expires_at:
                 available_at_dt = dateutil.parser.parse(available_at)
                 expires_at_dt = dateutil.parser.parse(expires_at)
@@ -899,8 +881,8 @@ class Mubi:
                     return None
 
             # Enhanced plot descriptions: Use default_editorial if available, fallback to short_synopsis
-            default_editorial = film_info.get('default_editorial', '')
-            short_synopsis = film_info.get('short_synopsis', '')
+            default_editorial = film_info.get("default_editorial", "")
+            short_synopsis = film_info.get("short_synopsis", "")
 
             if default_editorial:
                 enhanced_plot = default_editorial
@@ -910,11 +892,10 @@ class Mubi:
             short_outline = short_synopsis  # Keep short synopsis for outline
 
             # Legacy manual MPAA mapping removed. Plugin now consumes 'mpaa' field from backend sync.
-            mpaa_rating = None
 
             # Enhanced rating precision: Use 10-point scale if available, fallback to 5-point
-            rating_10_point = film_info.get('average_rating_out_of_ten', 0)
-            rating_5_point = film_info.get('average_rating', 0)
+            rating_10_point = film_info.get("average_rating_out_of_ten", 0)
+            rating_5_point = film_info.get("average_rating", 0)
 
             if rating_10_point:
                 final_rating = rating_10_point
@@ -929,55 +910,55 @@ class Mubi:
             audio_languages, subtitle_languages, media_features = self._get_playback_languages(film_info)
 
             # Extract press_quote as tagline
-            press_quote = film_info.get('press_quote', '')
+            press_quote = film_info.get("press_quote", "")
 
             # Extract premiered date from consumable.available_at
-            premiered = ''
-            consumable = film_info.get('consumable') or {}
+            premiered = ""
+            consumable = film_info.get("consumable") or {}
             if isinstance(consumable, dict):
-                available_at = consumable.get('available_at', '')
+                available_at = consumable.get("available_at", "")
                 if available_at:
                     # Convert ISO format "2025-04-15T07:00:00Z" to "2025-04-15"
                     try:
-                        premiered = available_at.split('T')[0] if 'T' in available_at else available_at
+                        premiered = available_at.split("T")[0] if "T" in available_at else available_at
                     except Exception:
-                        premiered = ''
+                        premiered = ""
 
             # Extract content warnings as list of names
-            content_warnings_raw = film_info.get('content_warnings', [])
+            content_warnings_raw = film_info.get("content_warnings", [])
             content_warnings = []
             if isinstance(content_warnings_raw, list):
                 for warning in content_warnings_raw:
-                    if isinstance(warning, dict) and warning.get('name'):
-                        content_warnings.append(warning['name'])
+                    if isinstance(warning, dict) and warning.get("name"):
+                        content_warnings.append(warning["name"])
 
             # Extract Bayesian rating (if available from GitHub sync)
             bayesian_rating = None
             bayesian_votes = None
-            ratings = film_info.get('ratings', [])
+            ratings = film_info.get("ratings", [])
             if isinstance(ratings, list):
                 for r in ratings:
-                    if isinstance(r, dict) and r.get('source') == 'bayesian':
-                        bayesian_rating = r.get('score_over_10')
-                        bayesian_votes = r.get('voters')
+                    if isinstance(r, dict) and r.get("source") == "bayesian":
+                        bayesian_rating = r.get("score_over_10")
+                        bayesian_votes = r.get("voters")
                         break
 
             metadata = Metadata(
-                title=film_info.get('title', ''),
-                director=[d['name'] for d in film_info.get('directors', [])],
-                year=film_info.get('year', ''),
-                duration=film_info.get('duration', 0),
-                country=film_info.get('historic_countries', []),
+                title=film_info.get("title", ""),
+                director=[d["name"] for d in film_info.get("directors", [])],
+                year=film_info.get("year", ""),
+                duration=film_info.get("duration", 0),
+                country=film_info.get("historic_countries", []),
                 plot=enhanced_plot,  # Use enhanced editorial content
                 plotoutline=short_outline,  # Keep short synopsis for outline
-                genre=film_info.get('genres', []),
-                originaltitle=film_info.get('original_title', ''),
+                genre=film_info.get("genres", []),
+                originaltitle=film_info.get("original_title", ""),
                 rating=final_rating,  # Use enhanced 10-point rating
-                votes=film_info.get('number_of_ratings', 0),
-                dateadded=datetime.date.today().strftime('%Y-%m-%d'),
+                votes=film_info.get("number_of_ratings", 0),
+                dateadded=datetime.date.today().strftime("%Y-%m-%d"),
                 trailer=self._get_best_trailer_url(film_info),
                 image=self._get_best_thumbnail_url(film_info),
-                mpaa=film_info.get('mpaa'),  # Use pre-calculated mpaa from sync (if available)
+                mpaa=film_info.get("mpaa"),  # Use pre-calculated mpaa from sync (if available)
                 artwork_urls=artwork_urls,  # Add all artwork URLs
                 audio_languages=audio_languages,  # Available audio languages
                 subtitle_languages=subtitle_languages,  # Available subtitle languages
@@ -986,16 +967,16 @@ class Mubi:
                 content_warnings=content_warnings,  # Content warnings as library tags
                 tagline=press_quote,  # Press quote as tagline
                 bayesian_rating=bayesian_rating,
-                bayesian_votes=bayesian_votes
+                bayesian_votes=bayesian_votes,
             )
 
             return Film(
-                mubi_id=film_info.get('id'),
-                title=film_info.get('title', ''),
+                mubi_id=film_info.get("id"),
+                title=film_info.get("title", ""),
                 artwork=self._get_best_thumbnail_url(film_info),
-                web_url=film_info.get('web_url', ''),
+                web_url=film_info.get("web_url", ""),
                 metadata=metadata,
-                available_countries=available_countries or {}
+                available_countries=available_countries or {},
             )
         except Exception as e:
             xbmc.log(f"Error parsing film metadata: {e}", xbmc.LOGERROR)
@@ -1010,27 +991,27 @@ class Mubi:
         """
         try:
             # Check for enhanced stills with retina quality
-            stills = film_info.get('stills', {})
+            stills = film_info.get("stills", {})
             if isinstance(stills, dict):
                 # Prefer retina quality for higher resolution
-                retina_url = stills.get('retina', '')
+                retina_url = stills.get("retina", "")
                 if retina_url:
                     return retina_url
 
                 # Fallback to standard quality
-                standard_url = stills.get('standard', '')
+                standard_url = stills.get("standard", "")
                 if standard_url:
                     return standard_url
 
             # Final fallback to still_url (handle potential object format)
-            still_val = film_info.get('still_url')
+            still_val = film_info.get("still_url")
             if isinstance(still_val, dict):
-                return still_val.get('url', '')
-            return still_val or ''
+                return still_val.get("url", "")
+            return still_val or ""
 
         except Exception as e:
             xbmc.log(f"Error getting thumbnail URL: {e}", xbmc.LOGERROR)
-            return film_info.get('still_url', '')  # Safe fallback
+            return film_info.get("still_url", "")  # Safe fallback
 
     def _get_all_artwork_urls(self, film_info: dict) -> dict:
         """
@@ -1054,65 +1035,65 @@ class Mubi:
                 return {}
 
             # Thumbnail/Landscape images from stills
-            stills = film_info.get('stills', {})
+            stills = film_info.get("stills", {})
             if isinstance(stills, dict):
                 # Use retina quality for thumb (landscape)
-                if stills.get('retina'):
-                    artwork_urls['thumb'] = stills['retina']
-                elif stills.get('standard'):
-                    artwork_urls['thumb'] = stills['standard']
+                if stills.get("retina"):
+                    artwork_urls["thumb"] = stills["retina"]
+                elif stills.get("standard"):
+                    artwork_urls["thumb"] = stills["standard"]
 
             # Fallback to still_url if no stills available
-            if 'thumb' not in artwork_urls:
-                still_val = film_info.get('still_url')
+            if "thumb" not in artwork_urls:
+                still_val = film_info.get("still_url")
                 if isinstance(still_val, dict):
-                    still_url = still_val.get('url')
+                    still_url = still_val.get("url")
                 else:
                     still_url = still_val
-                
+
                 if still_url:
-                    artwork_urls['thumb'] = still_url
+                    artwork_urls["thumb"] = still_url
 
             # Extract artwork from artworks[] array - better quality poster and fanart
-            artworks = film_info.get('artworks', [])
+            artworks = film_info.get("artworks", [])
             if isinstance(artworks, list):
                 for artwork in artworks:
                     if not isinstance(artwork, dict):
                         continue
 
-                    artwork_format = artwork.get('format', '')
-                    image_url = artwork.get('image_url', '')
+                    artwork_format = artwork.get("format", "")
+                    image_url = artwork.get("image_url", "")
 
                     if not image_url:
                         continue
 
                     # Poster from cover_artwork_vertical (vertical/portrait format)
-                    if artwork_format == 'cover_artwork_vertical' and 'poster' not in artwork_urls:
-                        artwork_urls['poster'] = image_url
+                    if artwork_format == "cover_artwork_vertical" and "poster" not in artwork_urls:
+                        artwork_urls["poster"] = image_url
 
                     # Fanart from centered_background (large background image)
-                    elif artwork_format == 'centered_background' and 'fanart' not in artwork_urls:
-                        artwork_urls['fanart'] = image_url
+                    elif artwork_format == "centered_background" and "fanart" not in artwork_urls:
+                        artwork_urls["fanart"] = image_url
 
                     # Banner from cover_artwork_horizontal (wide horizontal image for list views)
-                    elif artwork_format == 'cover_artwork_horizontal' and 'banner' not in artwork_urls:
-                        artwork_urls['banner'] = image_url
+                    elif artwork_format == "cover_artwork_horizontal" and "banner" not in artwork_urls:
+                        artwork_urls["banner"] = image_url
 
             # Fallback: Portrait image for poster if not found in artworks[]
-            if 'poster' not in artwork_urls:
-                port_val = film_info.get('portrait_image')
+            if "poster" not in artwork_urls:
+                port_val = film_info.get("portrait_image")
                 if isinstance(port_val, dict):
-                    portrait_image = port_val.get('url')
+                    portrait_image = port_val.get("url")
                 else:
                     portrait_image = port_val
-                
+
                 if portrait_image:
-                    artwork_urls['poster'] = portrait_image
+                    artwork_urls["poster"] = portrait_image
 
             # Title treatment for clear logo
-            title_treatment = film_info.get('title_treatment_url')
+            title_treatment = film_info.get("title_treatment_url")
             if title_treatment:
-                artwork_urls['clearlogo'] = title_treatment
+                artwork_urls["clearlogo"] = title_treatment
 
             return artwork_urls
 
@@ -1120,8 +1101,8 @@ class Mubi:
             xbmc.log(f"Error extracting artwork URLs: {e}", xbmc.LOGERROR)
             # Safe fallback - handle None film_info gracefully
             if film_info and isinstance(film_info, dict):
-                still_url = film_info.get('still_url', '')
-                return {'thumb': still_url} if still_url else {}
+                still_url = film_info.get("still_url", "")
+                return {"thumb": still_url} if still_url else {}
             else:
                 return {}
 
@@ -1134,22 +1115,22 @@ class Mubi:
         """
         try:
             # Check for optimised trailers with multiple qualities
-            optimised_trailers = film_info.get('optimised_trailers', [])
+            optimised_trailers = film_info.get("optimised_trailers", [])
             if isinstance(optimised_trailers, list) and optimised_trailers:
                 # Prefer highest quality available: 1080p > 720p > 240p
-                for quality in ['1080p', '720p', '240p']:
+                for quality in ["1080p", "720p", "240p"]:
                     for trailer in optimised_trailers:
-                        if isinstance(trailer, dict) and trailer.get('profile') == quality:
-                            trailer_url = trailer.get('url', '')
+                        if isinstance(trailer, dict) and trailer.get("profile") == quality:
+                            trailer_url = trailer.get("url", "")
                             if trailer_url:
                                 return trailer_url
 
             # Fallback to original trailer_url
-            return film_info.get('trailer_url', '')
+            return film_info.get("trailer_url", "")
 
         except Exception as e:
             xbmc.log(f"Error getting trailer URL: {e}", xbmc.LOGERROR)
-            return film_info.get('trailer_url', '')  # Safe fallback
+            return film_info.get("trailer_url", "")  # Safe fallback
 
     def _get_playback_languages(self, film_info: dict) -> tuple:
         """
@@ -1160,24 +1141,24 @@ class Mubi:
         """
         try:
             # Check top-level playback_languages first (New Scehma)
-            playback_languages = film_info.get('playback_languages')
-            
+            playback_languages = film_info.get("playback_languages")
+
             # Fallback to nested consumable (API / Old Schema)
             if not playback_languages:
-                consumable = film_info.get('consumable') or {}
+                consumable = film_info.get("consumable") or {}
                 if isinstance(consumable, dict):
-                    playback_languages = consumable.get('playback_languages')
+                    playback_languages = consumable.get("playback_languages")
 
             if not isinstance(playback_languages, dict):
                 return [], [], []
 
             # Extract language and feature information
-            audio_languages = playback_languages.get('audio_options', [])
-            subtitle_languages = playback_languages.get('subtitle_options', [])
-            media_features = playback_languages.get('media_features', [])
+            audio_languages = playback_languages.get("audio_options", [])
+            subtitle_languages = playback_languages.get("subtitle_options", [])
+            media_features = playback_languages.get("media_features", [])
 
             # Also check for extended_audio_options if available
-            extended_audio = playback_languages.get('extended_audio_options', [])
+            extended_audio = playback_languages.get("extended_audio_options", [])
             if extended_audio and isinstance(extended_audio, list):
                 # Merge with audio_options, avoiding duplicates
                 all_audio = list(set(audio_languages + extended_audio))
@@ -1193,11 +1174,6 @@ class Mubi:
         except Exception as e:
             xbmc.log(f"Error extracting playback languages: {e}", xbmc.LOGERROR)
             return [], [], []
-
-
-
-
-
 
     def get_secure_stream_info(self, vid: str, film_country: Optional[str] = None) -> dict:
         """
@@ -1220,7 +1196,7 @@ class Mubi:
             # Step 1: Attempt to check film viewing availability with parental lock
             # Make a direct request to check for geo-restriction errors
             viewing_url = f"{self.apiURL}v4/films/{vid}/viewing"
-            params = {'parental_lock_enabled': 'true'}
+            params = {"parental_lock_enabled": "true"}
 
             try:
                 response = requests.post(viewing_url, headers=headers, params=params, timeout=10)
@@ -1230,28 +1206,32 @@ class Mubi:
                 if response.status_code == 422:
                     try:
                         error_data = response.json()
-                        if error_data.get('code') == 50 or 'not authorized' in error_data.get('message', '').lower():
+                        if error_data.get("code") == 50 or "not authorized" in error_data.get("message", "").lower():
                             xbmc.log(f"Geo-restriction detected: {error_data}", xbmc.LOGWARNING)
                             # Include the film's available country in the error message
                             if film_country:
                                 country_name = self.COUNTRY_NAMES.get(film_country, film_country)
-                                error_msg = f"Film not available in your country. Use a VPN to {country_name} to watch it."
+                                error_msg = (
+                                    f"Film not available in your country. Use a VPN to {country_name} to watch it."
+                                )
                             else:
                                 error_msg = "Film not available in your country. Use a VPN to watch it."
-                            return {'error': error_msg}
+                            return {"error": error_msg}
                     except (ValueError, KeyError):
                         pass  # Not a JSON response or missing fields
 
                 # For other non-200 responses, log and continue (some may be recoverable)
                 if response.status_code != 200:
-                    xbmc.log(f"Viewing availability check returned {response.status_code}: {response.text}", xbmc.LOGWARNING)
+                    xbmc.log(
+                        f"Viewing availability check returned {response.status_code}: {response.text}", xbmc.LOGWARNING
+                    )
 
             except requests.exceptions.RequestException as e:
                 xbmc.log(f"Error checking viewing availability: {e}", xbmc.LOGWARNING)
 
             # Step 2: Handle Pre-roll (if any)
             preroll_url = f"{self.apiURL}v4/prerolls/viewings"
-            preroll_data = {'viewing_film_id': int(vid)}
+            preroll_data = {"viewing_film_id": int(vid)}
             preroll_response = self._make_api_call("POST", full_url=preroll_url, headers=headers, json=preroll_data)
 
             # Pre-roll is optional, so even if it fails, we can continue
@@ -1270,35 +1250,34 @@ class Mubi:
 
             if not secure_data or "url" not in secure_data:
                 if secure_data:
-                    message = secure_data.get('user_message', 'Unable to retrieve secure URL')
+                    message = secure_data.get("user_message", "Unable to retrieve secure URL")
                 else:
-                    message = 'Service temporarily unavailable'
+                    message = "Service temporarily unavailable"
                 xbmc.log(f"Error retrieving secure stream info: {message}", xbmc.LOGERROR)
-                return {'error': message}
+                return {"error": message}
 
             # Log the complete raw response from Mubi for audio analysis
-            xbmc.log(f"=== RAW MUBI SECURE URL RESPONSE ===", xbmc.LOGINFO)
+            xbmc.log("=== RAW MUBI SECURE URL RESPONSE ===", xbmc.LOGINFO)
             xbmc.log(f"Complete secure_data from Mubi API: {secure_data}", xbmc.LOGINFO)
-            xbmc.log(f"=== END RAW RESPONSE ===", xbmc.LOGINFO)
+            xbmc.log("=== END RAW RESPONSE ===", xbmc.LOGINFO)
 
             # Step 4: Extract stream URL and DRM info (keep all URLs and any additional metadata)
             stream_info = {
-                'stream_url': secure_data['url'],  # The primary stream URL
-                'urls': secure_data.get('urls', []),  # Additional URLs to select from
-                'license_key': generate_drm_license_key(self.session_manager.token, self.session_manager.user_id)
+                "stream_url": secure_data["url"],  # The primary stream URL
+                "urls": secure_data.get("urls", []),  # Additional URLs to select from
+                "license_key": generate_drm_license_key(self.session_manager.token, self.session_manager.user_id),
             }
 
             # Preserve any additional metadata that might contain audio information
             for key, value in secure_data.items():
-                if key not in ['url', 'urls']:
+                if key not in ["url", "urls"]:
                     stream_info[key] = value
 
             return stream_info
 
         except Exception as e:
             xbmc.log(f"Error retrieving secure stream info: {e}", xbmc.LOGERROR)
-            return {'error': 'Service temporarily unavailable while retrieving stream info'}
-
+            return {"error": "Service temporarily unavailable while retrieving stream info"}
 
     def select_best_stream(self, stream_info):
         """
@@ -1309,40 +1288,40 @@ class Mubi:
         """
         try:
             # Log the complete stream info for debugging
-            xbmc.log(f"=== MUBI STREAM ANALYSIS ===", xbmc.LOGINFO)
+            xbmc.log("=== MUBI STREAM ANALYSIS ===", xbmc.LOGINFO)
             xbmc.log(f"Complete stream_info received: {stream_info}", xbmc.LOGINFO)
 
             # Log available streams with detailed information
             xbmc.log(f"Number of available streams: {len(stream_info.get('urls', []))}", xbmc.LOGINFO)
 
-            for i, stream in enumerate(stream_info.get('urls', [])):
-                xbmc.log(f"Stream {i+1}:", xbmc.LOGINFO)
+            for i, stream in enumerate(stream_info.get("urls", [])):
+                xbmc.log(f"Stream {i + 1}:", xbmc.LOGINFO)
                 xbmc.log(f"  - URL: {stream.get('src', 'N/A')}", xbmc.LOGINFO)
                 xbmc.log(f"  - Content Type: {stream.get('content_type', 'N/A')}", xbmc.LOGINFO)
 
                 # Log all available keys in the stream object
                 for key, value in stream.items():
-                    if key not in ['src', 'content_type']:
+                    if key not in ["src", "content_type"]:
                         xbmc.log(f"  - {key}: {value}", xbmc.LOGINFO)
 
             # Also log any additional metadata that might contain audio info
             for key, value in stream_info.items():
-                if key not in ['urls', 'stream_url', 'license_key']:
+                if key not in ["urls", "stream_url", "license_key"]:
                     xbmc.log(f"Additional stream metadata - {key}: {value}", xbmc.LOGINFO)
 
-            xbmc.log(f"=== END STREAM ANALYSIS ===", xbmc.LOGINFO)
+            xbmc.log("=== END STREAM ANALYSIS ===", xbmc.LOGINFO)
 
             # Prefer MPEG-DASH over HLS
-            for stream in stream_info['urls']:
-                if stream['content_type'] == 'application/dash+xml':
+            for stream in stream_info["urls"]:
+                if stream["content_type"] == "application/dash+xml":
                     xbmc.log(f"Selected DASH stream: {stream['src']}", xbmc.LOGINFO)
-                    return stream['src']
+                    return stream["src"]
 
             # If DASH not found, fall back to HLS
-            for stream in stream_info['urls']:
-                if stream['content_type'] == 'application/x-mpegURL':
+            for stream in stream_info["urls"]:
+                if stream["content_type"] == "application/x-mpegURL":
                     xbmc.log(f"Selected HLS stream: {stream['src']}", xbmc.LOGINFO)
-                    return stream['src']
+                    return stream["src"]
 
             # No suitable stream found
             xbmc.log("No suitable stream found.", xbmc.LOGERROR)

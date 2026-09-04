@@ -5,9 +5,9 @@ from typing import Any, Dict, Optional
 import requests
 import xbmc
 
-from ..constants import OMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
+from ..constants import IMDB_TITLE_URL_TEMPLATE, OMDB_API_URL
 from .base import BaseMetadataProvider, ExternalMetadataResult
-from .title_utils import TitleNormalizer, RetryStrategy, redact_secrets
+from .title_utils import RetryStrategy, TitleNormalizer, redact_secrets
 
 
 class OMDBProvider(BaseMetadataProvider):
@@ -26,8 +26,6 @@ class OMDBProvider(BaseMetadataProvider):
             secrets=(self.api_key,),
         )
 
-
-
     @property
     def provider_name(self) -> str:
         return "OMDB"
@@ -40,12 +38,10 @@ class OMDBProvider(BaseMetadataProvider):
         media_type: str = "movie",
     ) -> ExternalMetadataResult:
 
-
         variants = self.title_normalizer.generate_title_variants(title, original_title)
         for variant in variants:
             result = self._request_with_retry(variant, year, media_type)
             if result.success:
-
                 return result
 
         xbmc.log(
@@ -58,8 +54,6 @@ class OMDBProvider(BaseMetadataProvider):
             source_provider=self.provider_name,
             error_message="No match found",
         )
-
-
 
         return result
 
