@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Optional
 
 # Configuration
-INPUT_FILE = Path("/Users/kubi/Downloads/films.json")
 REPO_ROOT = Path(__file__).parent.parent
+INPUT_FILE = REPO_ROOT / "films.json"
 OUTPUT_FILE = REPO_ROOT / "tmp" / "weekly_digest.md"
 DAYS_LOOKBACK = 7
 
@@ -59,6 +59,10 @@ def get_earliest_availability(film: dict) -> Optional[datetime]:
             if avail_str.endswith("Z"):
                 avail_str = avail_str[:-1] + "+00:00"
             avail_dt = datetime.fromisoformat(avail_str)
+            # A tz-less timestamp parses as naive; force UTC so it can be compared
+            # against the aware cutoff without raising TypeError.
+            if avail_dt.tzinfo is None:
+                avail_dt = avail_dt.replace(tzinfo=timezone.utc)
 
             if earliest_date is None or avail_dt < earliest_date:
                 earliest_date = avail_dt
@@ -89,6 +93,8 @@ def get_latest_expiration(film: dict) -> Optional[datetime]:
             if expires_str.endswith("Z"):
                 expires_str = expires_str[:-1] + "+00:00"
             expires_dt = datetime.fromisoformat(expires_str)
+            if expires_dt.tzinfo is None:
+                expires_dt = expires_dt.replace(tzinfo=timezone.utc)
 
             if latest_date is None or expires_dt > latest_date:
                 latest_date = expires_dt
@@ -96,27 +102,6 @@ def get_latest_expiration(film: dict) -> Optional[datetime]:
             continue
 
     return latest_date
-
-
-def format_rating_line(film: dict) -> str:
-    """Format the ratings line for a film."""
-    parts = []
-
-    bayesian = get_bayesian_score(film)
-    if bayesian:
-        parts.append(f"⭐ **{bayesian:.1f}** (Bayesian)")
-
-    mubi = film.get("average_rating_out_of_ten")
-    if mubi:
-        parts.append(f"Mubi: {mubi:.1f}")
-
-    imdb = get_rating_value(film, "imdb")
-    if imdb:
-        parts.append(f"IMDb: {imdb:.1f}")
-
-    tmdb = get_rating_value(film, "tmdb")
-    if tmdb:
-        parts.append(f"TMDB: {tmdb:.1f}")
 
 
 def generate_digest(input_file: Path, output_file: Path, now_override: Optional[datetime] = None) -> None:

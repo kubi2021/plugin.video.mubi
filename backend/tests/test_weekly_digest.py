@@ -66,6 +66,35 @@ def test_get_latest_expiration():
     assert get_latest_expiration(MOCK_FILM_2) is None
 
 
+def test_earliest_availability_naive_timestamp_is_utc():
+    """Regression (hostile-audit F2): a tz-less available_at must be treated as
+    aware (UTC), not returned naive."""
+    film = {"available_countries": {"US": {"available_at": "2025-01-01T00:00:00"}}}  # no Z / offset
+    dt = get_earliest_availability(film)
+    assert dt is not None
+    assert dt.tzinfo is not None  # aware, so it compares against the aware cutoff
+
+
+def test_generate_digest_survives_naive_available_at(tmp_path):
+    """Regression (hostile-audit F2): a naive available_at must not crash the digest
+    with 'can't compare offset-naive and offset-aware datetimes'."""
+    mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
+    input_file = tmp_path / "films.json"
+    output_file = tmp_path / "digest.md"
+
+    film = {
+        "title": "Naive Date Film",
+        "ratings": [{"source": "bayesian", "score_over_10": 7.0}],
+        "available_countries": {"US": {"available_at": "2025-01-05T00:00:00"}},  # no tz
+    }
+    input_file.write_text(json.dumps({"items": [film]}), encoding="utf-8")
+
+    generate_digest(input_file, output_file, now_override=mock_now)  # must not raise
+
+    assert output_file.exists()
+    assert "Naive Date Film" in output_file.read_text()
+
+
 def test_generate_digest_filtering(tmp_path):
     """Test that only new movies are included and sorted by rating."""
     # Set "Now" to Jan 7th 2025

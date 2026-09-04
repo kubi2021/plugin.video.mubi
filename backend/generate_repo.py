@@ -3,6 +3,7 @@ import hashlib
 import logging
 import os
 import shutil
+import sys
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -11,8 +12,10 @@ logger = logging.getLogger(__name__)
 
 def generate_repo(input_file="films.json"):
     if not os.path.exists(input_file):
+        # Fail loudly so the pipeline halts and the previous .gz stays live,
+        # rather than exiting 0 and letting a stale artifact deploy.
         logger.error(f"Input file {input_file} not found.")
-        return
+        sys.exit(1)
 
     # 1. Compress to .gz
     gz_file = f"{input_file}.gz"

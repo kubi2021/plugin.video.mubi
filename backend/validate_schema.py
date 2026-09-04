@@ -105,14 +105,20 @@ def main():
 
     # Check meta version
     meta = data.get("meta", {})
-    file_version = meta.get("version", 1)
+    if "version" not in meta:
+        print("ERROR: file has no meta.version; cannot confirm it matches the requested schema version")
+        sys.exit(1)
+    file_version = meta.get("version")
     version_label = meta.get("version_label", f"{file_version}.0")
 
     print(f"File version: {file_version} (label: {version_label})")
     print(f"Validating against schema v{args.version}...")
 
     if file_version != args.version:
-        print(f"WARNING: File version ({file_version}) differs from requested schema version ({args.version})")
+        # A version mismatch means we would validate against the wrong contract.
+        # Fail rather than warn, so CI catches an unmirrored version bump.
+        print(f"ERROR: File version ({file_version}) differs from requested schema version ({args.version})")
+        sys.exit(1)
 
     # Load schema and validate
     try:

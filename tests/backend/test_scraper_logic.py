@@ -282,5 +282,54 @@ class TestScraperLogic(unittest.TestCase):
         # Check UNKNOWN -> None
         self.assertIsNone(films[102]['mpaa'])
 
+    def test_one_malformed_record_skipped_not_whole_country(self):
+        """
+        Regression (hostile-audit F1): a single malformed record (a director dict
+        with no 'name') must be skipped, NOT abort the merge for the rest of the
+        country. Before the fix, every film AFTER the bad one was silently dropped.
+        """
+        with open(self.films_json_path, 'w') as f:
+            json.dump({'items': []}, f)
+
+        def good(fid):
+            return {
+                'id': fid,
+                'title': f'Film {fid}',
+                'year': 2020,
+                'directors': [{'name': 'Jane Doe'}],
+                'consumable': {'status': 'live'},
+            }
+
+        bad_director = good(999)
+        bad_director['directors'] = [{'job': 'Director'}]  # 'name' missing — usable film, drop the director
+
+        no_id = good(1)
+        del no_id['id']  # unusable record — must be skipped individually
+
+        # Malformed records in the MIDDLE: good films 3 and 4 come after them.
+        # Pre-fix, a KeyError here aborted the whole country and every later film was lost.
+        payload = [good(1), good(2), bad_director, no_id, good(3), good(4)]
+
+        with patch.object(self.scraper, 'fetch_films_for_country', return_value=payload):
+            with patch('backend.scraper.MubiScraper.COUNTRIES', ['US']):
+                self.scraper.run(
+                    output_path=self.films_json_path,
+                    series_path=self.series_json_path,
+                    mode='deep',
+                )
+
+        with open(self.films_json_path, 'r') as f:
+            data = json.load(f)
+
+        films = {item['mubi_id']: item for item in data['items']}
+        # Every good film survives regardless of position; the usable-but-malformed
+        # record (999) is salvaged; the id-less record is skipped, not fatal.
+        self.assertEqual(
+            sorted(films), [1, 2, 3, 4, 999],
+            "good films must survive around malformed records; only the id-less record is dropped",
+        )
+        self.assertEqual(films[999]['directors'], [], "director entry with no 'name' is dropped, film is kept")
+
+
 if __name__ == '__main__':
     unittest.main()
