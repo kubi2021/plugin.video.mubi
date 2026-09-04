@@ -72,6 +72,24 @@ def get_earliest_availability(film: dict) -> Optional[datetime]:
     return earliest_date
 
 
+def get_first_seen(film: dict) -> Optional[datetime]:
+    """
+    Parse the immutable first_seen_at timestamp (when the film first entered
+    the database). This is the signal for "genuinely new", independent of the
+    per-country availability windows that Mubi rotates. Returns None for items
+    that predate the field (null/absent) or that carry an unparseable value.
+    """
+    val = film.get("first_seen_at")
+    if not val:
+        return None
+    try:
+        if val.endswith("Z"):
+            val = val[:-1] + "+00:00"
+        return datetime.fromisoformat(val)
+    except (ValueError, AttributeError):
+        return None
+
+
 def get_latest_expiration(film: dict) -> Optional[datetime]:
     """
     Get the latest expires_at date across all countries for a film.
@@ -104,7 +122,11 @@ def get_latest_expiration(film: dict) -> Optional[datetime]:
     return latest_date
 
 
-def generate_digest(input_file: Path, output_file: Path, now_override: Optional[datetime] = None) -> None:
+def generate_digest(
+    input_file: Path,
+    output_file: Path,
+    now_override: Optional[datetime] = None,
+) -> None:
     """Main logic to generate the digest."""
     print(f"Loading data from {input_file}...")
 
@@ -125,18 +147,23 @@ def generate_digest(input_file: Path, output_file: Path, now_override: Optional[
 
     print(f"Current time (UTC): {now.isoformat()}")
     print(f"Cutoff date: {cutoff_date.isoformat()}")
-    print(f"Filtering movies with earliest availability >= {cutoff_date.date()}...")
+    print(f"Filtering movies first seen since {cutoff_date.date()}...")
 
-    # Find new movies
+    # Find new movies: first seen within the lookback window. first_seen_at is
+    # immutable while a film stays in the database, so a film qualifies for
+    # exactly one digest. A film that fully left the catalogue and later returns
+    # is re-created with a fresh first_seen_at, so it is featured again — which
+    # is the desired behaviour for long-absent films coming back.
     new_movies = []
 
     for film in items:
-        earliest_date = get_earliest_availability(film)
-        if earliest_date and earliest_date >= cutoff_date:
-            film["_earliest_availability"] = earliest_date  # Store for debugging
-            new_movies.append(film)
+        first_seen = get_first_seen(film)
+        if first_seen is None or first_seen < cutoff_date:
+            continue
+        film["_first_seen"] = first_seen  # Store for debugging
+        new_movies.append(film)
 
-    print(f"Found {len(new_movies)} new movies in the past {DAYS_LOOKBACK} days.")
+    print(f"Found {len(new_movies)} new movies first seen in the past {DAYS_LOOKBACK} days.")
 
     # Sort by Bayesian rating (descending)
     new_movies.sort(key=get_bayesian_score, reverse=True)

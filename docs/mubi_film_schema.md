@@ -296,6 +296,10 @@ Top-level `consumable` field is removed. Availability is now stored per-country 
 
 ### Scraper Metadata
 
+| Field | Type | Description | Source |
+|-------|------|-------------|--------|
+| `first_seen_at` | string\|null | ISO 8601 UTC timestamp of when this `mubi_id` first entered the database. Stamped once on first sighting and never overwritten, so it is independent of the per-country `available_at` windows Mubi rotates. `null` for items that predate this field. Consumed by the weekly digest to detect genuinely new films. | Scraper |
+
 Legacy `countries` list is removed. Use keys of `available_countries` instead.
 
 
