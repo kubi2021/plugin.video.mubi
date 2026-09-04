@@ -37,6 +37,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../r
 from data_source import GithubDataSource
 from models import MubiDatabase
 
+# Every test in this module reaches the live GitHub `database` branch over the
+# network. Mark them so the default run (`-m "not network"`) skips them and the
+# suite stays deterministic offline; opt in with `pytest -m network`.
+pytestmark = pytest.mark.network
+
 
 class TestLiveGitHubData:
     """
