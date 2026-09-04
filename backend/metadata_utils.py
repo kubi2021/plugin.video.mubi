@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import logging
 import re
 import time
-import logging
-from typing import Callable, Iterable, List, Optional, Any
 from dataclasses import dataclass
+from typing import Any, Callable, Iterable, List, Optional
 from urllib.parse import quote, quote_plus
+
 import requests
 
 # Configure logging

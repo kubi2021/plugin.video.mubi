@@ -5,9 +5,9 @@ from typing import Any, Dict, Optional
 import requests
 import xbmc
 
-from ..constants import OMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
+from ..constants import IMDB_TITLE_URL_TEMPLATE, OMDB_API_URL
 from .base import BaseMetadataProvider, ExternalMetadataResult
-from .title_utils import TitleNormalizer, RetryStrategy, redact_secrets
+from .title_utils import RetryStrategy, TitleNormalizer, redact_secrets
 
 
 class OMDBProvider(BaseMetadataProvider):

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
+import tempfile
+import xml.etree.ElementTree as ET
+
+import requests
 import xbmc
 import xbmcvfs
-import requests
-import xml.etree.ElementTree as ET
-import tempfile
-import os
-from urllib.parse import urlparse
+
 
 class MPDPatcher:
     """
@@ -51,7 +51,6 @@ class MPDPatcher:
             
             # Iterate through AdaptationSets
             # Namespace handling in ElementTree is verbose, so we use logic to handle it
-            ns = {'mpd': 'urn:mpeg:dash:schema:mpd:2011'}
             
             for adaptation_set in root.iter('{urn:mpeg:dash:schema:mpd:2011}AdaptationSet'):
                 mime_type = adaptation_set.get('mimeType')
@@ -64,7 +63,6 @@ class MPDPatcher:
                     acc_scheme = "urn:mpeg:dash:23003:3:audio_channel_configuration:2011"
                     
                     channel_count = None
-                    acc_node = None
                     
                     # Log children tags for debugging
                     child_tags = [child.tag for child in adaptation_set]
@@ -72,7 +70,6 @@ class MPDPatcher:
                     acc_scheme = "urn:mpeg:dash:23003:3:audio_channel_configuration:2011"
                     
                     channel_count = None
-                    acc_node = None
                     
                     # Find the AudioChannelConfiguration node
                     for child in adaptation_set:
@@ -84,7 +81,6 @@ class MPDPatcher:
                              
                              # Standard MPEG-DASH scheme
                              if local_scheme == acc_scheme:
-                                acc_node = child
                                 channel_count = local_value
                                 break
                              # Dolby scheme
@@ -93,7 +89,6 @@ class MPDPatcher:
                                  # We can map this specific value to 6 channels
                                  if local_value and local_value.lower() == 'f801':
                                      xbmc.log("MPDPatcher: Detected Dolby 5.1 channel mask (F801)", xbmc.LOGINFO)
-                                     acc_node = child
                                      channel_count = "6"
                                      break
                                  else:

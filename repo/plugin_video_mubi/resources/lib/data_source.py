@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
-import xbmc
-import time
-from typing import List, Dict, Any, Callable
-from abc import ABC, abstractmethod
-
 import datetime
+from typing import Any, Dict, List
+
+import xbmc
 
 try:
-    from .constants import CATALOG_FILMS_URL
     from .availability import is_country_available
+    from .constants import CATALOG_FILMS_URL
 except ImportError:  # imported as a top-level module (e.g. some test harnesses)
-    from constants import CATALOG_FILMS_URL
     from availability import is_country_available
+    from constants import CATALOG_FILMS_URL
 
 class FilmDataSource:
     """
@@ -70,10 +68,10 @@ class MubiApiDataSource(FilmDataSource):
         film_country_map = {}  # {film_id: {country: consumable_data}}
         total_pages_fetched = 0
 
-        xbmc.log(f"=" * 60, xbmc.LOGINFO)
-        xbmc.log(f"MULTI-COUNTRY CATALOGUE SYNC (DataSource)", xbmc.LOGINFO)
+        xbmc.log("=" * 60, xbmc.LOGINFO)
+        xbmc.log("MULTI-COUNTRY CATALOGUE SYNC (DataSource)", xbmc.LOGINFO)
         xbmc.log(f"Countries to sync: {', '.join(countries)} ({len(countries)} total)", xbmc.LOGINFO)
-        xbmc.log(f"=" * 60, xbmc.LOGINFO)
+        xbmc.log("=" * 60, xbmc.LOGINFO)
 
         # Fetch films from each country
         for country_idx, country in enumerate(countries, 1):
@@ -201,17 +199,17 @@ class MubiApiDataSource(FilmDataSource):
         return output_list
 
     def _log_stats(self, countries, total_pages_fetched, all_film_ids, country_stats, film_country_map):
-        xbmc.log(f"", xbmc.LOGINFO)
-        xbmc.log(f"=" * 60, xbmc.LOGINFO)
-        xbmc.log(f"MULTI-COUNTRY SYNC STATISTICS", xbmc.LOGINFO)
-        xbmc.log(f"=" * 60, xbmc.LOGINFO)
+        xbmc.log("", xbmc.LOGINFO)
+        xbmc.log("=" * 60, xbmc.LOGINFO)
+        xbmc.log("MULTI-COUNTRY SYNC STATISTICS", xbmc.LOGINFO)
+        xbmc.log("=" * 60, xbmc.LOGINFO)
         xbmc.log(f"Countries synced: {len(countries)}", xbmc.LOGINFO)
         xbmc.log(f"Total pages fetched: {total_pages_fetched}", xbmc.LOGINFO)
         xbmc.log(f"Total unique films: {len(all_film_ids)}", xbmc.LOGINFO)
-        xbmc.log(f"", xbmc.LOGINFO)
+        xbmc.log("", xbmc.LOGINFO)
 
         # Per-country stats
-        xbmc.log(f"--- Per-Country Breakdown ---", xbmc.LOGINFO)
+        xbmc.log("--- Per-Country Breakdown ---", xbmc.LOGINFO)
         for country, stats in country_stats.items():
             xbmc.log(f"  {country}: {stats['unique_fetched']} films ({stats['pages']} pages)", xbmc.LOGINFO)
 
@@ -228,15 +226,15 @@ class MubiApiDataSource(FilmDataSource):
                     films_country_exclusive[country] = set()
                 films_country_exclusive[country].add(film_id)
 
-        xbmc.log(f"", xbmc.LOGINFO)
-        xbmc.log(f"--- Availability Analysis ---", xbmc.LOGINFO)
+        xbmc.log("", xbmc.LOGINFO)
+        xbmc.log("--- Availability Analysis ---", xbmc.LOGINFO)
         xbmc.log(f"Films available in ALL {len(countries)} countries: {len(films_in_all)}", xbmc.LOGINFO)
 
         for country in countries:
             exclusive = films_country_exclusive.get(country, set())
             xbmc.log(f"Films EXCLUSIVE to {country}: {len(exclusive)}", xbmc.LOGINFO)
 
-        xbmc.log(f"=" * 60, xbmc.LOGINFO)
+        xbmc.log("=" * 60, xbmc.LOGINFO)
 
 
 class GithubDataSource(FilmDataSource):
@@ -256,13 +254,14 @@ class GithubDataSource(FilmDataSource):
                            If provided, only films available in at least one of these countries 
                            (and currently live/within date range) will be returned.
         """
+        import gzip
+        import hashlib
+        import io
+        import json
+
         import requests
         from requests.adapters import HTTPAdapter
         from requests.packages.urllib3.util.retry import Retry
-        import hashlib
-        import gzip
-        import json
-        import io
         
         xbmc.log(f"Starting GitHub Sync from {self.GITHUB_URL}", xbmc.LOGINFO)
         

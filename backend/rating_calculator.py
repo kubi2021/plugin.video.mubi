@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,6 @@ class BayesianRatingCalculator:
         m = Average of Mubi votes
         """
         total_r_raw = 0.0
-        total_mubi_votes = 0
         count_r = 0
         count_mubi = 0
         
@@ -239,7 +238,6 @@ class BayesianRatingCalculator:
         self.save_data()
 
 if __name__ == "__main__":
-    import sys
     import argparse
     
     logging.basicConfig(level=logging.INFO)

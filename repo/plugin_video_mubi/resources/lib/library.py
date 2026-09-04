@@ -1,15 +1,16 @@
-from pathlib import Path
-import sys
-import xbmc
-import xbmcgui
-import xbmcaddon
-from .film import Film
-from typing import List, Optional, Tuple, Union
+import json
 import os
 import shutil
-from typing import Set
-import re
-import json
+import sys
+from pathlib import Path
+from typing import Optional, Union
+
+import xbmc
+import xbmcaddon
+import xbmcgui
+
+from .film import Film
+
 
 class Library:
     def __init__(self):
@@ -67,7 +68,6 @@ class Library:
         # Get concurrency setting (default to 5 for safety on low-end devices)
         # 1 = Serial, 5 = Standard, 10+ = High Performance
         try:
-             import xbmcaddon
              max_workers = xbmcaddon.Addon().getSettingInt("sync_concurrency")
              
              if max_workers == 0:

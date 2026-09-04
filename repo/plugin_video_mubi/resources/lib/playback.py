@@ -1,14 +1,16 @@
-import xbmcgui
-import xbmcplugin
-import inputstreamhelper
 import base64
 import json
 from urllib.parse import urlencode
+
+import inputstreamhelper
 import xbmc
-import pathlib
-from .mpd_patcher import MPDPatcher
+import xbmcgui
+import xbmcplugin
+
+from .constants import DRM_LICENSE_URL, MUBI_WEB_URL
 from .local_server import LocalServer
-from .constants import MUBI_WEB_URL, DRM_LICENSE_URL
+from .mpd_patcher import MPDPatcher
+
 
 def generate_drm_license_key(token, user_id):
     """

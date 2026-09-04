@@ -1,20 +1,20 @@
-import xbmcgui
-import xbmcplugin
+import re
+import threading
+from pathlib import Path
+from typing import Optional
+from urllib.parse import urlencode
+
+import requests
 import xbmc
 import xbmcaddon
-import webbrowser
-from urllib.parse import urlencode
+import xbmcgui
+import xbmcplugin
 import xbmcvfs
-from pathlib import Path
-import threading
-from typing import Optional
-from .library import Library
-from .library import Library
-from .playback import play_with_inputstream_adaptive
-from .constants import MUBI_LOGIN_ACTIVATION_URL
+
 from .availability import is_country_available
-import requests
-import re
+from .constants import MUBI_LOGIN_ACTIVATION_URL
+from .playback import play_with_inputstream_adaptive
+
 
 class LibraryMonitor(xbmc.Monitor):
     def __init__(self):
@@ -183,13 +183,11 @@ class NavigationHandler:
             country_code = self.plugin.getSetting("client_country") or "CH"
             stats = get_coverage_stats(country_code)
             if stats:
-                optimal_count = stats.get('optimal_country_count', 0)
-                total_films = stats.get('total_films', 0)
-                label = f"Sync MUBI worldwide (about 2k films)"
+                label = "Sync MUBI worldwide (about 2k films)"
                 description = (
-                    f"Sync all films from MUBI's worldwide catalogue.\n\n"
-                    f"No VPN needed to sync, but a VPN is required to play "
-                    f"movies outside of your country."
+                    "Sync all films from MUBI's worldwide catalogue.\n\n"
+                    "No VPN needed to sync, but a VPN is required to play "
+                    "movies outside of your country."
                 )
                 return label, description
         except Exception:
@@ -520,8 +518,8 @@ class NavigationHandler:
                 xbmcgui.Dialog().ok("MUBI", "Invalid or unsafe URL provided.")
                 return
             
-            import subprocess
             import os
+            import subprocess
             
             if xbmc.getCondVisibility('System.Platform.Windows'):
                 # Windows platform
@@ -551,8 +549,8 @@ class NavigationHandler:
         :param film_id: The MUBI film ID.
         :return: Dict {country_code: {'availability': 'live', ...}}
         """
-        import xml.etree.ElementTree as ET
         import re
+        import xml.etree.ElementTree as ET
         from pathlib import Path
 
         plugin_userdata_path = Path(xbmcvfs.translatePath(self.plugin.getAddonInfo("profile")))
@@ -697,9 +695,8 @@ class NavigationHandler:
         """
         import xbmc
         import xbmcgui
-        import xbmcaddon
+
         from .countries import COUNTRIES
-        from .playback import play_with_inputstream_adaptive
 
         if not film_id:
             xbmc.log("play_mubi_video: No film_id provided", xbmc.LOGERROR)
@@ -986,8 +983,8 @@ class NavigationHandler:
         """
         Helper method to execute the common sync logic (locking, provider check, fetching, library update).
         """
-        from .external_metadata import MetadataProviderFactory
         from .countries import COUNTRIES
+        from .external_metadata import MetadataProviderFactory
 
         # BUG #7 FIX: Check if sync is already in progress
         with NavigationHandler._sync_lock:
@@ -1060,7 +1057,7 @@ class NavigationHandler:
                 else:
                     # GitHub sync (no total countries usually, or treated differently)
                     percent = 50 # Indeterminate or based on generic progress
-                    message = f"Fetching database..."
+                    message = "Fetching database..."
 
                 pDialog.update(percent, message)
 
@@ -1083,7 +1080,6 @@ class NavigationHandler:
                     return None
                 
                 # Identify error type for cleaner notification
-                error_title = "Sync Failed"
                 if "MD5" in msg:
                     error_body = "Download integrity check failed."
                 elif "JSON" in msg or "parsing" in msg.lower():

@@ -1,16 +1,15 @@
-import os
-from pathlib import Path
-import xbmc
-import xml.etree.ElementTree as ET
-import requests
-from requests.exceptions import RequestException
-import json
-import time
 import re
-from typing import Optional, List
-from .external_metadata import MetadataProviderFactory
-from .availability import is_country_available
+import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+import requests
+import xbmc
+
+from .availability import is_country_available
+from .external_metadata import MetadataProviderFactory
 
 
 class Film:
@@ -67,7 +66,7 @@ class Film:
         return hash(self.mubi_id)
 
     def _sanitize_filename(self, filename: str) -> str:
-        """
+        r"""
         LEVEL 2 FILESYSTEM SAFETY PROTECTION
 
         Sanitize filename by removing only filesystem-dangerous characters while
@@ -562,7 +561,7 @@ class Film:
             (hasattr(metadata, 'subtitle_languages') and metadata.subtitle_languages) or
             True): # Always create streamdetails for Video flags now
 
-            fileinfo = root_node_check = ET.SubElement(movie, "fileinfo")
+            fileinfo = ET.SubElement(movie, "fileinfo")
             streamdetails = ET.SubElement(fileinfo, "streamdetails")
 
             # Add Video Stream

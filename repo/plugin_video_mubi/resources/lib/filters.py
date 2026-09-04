@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+from typing import Any, Dict, List
+
 import xbmc
 import xbmcaddon
-from typing import List, Dict, Any
+
 
 class FilmFilter:
     """

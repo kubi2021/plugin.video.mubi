@@ -9,27 +9,23 @@
 
 
 import datetime
+import json
+import random
+import re
+import time
+from typing import Optional, Tuple
+
 import dateutil.parser
 import requests
-import json
-import hashlib
-import base64
-from collections import namedtuple
 import xbmc
 import xbmcgui
-import re
-import random
-from urllib.parse import urljoin
-from urllib.parse import urlencode
-import time
-import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from typing import Optional, Tuple
-from .metadata import Metadata
+
+from .constants import GEOIP_COUNTRY_URLS, MUBI_API_URL, MUBI_WEB_URL
 from .film import Film
-from .constants import MUBI_API_URL, MUBI_WEB_URL, GEOIP_COUNTRY_URLS
 from .library import Library
+from .metadata import Metadata
 from .playback import generate_drm_license_key
 
 
@@ -707,9 +703,7 @@ class Mubi:
         """
         # The data source injects keys into the raw dict.
         # But here 'film_data' is just the dict from the API (plus __available_countries__)
-        
-        fid = film_data.get('id')
-    
+
         # Check for available_countries (injected by DataSource OR from GitHub JSON)
         available_countries = film_data.get('available_countries', {})
 
@@ -791,7 +785,7 @@ class Mubi:
                 if not this_film:
                     continue
                 consumable = this_film.get('consumable')
-                if consumable != None:
+                if consumable is not None:
                     film = self.get_film_metadata(film_item)
                     if film:
                         self.library.add_film(film)
@@ -856,7 +850,7 @@ class Mubi:
 
         response = self._make_api_call('GET', endpoint=endpoint, headers=headers, params=params)
         if not response:
-            xbmc.log(f"Failed to retrieve films from your watchlist", xbmc.LOGERROR)
+            xbmc.log("Failed to retrieve films from your watchlist", xbmc.LOGERROR)
         return response
 
 
@@ -910,7 +904,6 @@ class Mubi:
             short_outline = short_synopsis  # Keep short synopsis for outline
 
             # Legacy manual MPAA mapping removed. Plugin now consumes 'mpaa' field from backend sync.
-            mpaa_rating = None
 
             # Enhanced rating precision: Use 10-point scale if available, fallback to 5-point
             rating_10_point = film_info.get('average_rating_out_of_ten', 0)
@@ -1277,9 +1270,9 @@ class Mubi:
                 return {'error': message}
 
             # Log the complete raw response from Mubi for audio analysis
-            xbmc.log(f"=== RAW MUBI SECURE URL RESPONSE ===", xbmc.LOGINFO)
+            xbmc.log("=== RAW MUBI SECURE URL RESPONSE ===", xbmc.LOGINFO)
             xbmc.log(f"Complete secure_data from Mubi API: {secure_data}", xbmc.LOGINFO)
-            xbmc.log(f"=== END RAW RESPONSE ===", xbmc.LOGINFO)
+            xbmc.log("=== END RAW RESPONSE ===", xbmc.LOGINFO)
 
             # Step 4: Extract stream URL and DRM info (keep all URLs and any additional metadata)
             stream_info = {
@@ -1309,7 +1302,7 @@ class Mubi:
         """
         try:
             # Log the complete stream info for debugging
-            xbmc.log(f"=== MUBI STREAM ANALYSIS ===", xbmc.LOGINFO)
+            xbmc.log("=== MUBI STREAM ANALYSIS ===", xbmc.LOGINFO)
             xbmc.log(f"Complete stream_info received: {stream_info}", xbmc.LOGINFO)
 
             # Log available streams with detailed information
@@ -1330,7 +1323,7 @@ class Mubi:
                 if key not in ['urls', 'stream_url', 'license_key']:
                     xbmc.log(f"Additional stream metadata - {key}: {value}", xbmc.LOGINFO)
 
-            xbmc.log(f"=== END STREAM ANALYSIS ===", xbmc.LOGINFO)
+            xbmc.log("=== END STREAM ANALYSIS ===", xbmc.LOGINFO)
 
             # Prefer MPEG-DASH over HLS
             for stream in stream_info['urls']:

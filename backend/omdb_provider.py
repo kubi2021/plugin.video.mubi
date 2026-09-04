@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import logging
 import itertools
+import logging
 import threading
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, List, Union
+
 import requests
 
 from .external_urls import OMDB_API_URL

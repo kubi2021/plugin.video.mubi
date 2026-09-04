@@ -6,20 +6,24 @@
 
 
 
-from resources.lib.session_manager import SessionManager
-from resources.lib.navigation_handler import NavigationHandler
-from resources.lib.mubi import Mubi
-import xbmcaddon
-import xbmcplugin
-from urllib.parse import parse_qsl
 import sys
-import xbmc
 from urllib.parse import parse_qsl, unquote_plus
+
+import xbmc
+import xbmcaddon
 import xbmcgui
+import xbmcplugin
 from resources.lib.migrations import (
-    add_mubi_source, is_first_run, mark_first_run, migrate_genre_settings,
-    migrate_to_fast_sync
+    add_mubi_source,
+    is_first_run,
+    mark_first_run,
+    migrate_genre_settings,
+    migrate_to_fast_sync,
 )
+from resources.lib.mubi import Mubi
+from resources.lib.navigation_handler import NavigationHandler
+from resources.lib.session_manager import SessionManager
+
 
 def main(argv):
     plugin = xbmcaddon.Addon()

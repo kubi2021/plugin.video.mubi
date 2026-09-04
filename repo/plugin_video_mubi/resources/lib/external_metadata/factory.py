@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional
+
 import xbmc
 import xbmcaddon
 
 from .base import BaseMetadataProvider
 from .omdb_provider import OMDBProvider
 from .tmdb_provider import TMDBProvider
-
-
-
-
 
 
 class MetadataProviderFactory:

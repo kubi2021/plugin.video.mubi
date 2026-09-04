@@ -1,15 +1,14 @@
-import requests
-import sys
-import json
-import time
-import os
-import gzip
-import hashlib
 import concurrent.futures
+import json
 import logging
-import pycountry
+import os
 import random
+import sys
+import time
 from datetime import datetime
+
+import pycountry
+import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
@@ -382,7 +381,7 @@ class MubiScraper:
             except Exception as e:
                 logger.error(f"Failed to load existing series data: {e}")
         else:
-             logger.info(f"No existing series data found. Starting fresh.")
+             logger.info("No existing series data found. Starting fresh.")
 
 
         # -- 2. DETERMINE TARGETS --

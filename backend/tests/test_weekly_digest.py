@@ -1,19 +1,12 @@
-import pytest
 import json
-from pathlib import Path
-from datetime import datetime, timedelta, timezone
-from unittest.mock import patch, mock_open
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 # Add backend to path to import script
 sys.path.append(str(Path(__file__).parent.parent))
 
-from generate_weekly_digest import (
-    get_bayesian_score,
-    get_earliest_availability,
-    get_latest_expiration,
-    generate_digest
-)
+from generate_weekly_digest import generate_digest, get_bayesian_score, get_earliest_availability, get_latest_expiration
 
 # Mock Data
 MOCK_FILM_1 = {

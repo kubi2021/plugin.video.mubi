@@ -1,10 +1,10 @@
+import concurrent.futures
 import json
+import logging
 import os
 import sys
-import logging
-import concurrent.futures
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -20,8 +20,9 @@ except ImportError:
 # Ensure backend package can be imported if running directly
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.tmdb_provider import TMDBProvider
-from backend.omdb_provider import OMDBProvider
+from backend.omdb_provider import OMDBProvider  # noqa: E402  (import after sys.path setup above)
+from backend.tmdb_provider import TMDBProvider  # noqa: E402  (import after sys.path setup above)
+
 
 def enrich_metadata(films_path='films.json', content_type='movie'):
     # 1. Load Environment & Config

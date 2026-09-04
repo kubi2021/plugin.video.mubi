@@ -1,0 +1,11 @@
+# Ruff configuration. See issue #49: adopt ruff, fix F-class findings, gate lint in CI.
+[tool.ruff]
+line-length = 120
+target-version = "py38"  # plugin runs on Kodi's Python 3.8; backend on 3.11 is a superset.
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+# E501 (line-too-long) is delegated to `ruff format`, which owns line length for code
+# and deliberately will not split strings, comments, or URLs. Enforcing E501 on those
+# unsplittable lines is noise, so we let the formatter keep code within line-length.
+ignore = ["E501"]

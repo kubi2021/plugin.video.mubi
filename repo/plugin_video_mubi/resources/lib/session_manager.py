@@ -1,5 +1,7 @@
 import random
+
 import xbmc
+
 
 class SessionManager:
     """

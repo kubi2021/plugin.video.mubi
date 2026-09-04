@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
-import requests
 import unicodedata
+from typing import Any, Dict, Optional
 
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from .external_urls import TMDB_API_URL, IMDB_TITLE_URL_TEMPLATE
-from .metadata_utils import ExternalMetadataResult, TitleNormalizer, RetryStrategy, redact_secrets
+from .external_urls import IMDB_TITLE_URL_TEMPLATE, TMDB_API_URL
+from .metadata_utils import ExternalMetadataResult, RetryStrategy, TitleNormalizer, redact_secrets
 
 # Configure logging
 logger = logging.getLogger(__name__)

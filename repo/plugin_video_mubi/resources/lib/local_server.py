@@ -1,9 +1,10 @@
-import threading
-import socket
 import os
-import xbmcvfs
+import threading
 from http.server import SimpleHTTPRequestHandler
 from socketserver import ThreadingTCPServer
+
+import xbmcvfs
+
 
 class LocalServer:
     """
@@ -76,7 +77,7 @@ class LocalServer:
             # Quick timeout test - just check if server responds
             test_url = f"http://127.0.0.1:{self.port}/"
             req = urllib.request.Request(test_url, method='HEAD')
-            with urllib.request.urlopen(req, timeout=2) as response:
+            with urllib.request.urlopen(req, timeout=2):
                 # Any response (even 404) means server is working
                 return True
         except Exception:

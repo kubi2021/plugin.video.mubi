@@ -1,8 +1,10 @@
 # resources/lib/utils.py
 import xml.etree.ElementTree as ET
+
 import xbmc
-import xbmcvfs
 import xbmcgui
+import xbmcvfs
+
 
 def add_mubi_source():
     sources_file = xbmcvfs.translatePath('special://profile/sources.xml')

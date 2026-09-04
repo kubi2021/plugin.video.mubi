@@ -11,8 +11,8 @@ Used in CI workflows to ensure schema compliance before deployment.
 
 import argparse
 import json
-import sys
 import os
+import sys
 from pathlib import Path
 
 try:
@@ -129,7 +129,7 @@ def main():
     
     # Print results
     print(f"\n{'='*60}")
-    print(f"VALIDATION RESULTS")
+    print("VALIDATION RESULTS")
     print(f"{'='*60}")
     print(f"Total items: {stats['total_items']}")
     print(f"Valid items: {stats['valid_items']}")

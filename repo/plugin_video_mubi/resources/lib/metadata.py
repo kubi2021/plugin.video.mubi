@@ -1,5 +1,6 @@
-import xbmc
 from typing import List, Optional
+
+import xbmc
 
 
 class Metadata:

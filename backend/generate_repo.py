@@ -1,9 +1,8 @@
 import gzip
 import hashlib
-import json
-import shutil
-import os
 import logging
+import os
+import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
