@@ -85,7 +85,6 @@ class MubiScraper:
         time.sleep(random.uniform(0.5, 2.0))
 
         logger.info(f"Fetching films for {country_code}...")
-        film_ids = set()
         films_data = []  # List of film objects
         page = 1
 
@@ -106,9 +105,7 @@ class MubiScraper:
                 data = response.json()
 
                 films = data.get("films", [])
-                for film in films:
-                    film_ids.add(film["id"])
-                    films_data.append(film)
+                films_data.extend(films)
 
                 meta = data.get("meta", {})
                 logger.info(f"[{country_code}] Page {page} fetched. {len(films)} films.")
@@ -456,128 +453,147 @@ class MubiScraper:
                             errors.append(f"Critical country {country} returned 0 items.")
 
                     # MERGE LOGIC
+                    # Process one record at a time inside its own guard. Mubi ships
+                    # malformed records without notice (a director dict with no "name",
+                    # an item with no "id", a still_url dict with no "url"); such a
+                    # record is skipped and logged, never fatal to the rest of the
+                    # country's batch. Every field read below therefore uses .get().
                     for item in items:
-                        fid = item["id"]
+                        try:
+                            fid = item.get("id")
+                            if fid is None:
+                                logger.warning(f"[{country}] Skipping record with no 'id': {str(item)[:200]}")
+                                continue
 
-                        # Data Mapping - Extended schema
-                        new_data = {
-                            # Core identifiers
-                            "mubi_id": fid,
-                            # Basic metadata
-                            "title": item.get("title"),
-                            "original_title": item.get("original_title"),
-                            "year": item.get("year"),
-                            "duration": item.get("duration"),
-                            "genres": item.get("genres", []),
-                            "directors": [d["name"] for d in item.get("directors", [])],
-                            "short_synopsis": item.get("short_synopsis"),
-                            "default_editorial": item.get("default_editorial"),
-                            "historic_countries": item.get("historic_countries", []),
-                            # Mubi-specific ratings
-                            "popularity": item.get("popularity"),
-                            "average_rating_out_of_ten": item.get("average_rating_out_of_ten"),
-                            "number_of_ratings": item.get("number_of_ratings"),
-                            "hd": item.get("hd"),
-                            "critic_review_rating": item.get("critic_review_rating"),
-                            # Content rating & warnings
-                            "content_rating": item.get("content_rating"),
-                            # Scraper-derived MPAA
-                            "mpaa": None,
-                            "content_warnings": item.get("content_warnings", []),
-                            # Imagery & artwork
-                            "stills": item.get("stills"),
-                            "still_url": item.get("still_url")["url"]
-                            if isinstance(item.get("still_url"), dict)
-                            else item.get("still_url"),
-                            "portrait_image": item.get("portrait_image")["url"]
-                            if isinstance(item.get("portrait_image"), dict)
-                            else item.get("portrait_image"),
-                            "artworks": item.get("artworks", []),
-                            # Trailers
-                            "trailer_url": item.get("trailer_url"),
-                            "trailer_id": item.get("trailer_id"),
-                            "optimised_trailers": item.get("optimised_trailers"),
-                            # Availability & playback
-                            "playback_languages": (item.get("consumable") or {}).get("playback_languages"),
-                            # Awards & press
-                            "award": item.get("award"),
-                            "press_quote": item.get("press_quote"),
-                            # Series/episode info
-                            "episode": item.get("episode"),
-                            "series": item.get("series"),
-                        }
+                            # Data Mapping - Extended schema
+                            new_data = {
+                                # Core identifiers
+                                "mubi_id": fid,
+                                # Basic metadata
+                                "title": item.get("title"),
+                                "original_title": item.get("original_title"),
+                                "year": item.get("year"),
+                                "duration": item.get("duration"),
+                                "genres": item.get("genres", []),
+                                "directors": [
+                                    d["name"]
+                                    for d in (item.get("directors") or [])
+                                    if isinstance(d, dict) and d.get("name")
+                                ],
+                                "short_synopsis": item.get("short_synopsis"),
+                                "default_editorial": item.get("default_editorial"),
+                                "historic_countries": item.get("historic_countries", []),
+                                # Mubi-specific ratings
+                                "popularity": item.get("popularity"),
+                                "average_rating_out_of_ten": item.get("average_rating_out_of_ten"),
+                                "number_of_ratings": item.get("number_of_ratings"),
+                                "hd": item.get("hd"),
+                                "critic_review_rating": item.get("critic_review_rating"),
+                                # Content rating & warnings
+                                "content_rating": item.get("content_rating"),
+                                # Scraper-derived MPAA
+                                "mpaa": None,
+                                "content_warnings": item.get("content_warnings", []),
+                                # Imagery & artwork
+                                "stills": item.get("stills"),
+                                "still_url": item.get("still_url").get("url")
+                                if isinstance(item.get("still_url"), dict)
+                                else item.get("still_url"),
+                                "portrait_image": item.get("portrait_image").get("url")
+                                if isinstance(item.get("portrait_image"), dict)
+                                else item.get("portrait_image"),
+                                "artworks": item.get("artworks", []),
+                                # Trailers
+                                "trailer_url": item.get("trailer_url"),
+                                "trailer_id": item.get("trailer_id"),
+                                "optimised_trailers": item.get("optimised_trailers"),
+                                # Availability & playback
+                                "playback_languages": (item.get("consumable") or {}).get("playback_languages"),
+                                # Awards & press
+                                "award": item.get("award"),
+                                "press_quote": item.get("press_quote"),
+                                # Series/episode info
+                                "episode": item.get("episode"),
+                                "series": item.get("series"),
+                            }
 
-                        # Prune unnecessary fields from film data
-                        self._prune_film_data(new_data)
+                            # Prune unnecessary fields from film data
+                            self._prune_film_data(new_data)
 
-                        # Enrich genres (LGBTQ+ tagging)
-                        self._enrich_genres(new_data)
+                            # Enrich genres (LGBTQ+ tagging)
+                            self._enrich_genres(new_data)
 
-                        # Calculate MPAA Rating
-                        content_rating = new_data.get("content_rating")
-                        if content_rating:
-                            # Use rating_code as primary, fallback to label
-                            rating_code = content_rating.get("rating_code", "")
-                            rating_label = content_rating.get("label", "")
+                            # Calculate MPAA Rating
+                            content_rating = new_data.get("content_rating")
+                            if content_rating:
+                                # Use rating_code as primary, fallback to label
+                                rating_code = content_rating.get("rating_code", "")
+                                rating_label = content_rating.get("label", "")
 
-                            # Check rating_code first, then label
-                            key = str(rating_code).upper() if rating_code else str(rating_label).upper()
+                                # Check rating_code first, then label
+                                key = str(rating_code).upper() if rating_code else str(rating_label).upper()
 
-                            # Look up in the map
-                            if key in self.MUBI_TO_MPAA_MAP:
-                                new_data["mpaa"] = {"US": self.MUBI_TO_MPAA_MAP[key]}
+                                # Look up in the map
+                                if key in self.MUBI_TO_MPAA_MAP:
+                                    new_data["mpaa"] = {"US": self.MUBI_TO_MPAA_MAP[key]}
 
-                        # --- DISTINGUISH SERIES VS FILM ---
-                        is_series = False
-                        if item.get("episode") is not None or item.get("series") is not None:
-                            is_series = True
+                            # --- DISTINGUISH SERIES VS FILM ---
+                            is_series = False
+                            if item.get("episode") is not None or item.get("series") is not None:
+                                is_series = True
 
-                        if is_series:
-                            scraped_sids_this_run.add(fid)
-                            target_dict = all_series
-                            target_countries_dict = series_countries
+                            if is_series:
+                                scraped_sids_this_run.add(fid)
+                                target_dict = all_series
+                                target_countries_dict = series_countries
 
-                            # Clean up Series Data
-                            self._prune_series_data(new_data)
+                                # Clean up Series Data
+                                self._prune_series_data(new_data)
 
-                        else:
-                            scraped_fids_this_run.add(fid)
-                            target_dict = all_films
-                            target_countries_dict = film_countries
+                            else:
+                                scraped_fids_this_run.add(fid)
+                                target_dict = all_films
+                                target_countries_dict = film_countries
 
-                        # Update or Create
-                        if fid in target_dict:
-                            target_dict[fid].update(new_data)
-                        else:
-                            target_dict[fid] = new_data
-                            # CLEANUP: Remove legacy 'countries' if it exists when creating new
-                            target_dict[fid].pop("countries", None)
+                            # Update or Create
+                            if fid in target_dict:
+                                target_dict[fid].update(new_data)
+                            else:
+                                target_dict[fid] = new_data
+                                # CLEANUP: Remove legacy 'countries' if it exists when creating new
+                                target_dict[fid].pop("countries", None)
 
-                        # Init country dict
-                        if fid not in target_countries_dict:
-                            target_countries_dict[fid] = {}
+                            # Init country dict
+                            if fid not in target_countries_dict:
+                                target_countries_dict[fid] = {}
 
-                        # Add availability data for this country
-                        # We store the 'consumable' object which contains dates and status
-                        consumable = item.get("consumable") or {}
-                        if consumable:
-                            # Create a slim copy with only essential fields
-                            consumable_copy = consumable.copy()
+                            # Add availability data for this country
+                            # We store the 'consumable' object which contains dates and status
+                            consumable = item.get("consumable") or {}
+                            if consumable:
+                                # Create a slim copy with only essential fields
+                                consumable_copy = consumable.copy()
 
-                            # Remove playback_languages (moved to top level)
-                            consumable_copy.pop("playback_languages", None)
+                                # Remove playback_languages (moved to top level)
+                                consumable_copy.pop("playback_languages", None)
 
-                            # Prune unused fields to reduce JSON size (~8MB savings)
-                            consumable_copy.pop("offered", None)  # Always catalogue
-                            consumable_copy.pop("film_id", None)  # Already at top level
-                            consumable_copy.pop("film_date_message", None)  # Always null
-                            consumable_copy.pop(
-                                "early_access_film_date_message", None
-                            )  # Early-access banner text, not used
-                            consumable_copy.pop("exclusive", None)  # Not used
-                            consumable_copy.pop("permit_download", None)  # Not used
+                                # Prune unused fields to reduce JSON size (~8MB savings)
+                                consumable_copy.pop("offered", None)  # Always catalogue
+                                consumable_copy.pop("film_id", None)  # Already at top level
+                                consumable_copy.pop("film_date_message", None)  # Always null
+                                consumable_copy.pop(
+                                    "early_access_film_date_message", None
+                                )  # Early-access banner text, not used
+                                consumable_copy.pop("exclusive", None)  # Not used
+                                consumable_copy.pop("permit_download", None)  # Not used
 
-                            target_countries_dict[fid][country] = consumable_copy
+                                target_countries_dict[fid][country] = consumable_copy
+
+                        except (KeyError, TypeError, ValueError) as item_error:
+                            # One malformed record must not cost the rest of the country.
+                            record_id = item.get("id") if isinstance(item, dict) else "?"
+                            logger.error(f"[{country}] Skipping malformed record (mubi_id={record_id}): {item_error}")
+                            continue
 
                     logger.info(f"Finished {country}. Total films: {len(all_films)}, Total series: {len(all_series)}")
 

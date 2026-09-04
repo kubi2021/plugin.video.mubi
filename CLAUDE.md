@@ -77,6 +77,7 @@ Never edit `v1_schema.json` alone. Use `/schema-change` (schema + test + models 
 - Notify-on-failure steps gate on `steps.<id>.outcome == 'failure'`, not bare `failure()`, or a broken `pip install` files an "endpoint failed" issue.
 - `str(e)` of a `requests` exception embeds the full request URL, so a key sent as a query parameter (OMDb `apikey`, TMDb `api_key`) lands in the log through `f"... {e}"`. Wrap with `redact_secrets` (`backend/metadata_utils.py`; plugin mirror `external_metadata/title_utils.py`). GitHub masks only a secret's exact full string, so one key out of a comma-separated `OMDB_API_KEYS` is not masked.
 - The coverage floor is written in three places: `--cov-fail-under` in `.github/workflows/test.yml`, the layout table in `CLAUDE.md`, and two lines in `docs/CONTRIBUTING.md`. Change all three together or the docs lie about the CI gate (PR #72 raised the gate to 80 but left the docs at 65).
+- The scraper's per-country merge loop (`scraper.py run()`) must process each record inside its own `try/except (KeyError, TypeError, ValueError)` that logs and `continue`s, and read every API field with `.get()`. A record-level raise inside a country-level `try` silently drops every film *after* the bad one in that country (a director dict with no `name`, an item with no `id`, a `still_url` dict with no `url`). Individual drift skips one record; only mass corruption should trip the panic / `MIN_TOTAL_FILMS` nets.
 
 ## Skills
 
