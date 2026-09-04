@@ -490,10 +490,6 @@ class Mubi:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
     ]
 
-    # Countries to sync catalogues from (ISO 3166-1 alpha-2 codes)
-    # Different countries have different film availability on MUBI
-    SYNC_COUNTRIES = ["CH", "DE", "US", "GB", "FR", "JP"]
-
     def _get_random_user_agent(self):
         """
         Returns a random User-Agent from the pool of common browser UAs.
@@ -731,16 +727,28 @@ class Mubi:
         :param data_source: Optional FilmDataSource instance to use.
         :return: Library instance with all films.
         """
-        from .data_source import MubiApiDataSource
+        from .data_source import MubiApiDataSource, resolve_sync_countries
         from .filters import FilmFilter
 
         # 1. Fetch (DataSource)
         # Use provided data source or default to MubiApiDataSource
         source = data_source if data_source else MubiApiDataSource(self)
 
+        # Resolve the country set ONLY for the default MubiApiDataSource, whose
+        # fetch and processing-phase progress total must agree (issue #65). A
+        # caller-supplied data_source (e.g. GithubDataSource) keeps ``countries``
+        # verbatim: for a worldwide GitHub sync it is None, and resolving it here
+        # would silently narrow the "worldwide" catalogue to the client country.
+        if data_source:
+            fetch_countries = countries
+            processing_total = len(countries) if countries else 0
+        else:
+            fetch_countries = resolve_sync_countries(countries)
+            processing_total = len(fetch_countries)
+
         # progress_callback is handled inside data source for the fetching phase
         raw_films = source.get_films(
-            playable_only=playable_only, progress_callback=progress_callback, countries=countries
+            playable_only=playable_only, progress_callback=progress_callback, countries=fetch_countries
         )
 
         xbmc.log(f"Pipeline: Fetched {len(raw_films)} raw films.", xbmc.LOGINFO)
@@ -759,8 +767,8 @@ class Mubi:
                 progress_callback(
                     current_films=len(raw_films),  # Total known
                     total_films=len(filtered_films),  # Films to process
-                    current_country=len(self.SYNC_COUNTRIES),  # Done
-                    total_countries=len(self.SYNC_COUNTRIES),
+                    current_country=processing_total,  # Done — all countries fetched
+                    total_countries=processing_total,
                     country_code="PROCESSING",
                 )
             except Exception:
