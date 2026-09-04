@@ -7,6 +7,26 @@ on:
     branches: [ main, master ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Ruff lint
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install ruff
+      run: pip install ruff==0.16.6  # pinned so a new ruff release cannot fail CI without a config bump
+
+    - name: Ruff check (lint)
+      run: ruff check repo/plugin_video_mubi backend
+
+    - name: Ruff format (check only)
+      run: ruff format --check repo/plugin_video_mubi backend
+
   test:
     runs-on: ubuntu-latest
     strategy:
