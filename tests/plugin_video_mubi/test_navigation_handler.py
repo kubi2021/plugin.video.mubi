@@ -18,7 +18,6 @@ from plugin_video_mubi.resources.lib.navigation_handler import NavigationHandler
 class TestNavigationHandler:
     """Test cases for the NavigationHandler class."""
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     def test_module_import_and_execution(self, mock_log):
         """Test that the navigation_handler module can be imported and instantiated."""
@@ -136,7 +135,6 @@ class TestNavigationHandler:
         # Verify menu items were added (logged out menu)
         assert mock_add_item.call_count == 1  # Only login option
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcplugin.endOfDirectory')
     def test_main_navigation_exception(self, mock_end_dir, mock_log, navigation_handler):
@@ -441,7 +439,6 @@ class TestNavigationHandler:
         mock_dialog.create.assert_called()
         mock_dialog.close.assert_called()
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     def test_sync_films_exception(self, mock_log, navigation_handler, mock_mubi):
         """Test sync_films handles exceptions."""
@@ -645,7 +642,6 @@ class TestNavigationHandler:
         mock_session.set_logged_out.assert_not_called()
         mock_dialog_instance.notification.assert_called()
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     def test_log_out_exception_handling(self, mock_log, navigation_handler, mock_mubi):
         """Test logout exception handling."""
@@ -1027,7 +1023,6 @@ class TestGetAvailableCountriesFromNfo:
             )
             return handler
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_film_id_exact_match_prevents_substring_collision(
@@ -1075,7 +1070,6 @@ class TestGetAvailableCountriesFromNfo:
         assert "CH" not in result
         assert len(result) == 1
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_film_id_match_with_trailing_ampersand(
@@ -1104,7 +1098,6 @@ class TestGetAvailableCountriesFromNfo:
         assert "FR" in result
         assert len(result) == 2
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_film_id_match_at_end_of_url(
@@ -1131,7 +1124,6 @@ class TestGetAvailableCountriesFromNfo:
 
         assert "DE" in result
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_no_match_returns_empty_dict(
@@ -1158,7 +1150,6 @@ class TestGetAvailableCountriesFromNfo:
 
         assert result == {}
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_similar_film_ids_do_not_collide(
@@ -1199,7 +1190,6 @@ class TestGetAvailableCountriesFromNfo:
             assert expected_country in result
             assert len(result) == 1
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_malformed_xml_returns_empty_dict(
@@ -1226,7 +1216,6 @@ class TestGetAvailableCountriesFromNfo:
         # Should return empty dict, not crash
         assert result == {}
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_missing_availability_section_returns_empty_dict(
@@ -1251,7 +1240,6 @@ class TestGetAvailableCountriesFromNfo:
 
         assert result == {}
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_uniqueid_match_instead_of_strm(
@@ -1545,14 +1533,13 @@ class TestPlayMubiVideoFlow:
             (tmp_path / 'movies').mkdir(parents=True, exist_ok=True)
             yield handler
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_play_mubi_video_country_not_available_shows_vpn_dialog(
         self, mock_translate_path, mock_log, navigation_handler, tmp_path
     ):
-        """Test that VPN dialog is shown when current country is not in available list."""
-        # Setup: Create a film folder with NFO
+        """A yesno VPN warning is shown (and playback blocked on Cancel) when the
+        account country is not in the film's available list."""
         mock_translate_path.return_value = str(tmp_path)
 
         film_folder = tmp_path / "Test Film (2020)"
@@ -1579,26 +1566,33 @@ class TestPlayMubiVideoFlow:
 </movie>"""
         )
 
-        with patch('xbmcgui.Dialog') as mock_dialog:
+        # Account country is CH — the code reads the client_country setting,
+        # not geo-IP. CH is absent from the film's [US, FR] list.
+        navigation_handler.plugin.getSetting.side_effect = (
+            lambda key: "CH" if key == "client_country" else ""
+        )
+
+        with patch('xbmcgui.Dialog') as mock_dialog, \
+             patch('xbmcplugin.setResolvedUrl') as mock_set_resolved:
             mock_dialog_instance = Mock()
             mock_dialog.return_value = mock_dialog_instance
-            
-            # Mock: Current country is CH (via IP check)
-            navigation_handler.mubi.get_cli_country.return_value = "CH"
+            # User declines the "play anyway?" prompt.
+            mock_dialog_instance.yesno.return_value = False
 
             navigation_handler.play_mubi_video(
                 film_id="123", web_url="https://mubi.com/films/test"
             )
 
-            # Verify dialog.ok was called with VPN message
-            mock_dialog_instance.ok.assert_called_once()
-            call_args = mock_dialog_instance.ok.call_args
-            # Check title contains "Not Available"
-            assert "Not Available" in str(call_args) or "upcoming" in str(call_args).lower()
-            # Check message mentions Switzerland or CH
-            assert "Switzerland" in call_args[0][1] or "CH" in call_args[0][1]
+            # A yesno VPN warning was shown for the unavailable country.
+            mock_dialog_instance.yesno.assert_called_once()
+            title, message = mock_dialog_instance.yesno.call_args[0][0], mock_dialog_instance.yesno.call_args[0][1]
+            assert "Not Available" in title
+            assert "Switzerland" in message or "CH" in message
+            # Declining blocks playback: no stream fetched, playback resolved False.
+            navigation_handler.mubi.get_secure_stream_info.assert_not_called()
+            mock_set_resolved.assert_called_once()
+            assert mock_set_resolved.call_args[0][1] is False
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_play_mubi_video_country_available_proceeds_to_stream(
@@ -1654,21 +1648,21 @@ class TestPlayMubiVideoFlow:
             # Verify stream info was requested (country check passed)
             navigation_handler.mubi.get_secure_stream_info.assert_called_once_with("123")
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
-    @pytest.mark.skip(reason='Pre-existing platform issue: os.startfile not available on macOS')
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_play_mubi_video_country_available_but_not_live(
         self, mock_translate_path, mock_log, navigation_handler, tmp_path
     ):
-        """Test that VPN dialog is shown if country is listed but status is not live (e.g. upcoming)."""
-        # Setup: Create a film folder with NFO
+        """A yesno availability warning is shown (and playback blocked on Cancel)
+        when the account country is listed but the status is not live."""
         mock_translate_path.return_value = str(tmp_path)
 
         film_folder = tmp_path / "Upcoming Film (2025)"
         film_folder.mkdir(parents=True, exist_ok=True)
         strm_url = "plugin://plugin.video.mubi/?action=play_mubi_video&film_id=999"
         (film_folder / "Upcoming Film (2025).strm").write_text(strm_url)
+        # 'upcoming' with no dates → the shared availability check treats it as
+        # not live regardless of the current date (no time-bomb).
         (film_folder / "Upcoming Film (2025).nfo").write_text(
             """<?xml version="1.0" encoding="UTF-8"?>
 <movie>
@@ -1677,32 +1671,37 @@ class TestPlayMubiVideoFlow:
         <country code="CH">
             <name>Switzerland</name>
             <availability>upcoming</availability>
-            <available_at>2025-12-31</available_at>
         </country>
     </mubi_availability>
 </movie>"""
         )
 
-        with patch('xbmcgui.Dialog') as mock_dialog:
+        # Account country is CH — listed, but not live.
+        navigation_handler.plugin.getSetting.side_effect = (
+            lambda key: "CH" if key == "client_country" else ""
+        )
 
+        with patch('xbmcgui.Dialog') as mock_dialog, \
+             patch('xbmcplugin.setResolvedUrl') as mock_set_resolved:
             mock_dialog_instance = Mock()
             mock_dialog.return_value = mock_dialog_instance
-            
-            # Mock: Current country is CH (via IP check)
-            navigation_handler.mubi.get_cli_country.return_value = "CH"
+            # User declines the "play anyway?" prompt.
+            mock_dialog_instance.yesno.return_value = False
 
             navigation_handler.play_mubi_video(
                 film_id="999", web_url="https://mubi.com/films/upcoming"
             )
 
-            # Verify dialog.ok was called with unavailable message
-            mock_dialog_instance.ok.assert_called_once()
-            call_args = mock_dialog_instance.ok.call_args
-            assert "Not Available" in str(call_args) or "upcoming" in str(call_args).lower()
-            # Should mention status or not proceed to play
+            # A yesno availability warning was shown mentioning the status.
+            mock_dialog_instance.yesno.assert_called_once()
+            title, message = mock_dialog_instance.yesno.call_args[0][0], mock_dialog_instance.yesno.call_args[0][1]
+            assert "Availability Warning" in title
+            assert "upcoming" in message.lower()
+            # Declining blocks playback: no stream fetched.
             navigation_handler.mubi.get_secure_stream_info.assert_not_called()
+            mock_set_resolved.assert_called_once()
+            assert mock_set_resolved.call_args[0][1] is False
 
-    @pytest.mark.skip(reason="Platform-specific: os.startfile not available on macOS")
     @patch('xbmc.log')
     @patch('xbmcvfs.translatePath')
     def test_play_mubi_video_no_nfo_proceeds_to_stream(
