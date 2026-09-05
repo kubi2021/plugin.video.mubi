@@ -119,7 +119,7 @@ def full_valid_film():
         "press_quote": "A masterpiece.",
         "episode": None,
         "series": None,
-        "first_seen_at": "2024-01-01T00:00:00+00:00",
+        "first_available_at": "2024-01-01T00:00:00+00:00",
         "ratings": [
             {"source": "mubi", "score_over_10": 7.5, "voters": 1234},
             {"source": "imdb", "score_over_10": 7.0, "voters": 5000}
@@ -314,30 +314,30 @@ class TestNestedObjects:
 
 
 # ─────────────────────────────────────────────
-# first_seen_at Tests
+# first_available_at Tests
 # ─────────────────────────────────────────────
 
-class TestFirstSeenAt:
-    """Tests for the immutable first_seen_at field (schema-change coverage)."""
+class TestFirstAvailableAt:
+    """Tests for the frozen first_available_at field (schema-change coverage)."""
 
-    def test_first_seen_at_present_as_string(self, v1_schema, minimal_valid_film):
-        """An ISO 8601 string first_seen_at should validate."""
-        film = {**minimal_valid_film, "first_seen_at": "2026-09-04T15:00:00+00:00"}
+    def test_first_available_at_present_as_string(self, v1_schema, minimal_valid_film):
+        """An ISO 8601 string first_available_at should validate."""
+        film = {**minimal_valid_film, "first_available_at": "2026-09-04T15:00:00+00:00"}
         jsonschema.validate(film, v1_schema)
 
-    def test_first_seen_at_can_be_null(self, v1_schema, minimal_valid_film):
-        """Pre-existing items carry a null first_seen_at, which must validate."""
-        film = {**minimal_valid_film, "first_seen_at": None}
+    def test_first_available_at_can_be_null(self, v1_schema, minimal_valid_film):
+        """Upcoming and pre-existing items carry a null first_available_at, which must validate."""
+        film = {**minimal_valid_film, "first_available_at": None}
         jsonschema.validate(film, v1_schema)
 
-    def test_first_seen_at_absent_is_valid(self, v1_schema, minimal_valid_film):
-        """first_seen_at is optional; a film without it must still validate."""
-        assert "first_seen_at" not in minimal_valid_film
+    def test_first_available_at_absent_is_valid(self, v1_schema, minimal_valid_film):
+        """first_available_at is optional; a film without it must still validate."""
+        assert "first_available_at" not in minimal_valid_film
         jsonschema.validate(minimal_valid_film, v1_schema)
 
-    def test_first_seen_at_rejects_non_string(self, v1_schema, minimal_valid_film):
-        """A numeric first_seen_at must be rejected (only string or null allowed)."""
-        film = {**minimal_valid_film, "first_seen_at": 1735999200}
+    def test_first_available_at_rejects_non_string(self, v1_schema, minimal_valid_film):
+        """A numeric first_available_at must be rejected (only string or null allowed)."""
+        film = {**minimal_valid_film, "first_available_at": 1735999200}
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(film, v1_schema)
 

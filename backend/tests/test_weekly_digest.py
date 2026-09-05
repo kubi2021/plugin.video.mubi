@@ -10,17 +10,17 @@ from generate_weekly_digest import (
     generate_digest,
     get_bayesian_score,
     get_earliest_availability,
-    get_first_seen,
+    get_first_available,
     get_latest_expiration,
 )
 
-# Mock Data. first_seen_at is the "genuinely new" signal; available_at only
-# drives the expiration display now.
+# Mock Data. first_available_at (when the film first became playable) is the
+# digest's inclusion signal; available_at only drives the expiration display now.
 MOCK_FILM_1 = {
     "mubi_id": 1,
     "title": "High Rating Film",
     "ratings": [{"source": "bayesian", "score_over_10": 9.5}],
-    "first_seen_at": "2025-01-01T00:00:00+00:00",
+    "first_available_at": "2025-01-01T00:00:00+00:00",
     "available_countries": {"US": {"available_at": "2025-01-01T00:00:00Z", "expires_at": "2025-01-31T00:00:00Z"}},
 }
 
@@ -28,7 +28,7 @@ MOCK_FILM_2 = {
     "mubi_id": 2,
     "title": "Low Rating Film",
     "ratings": [{"source": "bayesian", "score_over_10": 5.0}],
-    "first_seen_at": "2025-01-05T00:00:00+00:00",
+    "first_available_at": "2025-01-05T00:00:00+00:00",
     "available_countries": {"UK": {"available_at": "2025-01-05T00:00:00Z"}},
 }
 
@@ -36,8 +36,9 @@ MOCK_FILM_OLD = {
     "mubi_id": 3,
     "title": "Old Film",
     "ratings": [{"source": "bayesian", "score_over_10": 8.0}],
-    "first_seen_at": "2020-01-01T00:00:00+00:00",
-    # Rotated back into a country recently, but first_seen_at is old -> not new.
+    # Rotated back into a country recently (recent available_at), but it first
+    # became available long ago -> first_available_at is old -> not featured.
+    "first_available_at": "2020-01-01T00:00:00+00:00",
     "available_countries": {"US": {"available_at": "2025-01-06T00:00:00Z"}},
 }
 
@@ -91,8 +92,8 @@ def test_earliest_availability_naive_timestamp_is_utc():
 
 def test_generate_digest_survives_naive_available_at(tmp_path):
     """Regression (hostile-audit F2): a naive expires_at must not crash the digest
-    with 'can't compare offset-naive and offset-aware datetimes'. Inclusion now
-    keys on first_seen_at, so the film is featured via that and its naive
+    with 'can't compare offset-naive and offset-aware datetimes'. Inclusion keys
+    on first_available_at, so the film is featured via that and its naive
     availability dates still flow through the 'Available until' display path."""
     mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
     input_file = tmp_path / "films.json"
@@ -102,7 +103,7 @@ def test_generate_digest_survives_naive_available_at(tmp_path):
         "mubi_id": 7,
         "title": "Naive Date Film",
         "ratings": [{"source": "bayesian", "score_over_10": 7.0}],
-        "first_seen_at": "2025-01-05T00:00:00+00:00",  # featured this run
+        "first_available_at": "2025-01-05T00:00:00+00:00",  # featured this run
         # Naive (no tz) availability dates must not crash get_latest_expiration.
         "available_countries": {"US": {"available_at": "2025-01-05T00:00:00", "expires_at": "2025-02-01T00:00:00"}},
     }
@@ -115,15 +116,14 @@ def test_generate_digest_survives_naive_available_at(tmp_path):
 
 
 def test_generate_digest_filtering(tmp_path):
-    """Test that only new movies are included and sorted by rating."""
+    """Test that only newly-available movies are included and sorted by rating."""
     # Set "Now" to Jan 7th 2025
     mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
 
     # 7 days ago = Jan 1st 2025
-    # MOCK_FILM_1 available Jan 1st -> Should include (borderline)
-    # MOCK_FILM_2 available Jan 5th -> Should include
-    # MOCK_FILM_OLD available 2020 -> Should exclude
-
+    # MOCK_FILM_1 first available Jan 1st -> Should include (borderline)
+    # MOCK_FILM_2 first available Jan 5th -> Should include
+    # MOCK_FILM_OLD first available 2020 -> Should exclude
     input_file = tmp_path / "films.json"
     output_file = tmp_path / "digest.md"
 
@@ -155,29 +155,29 @@ def test_generate_digest_filtering(tmp_path):
     assert json_content["newArrivals"][0]["title"] == "High Rating Film"
 
 
-def test_get_first_seen_parsing():
-    assert get_first_seen({"first_seen_at": "2025-01-01T00:00:00+00:00"}).year == 2025
+def test_get_first_available_parsing():
+    assert get_first_available({"first_available_at": "2025-01-01T00:00:00+00:00"}).year == 2025
     # Z suffix normalised to aware datetime
-    assert get_first_seen({"first_seen_at": "2025-01-01T00:00:00Z"}).tzinfo is not None
+    assert get_first_available({"first_available_at": "2025-01-01T00:00:00Z"}).tzinfo is not None
     # Null / absent / unparseable -> None
-    assert get_first_seen({"first_seen_at": None}) is None
-    assert get_first_seen({}) is None
-    assert get_first_seen({"first_seen_at": "not-a-date"}) is None
+    assert get_first_available({"first_available_at": None}) is None
+    assert get_first_available({}) is None
+    assert get_first_available({"first_available_at": "not-a-date"}) is None
 
 
-def test_get_first_seen_naive_is_utc():
-    """Regression (hostile-audit F1): a first_seen_at with no tz offset parses
+def test_get_first_available_naive_is_utc():
+    """Regression (hostile-audit F1): a first_available_at with no tz offset parses
     successfully as a NAIVE datetime, which then raises TypeError when compared
-    against the aware cutoff. get_first_seen must normalise naive -> UTC, exactly
-    like get_earliest_availability does, so the value is comparable."""
-    dt = get_first_seen({"first_seen_at": "2025-01-05T00:00:00"})  # no offset
+    against the aware cutoff. get_first_available must normalise naive -> UTC,
+    exactly like get_earliest_availability does, so the value is comparable."""
+    dt = get_first_available({"first_available_at": "2025-01-05T00:00:00"})  # no offset
     assert dt is not None
     assert dt.tzinfo is not None
 
 
-def test_naive_first_seen_does_not_crash_digest(tmp_path):
+def test_naive_first_available_does_not_crash_digest(tmp_path):
     """Regression (hostile-audit F1): a single film carrying a tz-naive
-    first_seen_at must not abort the entire digest with
+    first_available_at must not abort the entire digest with
     'can't compare offset-naive and offset-aware datetimes'."""
     mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
     input_file = tmp_path / "films.json"
@@ -185,9 +185,9 @@ def test_naive_first_seen_does_not_crash_digest(tmp_path):
 
     film = {
         "mubi_id": 1,
-        "title": "Naive First Seen",
+        "title": "Naive First Available",
         "ratings": [{"source": "bayesian", "score_over_10": 7.0}],
-        "first_seen_at": "2025-01-05T00:00:00",  # naive, within lookback window
+        "first_available_at": "2025-01-05T00:00:00",  # naive, within lookback window
         "available_countries": {"US": {"available_at": "2025-01-05T00:00:00Z"}},
     }
     input_file.write_text(json.dumps({"items": [film]}), encoding="utf-8")
@@ -199,15 +199,15 @@ def test_naive_first_seen_does_not_crash_digest(tmp_path):
     assert [m["id"] for m in json_content["newArrivals"]] == [1]
 
 
-def test_rotated_old_film_is_not_new(tmp_path):
-    """Regression: a film with a recent available_at but an OLD first_seen_at
-    (rotated back into a country) must NOT be treated as new."""
+def test_rotated_old_film_is_not_featured(tmp_path):
+    """Regression: a film with a recent available_at but an OLD first_available_at
+    (rotated back into a country) must NOT be featured — this is the churn bug."""
     mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
     input_file = tmp_path / "films.json"
     output_file = tmp_path / "digest.md"
 
     with open(input_file, "w") as f:
-        json.dump({"items": [MOCK_FILM_OLD]}, f)  # available_at 2025-01-06, first_seen 2020
+        json.dump({"items": [MOCK_FILM_OLD]}, f)  # available_at 2025-01-06, first_available 2020
 
     generate_digest(input_file, output_file, now_override=mock_now)
 
@@ -215,20 +215,22 @@ def test_rotated_old_film_is_not_new(tmp_path):
     assert json_content["newArrivals"] == []
 
 
-def test_null_first_seen_is_excluded(tmp_path):
-    """Pre-existing films (null first_seen_at) must never be featured."""
+def test_null_first_available_is_excluded(tmp_path):
+    """A null first_available_at covers both pre-existing items and UPCOMING films
+    (not playable yet). Neither must be featured, even with a recent available_at."""
     mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
     input_file = tmp_path / "films.json"
     output_file = tmp_path / "digest.md"
 
-    legacy = {
+    upcoming = {
         "mubi_id": 99,
-        "title": "Legacy Film",
-        "first_seen_at": None,
-        "available_countries": {"US": {"available_at": "2025-01-06T00:00:00Z"}},
+        "title": "Upcoming Film",
+        "first_available_at": None,
+        # Available in the future (or simply not yet observed live).
+        "available_countries": {"US": {"available_at": "2025-02-20T00:00:00Z"}},
     }
     with open(input_file, "w") as f:
-        json.dump({"items": [legacy]}, f)
+        json.dump({"items": [upcoming]}, f)
 
     generate_digest(input_file, output_file, now_override=mock_now)
 
@@ -238,8 +240,8 @@ def test_null_first_seen_is_excluded(tmp_path):
 
 def test_returning_film_is_featured_again(tmp_path):
     """A film that fully left the catalogue and later returned is re-created by
-    the scraper with a fresh first_seen_at, so it must appear in the digest
-    again — long-absent films coming back are exactly what we want to surface."""
+    the scraper and re-stamped with a fresh first_available_at, so it must appear
+    in the digest again — long-absent films coming back are what we want."""
     mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
     input_file = tmp_path / "films.json"
     output_file = tmp_path / "digest.md"
@@ -248,9 +250,8 @@ def test_returning_film_is_featured_again(tmp_path):
         "mubi_id": 42,
         "title": "Back After A Year",
         "ratings": [{"source": "bayesian", "score_over_10": 8.0}],
-        # Was in the catalogue a year ago, pruned while gone, re-created on
-        # return -> first_seen_at is recent even though the film is old.
-        "first_seen_at": "2025-01-06T00:00:00+00:00",
+        # Pruned while gone, re-created and re-stamped on return.
+        "first_available_at": "2025-01-06T00:00:00+00:00",
         "available_countries": {"US": {"available_at": "2025-01-06T00:00:00Z"}},
     }
     with open(input_file, "w") as f:

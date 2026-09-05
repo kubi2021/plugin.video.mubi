@@ -19,10 +19,10 @@ The plugin syncs film data from a pre-computed JSON database hosted on GitHub. T
 | Field | Value | Location |
 |-------|-------|----------|
 | `version` | `1` (integer) | JSON `meta.version` |
-| `version_label` | `1.1` | JSON `meta.version_label` |
+| `version_label` | `1.2` | JSON `meta.version_label` |
 | **Status** | **STABLE** (since 2026-09-03) | — |
 
-> `1.1` (2026-09-04) adds the optional `first_seen_at` field (backward compatible; see [Post-Stable Rules](#post-stable-rules)).
+> `1.1` (2026-09-04) added an optional `first_seen_at` field. `1.2` (2026-09-05) replaces it with `first_available_at` (when the film first became playable, not merely added to the catalogue), so the weekly digest features a film in the week it becomes available rather than when it is first listed. `first_seen_at` was never consumed by the plugin and is dropped. Both changes are backward compatible for consumers (see [Post-Stable Rules](#post-stable-rules)).
 
 ### Where It's Defined
 
@@ -30,7 +30,7 @@ The plugin syncs film data from a pre-computed JSON database hosted on GitHub. T
    ```python
    'meta': {
        'version': 1,
-       'version_label': '1.1',
+       'version_label': '1.2',
        ...
    }
    ```

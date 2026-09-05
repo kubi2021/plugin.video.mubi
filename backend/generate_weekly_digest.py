@@ -72,14 +72,15 @@ def get_earliest_availability(film: dict) -> Optional[datetime]:
     return earliest_date
 
 
-def get_first_seen(film: dict) -> Optional[datetime]:
+def get_first_available(film: dict) -> Optional[datetime]:
     """
-    Parse the immutable first_seen_at timestamp (when the film first entered
-    the database). This is the signal for "genuinely new", independent of the
-    per-country availability windows that Mubi rotates. Returns None for items
-    that predate the field (null/absent) or that carry an unparseable value.
+    Parse the frozen first_available_at timestamp (when the film first became
+    playable). This is the digest's inclusion signal: it is immutable, so
+    country rotation cannot re-qualify a film, and it is null while a film is
+    only upcoming, so upcoming titles are not featured before they go live.
+    Returns None for null/absent/unparseable values.
     """
-    val = film.get("first_seen_at")
+    val = film.get("first_available_at")
     if not val:
         return None
     try:
@@ -88,7 +89,7 @@ def get_first_seen(film: dict) -> Optional[datetime]:
         dt = datetime.fromisoformat(val)
         # A tz-less timestamp parses as naive; force UTC so it can be compared
         # against the aware cutoff without raising TypeError. Mirrors
-        # get_earliest_availability — keep the two ISO parsers identical.
+        # get_earliest_availability — keep the ISO parsers identical.
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
@@ -153,23 +154,25 @@ def generate_digest(
 
     print(f"Current time (UTC): {now.isoformat()}")
     print(f"Cutoff date: {cutoff_date.isoformat()}")
-    print(f"Filtering movies first seen since {cutoff_date.date()}...")
+    print(f"Filtering movies that became available since {cutoff_date.date()}...")
 
-    # Find new movies: first seen within the lookback window. first_seen_at is
-    # immutable while a film stays in the database, so a film qualifies for
-    # exactly one digest. A film that fully left the catalogue and later returns
-    # is re-created with a fresh first_seen_at, so it is featured again — which
-    # is the desired behaviour for long-absent films coming back.
+    # Find new movies: became playable within the lookback window.
+    # first_available_at is frozen the first time the film is observed as
+    # actually playable, so:
+    #  - a film qualifies for exactly one digest (no country-rotation churn),
+    #  - upcoming films (null until they go live) are not featured early,
+    #  - a film that fully left the catalogue and later returns is re-created
+    #    and re-stamped, so it is featured again when it comes back.
     new_movies = []
 
     for film in items:
-        first_seen = get_first_seen(film)
-        if first_seen is None or first_seen < cutoff_date:
+        first_available = get_first_available(film)
+        if first_available is None or first_available < cutoff_date:
             continue
-        film["_first_seen"] = first_seen  # Store for debugging
+        film["_first_available"] = first_available  # Store for debugging
         new_movies.append(film)
 
-    print(f"Found {len(new_movies)} new movies first seen in the past {DAYS_LOOKBACK} days.")
+    print(f"Found {len(new_movies)} movies that became available in the past {DAYS_LOOKBACK} days.")
 
     # Sort by Bayesian rating (descending)
     new_movies.sort(key=get_bayesian_score, reverse=True)
