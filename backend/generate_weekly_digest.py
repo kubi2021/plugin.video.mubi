@@ -38,6 +38,30 @@ def get_rating_voters(film: dict, source: str) -> Optional[int]:
     return None
 
 
+def _parse_iso_utc(value) -> Optional[datetime]:
+    """Parse an ISO 8601 string to an aware UTC datetime, or None.
+
+    The single canonical normalise for every timestamp the digest compares:
+    handle the Z suffix, and force a tz-less (naive) timestamp to UTC so it can
+    be compared against the aware cutoff without raising TypeError. Anything that
+    is not a non-empty string, or does not parse, returns None and never raises
+    (an int/dict/None value would otherwise blow up the whole digest on
+    ``.endswith``). The scraper's ``_earliest_started_availability`` mirrors this
+    normalise — keep the two identical (CLAUDE.md lesson).
+    """
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
+        dt = datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def get_earliest_availability(film: dict) -> Optional[datetime]:
     """
     Get the earliest available_at date across all countries for a film.
@@ -50,24 +74,11 @@ def get_earliest_availability(film: dict) -> Optional[datetime]:
     earliest_date = None
 
     for country_code, country_data in available_countries.items():
-        avail_str = country_data.get("available_at")
-        if not avail_str:
+        avail_dt = _parse_iso_utc((country_data or {}).get("available_at"))
+        if avail_dt is None:
             continue
-
-        try:
-            # Parse ISO format date, handle Z suffix
-            if avail_str.endswith("Z"):
-                avail_str = avail_str[:-1] + "+00:00"
-            avail_dt = datetime.fromisoformat(avail_str)
-            # A tz-less timestamp parses as naive; force UTC so it can be compared
-            # against the aware cutoff without raising TypeError.
-            if avail_dt.tzinfo is None:
-                avail_dt = avail_dt.replace(tzinfo=timezone.utc)
-
-            if earliest_date is None or avail_dt < earliest_date:
-                earliest_date = avail_dt
-        except ValueError:
-            continue
+        if earliest_date is None or avail_dt < earliest_date:
+            earliest_date = avail_dt
 
     return earliest_date
 
@@ -80,21 +91,7 @@ def get_first_available(film: dict) -> Optional[datetime]:
     only upcoming, so upcoming titles are not featured before they go live.
     Returns None for null/absent/unparseable values.
     """
-    val = film.get("first_available_at")
-    if not val:
-        return None
-    try:
-        if val.endswith("Z"):
-            val = val[:-1] + "+00:00"
-        dt = datetime.fromisoformat(val)
-        # A tz-less timestamp parses as naive; force UTC so it can be compared
-        # against the aware cutoff without raising TypeError. Mirrors
-        # get_earliest_availability — keep the ISO parsers identical.
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except (ValueError, AttributeError):
-        return None
+    return _parse_iso_utc(film.get("first_available_at"))
 
 
 def get_latest_expiration(film: dict) -> Optional[datetime]:
@@ -109,22 +106,11 @@ def get_latest_expiration(film: dict) -> Optional[datetime]:
     latest_date = None
 
     for country_code, country_data in available_countries.items():
-        expires_str = country_data.get("expires_at")
-        if not expires_str:
+        expires_dt = _parse_iso_utc((country_data or {}).get("expires_at"))
+        if expires_dt is None:
             continue
-
-        try:
-            # Parse ISO format date, handle Z suffix
-            if expires_str.endswith("Z"):
-                expires_str = expires_str[:-1] + "+00:00"
-            expires_dt = datetime.fromisoformat(expires_str)
-            if expires_dt.tzinfo is None:
-                expires_dt = expires_dt.replace(tzinfo=timezone.utc)
-
-            if latest_date is None or expires_dt > latest_date:
-                latest_date = expires_dt
-        except ValueError:
-            continue
+        if latest_date is None or expires_dt > latest_date:
+            latest_date = expires_dt
 
     return latest_date
 

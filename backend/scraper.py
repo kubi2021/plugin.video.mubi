@@ -345,7 +345,10 @@ class MubiScraper:
         earliest = None
         for data in (available_countries or {}).values():
             avail_str = (data or {}).get("available_at")
-            if not avail_str:
+            # Mirrors generate_weekly_digest._parse_iso_utc: a non-string value
+            # would raise AttributeError on .endswith and crash the whole run,
+            # so guard the type before parsing (CLAUDE.md canonical-parser lesson).
+            if not avail_str or not isinstance(avail_str, str):
                 continue
             try:
                 normalised = avail_str[:-1] + "+00:00" if avail_str.endswith("Z") else avail_str

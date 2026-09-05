@@ -165,6 +165,41 @@ def test_get_first_available_parsing():
     assert get_first_available({"first_available_at": "not-a-date"}) is None
 
 
+def test_parsers_survive_non_string_date(tmp_path):
+    """Regression (hostile-audit F3): a non-string date value (e.g. a number)
+    must not crash any of the three digest parsers via AttributeError on
+    .endswith. All three route through the canonical _parse_iso_utc, which type-
+    guards, so each returns None and the whole digest survives."""
+    # Unit level: every parser tolerates a non-string value.
+    assert get_first_available({"first_available_at": 1735999200}) is None
+    assert get_earliest_availability(
+        {"available_countries": {"US": {"available_at": 1735999200}}}
+    ) is None
+    assert get_latest_expiration(
+        {"available_countries": {"US": {"expires_at": 1735999200}}}
+    ) is None
+
+    # End-to-end: a film whose availability dates are numbers must not abort the
+    # digest. It is still featured via its (valid) first_available_at.
+    mock_now = datetime(2025, 1, 7, tzinfo=timezone.utc)
+    input_file = tmp_path / "films.json"
+    output_file = tmp_path / "digest.md"
+    film = {
+        "mubi_id": 5,
+        "title": "Numeric Date Film",
+        "ratings": [{"source": "bayesian", "score_over_10": 7.0}],
+        "first_available_at": "2025-01-05T00:00:00+00:00",
+        "available_countries": {"US": {"available_at": 1735999200, "expires_at": 1735999200}},
+    }
+    input_file.write_text(json.dumps({"items": [film]}), encoding="utf-8")
+
+    generate_digest(input_file, output_file, now_override=mock_now)
+
+    json_content = json.loads((tmp_path / "digest.json").read_text())
+    assert [m["id"] for m in json_content["newArrivals"]] == [5]
+    assert json_content["newArrivals"][0]["availableUntil"] is None  # no valid expiry parsed
+
+
 def test_get_first_available_naive_is_utc():
     """Regression (hostile-audit F1): a first_available_at with no tz offset parses
     successfully as a NAIVE datetime, which then raises TypeError when compared
