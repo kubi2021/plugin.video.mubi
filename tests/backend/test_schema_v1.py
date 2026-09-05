@@ -341,6 +341,15 @@ class TestFirstAvailableAt:
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(film, v1_schema)
 
+    def test_dropped_first_seen_at_still_validates(self, v1_schema, minimal_valid_film):
+        """Back-compat (schema 1.1 -> 1.2): first_seen_at was replaced by
+        first_available_at, but records written in the previous cycle may still
+        carry the legacy key until the next sync rewrites them. The film object is
+        additionalProperties:true, so the dropped key must NOT fail validation.
+        Pins the guarantee that PR 77 relies on rather than leaving it implicit."""
+        film = {**minimal_valid_film, "first_seen_at": "2025-01-01T00:00:00+00:00"}
+        jsonschema.validate(film, v1_schema)
+
 
 # ─────────────────────────────────────────────
 # Full Film Tests
