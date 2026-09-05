@@ -104,16 +104,25 @@ class TestMubiScraper(unittest.TestCase):
             shutil.rmtree(test_dir)
 
     @patch('sys.exit')
-    def test_run_stamps_first_seen_at_on_new_films(self, mock_exit):
-        """New films get an immutable first_seen_at; existing ones keep theirs."""
+    def test_run_stamps_first_available_at(self, mock_exit):
+        """first_available_at is frozen to the earliest already-started availability:
+        set for films playable now, left null for upcoming films, preserved for
+        films that already carry it."""
         self.scraper.MIN_TOTAL_FILMS = 0
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             'films': [
-                {'id': 1, 'title': 'Returning Film', 'year': 2020, 'consumable': {'status': 'live'}},
-                {'id': 2, 'title': 'Brand New Film', 'year': 2021, 'consumable': {'status': 'live'}},
+                # Already carries first_available_at (via warm start) -> preserved.
+                {'id': 1, 'title': 'Returning Film', 'year': 2020,
+                 'consumable': {'available_at': '2024-05-05T00:00:00Z', 'status': 'live'}},
+                # New, playable now (past available_at) -> stamped with that date.
+                {'id': 2, 'title': 'Live Film', 'year': 2021,
+                 'consumable': {'available_at': '2024-01-01T00:00:00Z', 'status': 'live'}},
+                # New, upcoming (far-future available_at) -> stays null.
+                {'id': 3, 'title': 'Upcoming Film', 'year': 2022,
+                 'consumable': {'available_at': '2099-01-01T00:00:00Z', 'status': 'upcoming'}},
             ],
             'meta': {'next_page': None},
         }
@@ -126,14 +135,13 @@ class TestMubiScraper(unittest.TestCase):
             series_file = os.path.join(test_dir, 'test_series.json')
             input_file = os.path.join(test_dir, 'previous_films.json')
 
-            # Seed a previous DB (warm start) where film 1 was first seen long ago.
-            # This mirrors the deep-sync workflow passing --input previous_films.json.
+            # Warm start: film 1 already has a frozen first_available_at.
             existing = {
                 "meta": {"generated_at": "x", "version": 1},
                 "items": [{
                     "mubi_id": 1,
                     "title": "Returning Film",
-                    "first_seen_at": "2020-01-01T00:00:00+00:00",
+                    "first_available_at": "2020-01-01T00:00:00+00:00",
                     "available_countries": {"US": {"available_at": "2020-01-01T00:00:00Z"}},
                 }],
             }
@@ -151,16 +159,14 @@ class TestMubiScraper(unittest.TestCase):
                 data = json.load(f)
             films = {f['mubi_id']: f for f in data['items']}
 
-            # Existing film keeps its original first_seen_at (never overwritten).
-            self.assertEqual(films[1]['first_seen_at'], "2020-01-01T00:00:00+00:00")
+            # Frozen value is never overwritten, even though this run saw a later date.
+            self.assertEqual(films[1]['first_available_at'], "2020-01-01T00:00:00+00:00")
 
-            # Brand-new film gets stamped with a fresh, parseable UTC timestamp.
-            from datetime import datetime
-            self.assertIn('first_seen_at', films[2])
-            stamped = films[2]['first_seen_at']
-            parsed = datetime.fromisoformat(stamped)
-            self.assertIsNotNone(parsed.tzinfo)
-            self.assertGreater(parsed.year, 2020)
+            # Playable-now film is stamped with its earliest started availability.
+            self.assertEqual(films[2]['first_available_at'], "2024-01-01T00:00:00+00:00")
+
+            # Upcoming film has no started availability yet -> null/absent.
+            self.assertIsNone(films[3].get('first_available_at'))
 
             mock_exit.assert_not_called()
         finally:

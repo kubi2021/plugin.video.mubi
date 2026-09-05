@@ -333,15 +333,46 @@ class MubiScraper:
                 genres.append("LGBTQ+")
                 film_data["genres"] = genres
 
+    @staticmethod
+    def _earliest_started_availability(available_countries, now_dt):
+        """Earliest available_at across countries that has already started
+        (available_at <= now_dt), as an ISO 8601 string, or None if the film is
+        not playable anywhere yet (all windows in the future, or no dates).
+
+        This is the value frozen into first_available_at — the moment the film
+        first became watchable, not when it was added to the catalogue.
+        """
+        earliest = None
+        for data in (available_countries or {}).values():
+            avail_str = (data or {}).get("available_at")
+            # Mirrors generate_weekly_digest._parse_iso_utc: a non-string value
+            # would raise AttributeError on .endswith and crash the whole run,
+            # so guard the type before parsing (CLAUDE.md canonical-parser lesson).
+            if not avail_str or not isinstance(avail_str, str):
+                continue
+            try:
+                normalised = avail_str[:-1] + "+00:00" if avail_str.endswith("Z") else avail_str
+                dt = datetime.fromisoformat(normalised)
+            except (ValueError, TypeError):
+                continue
+            # A tz-less timestamp parses as naive; force UTC so it compares
+            # against the aware now_dt without raising.
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt <= now_dt and (earliest is None or dt < earliest):
+                earliest = dt
+        return earliest.isoformat() if earliest is not None else None
+
     def run(self, output_path="films.json", series_path="series.json", mode="deep", input_path=None):
         all_films = {}  # id -> film_data
         all_series = {}  # id -> series_data
         film_countries = {}  # id -> dict(country -> consumable)
         series_countries = {}  # id -> dict(country -> consumable)
         errors = []  # Track errors per country
-        # Single timestamp for the whole run, stamped on any item seen for the
-        # first time (see first_seen_at in the merge loop below).
-        run_started_at = datetime.now(timezone.utc).isoformat()
+        # Single "now" for the whole run, used to decide which availability
+        # windows have already started (see first_available_at stamping in the
+        # finalization loop below).
+        run_now = datetime.now(timezone.utc)
 
         # Determine paths
         # If input_path is not explicitly set, try to use output_path as input (incremental update)
@@ -560,16 +591,12 @@ class MubiScraper:
 
                             # Update or Create
                             if fid in target_dict:
-                                # Existing item: merge fresh fields, but never touch
-                                # first_seen_at — it records the very first sighting.
+                                # Existing item: merge fresh fields. first_available_at
+                                # (set in the finalization loop) is never in new_data,
+                                # so an already-frozen value is preserved.
                                 target_dict[fid].update(new_data)
                             else:
                                 target_dict[fid] = new_data
-                                # First time this mubi_id has ever entered the database.
-                                # Stamp an immutable first_seen_at; the weekly digest uses
-                                # it to detect genuinely new films, independent of the
-                                # per-country availability windows that Mubi rotates.
-                                new_data["first_seen_at"] = run_started_at
                                 # CLEANUP: Remove legacy 'countries' if it exists when creating new
                                 target_dict[fid].pop("countries", None)
 
@@ -684,6 +711,19 @@ class MubiScraper:
                 continue
 
             film["available_countries"] = combined_avail
+
+            # Freeze first_available_at the first time the film is observed as
+            # actually playable: the earliest availability window that has
+            # already started (available_at <= now). Once set it is never
+            # overwritten, so it is immune to the country rotation that made the
+            # live minimum available_at churn. Upcoming films (every available_at
+            # in the future) stay null until a later sync sees them go live. The
+            # weekly digest keys on this field.
+            if not film.get("first_available_at"):
+                started = self._earliest_started_availability(combined_avail, run_now)
+                if started is not None:
+                    film["first_available_at"] = started
+
             # Remove legacy list if present to ensure schema cleanliness
             film.pop("countries", None)
             final_films.append(film)
@@ -714,7 +754,7 @@ class MubiScraper:
             "meta": {
                 "generated_at": datetime.utcnow().isoformat() + "Z",
                 "version": 1,
-                "version_label": "1.1",  # Human-readable version for debugging
+                "version_label": "1.2",  # Human-readable version for debugging
                 "total_count": len(final_films),
                 "mode": mode,
             },
@@ -731,7 +771,7 @@ class MubiScraper:
             "meta": {
                 "generated_at": datetime.utcnow().isoformat() + "Z",
                 "version": 1,
-                "version_label": "1.1",  # Human-readable version for debugging
+                "version_label": "1.2",  # Human-readable version for debugging
                 "total_count": len(final_series),
                 "mode": mode,
             },

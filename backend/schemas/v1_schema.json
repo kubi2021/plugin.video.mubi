@@ -518,12 +518,12 @@
             ],
             "description": "Parent series info (for series content)"
         },
-        "first_seen_at": {
+        "first_available_at": {
             "type": [
                 "string",
                 "null"
             ],
-            "description": "ISO 8601 UTC timestamp of when this mubi_id first entered the database. Set once by the scraper on first sighting and never overwritten; independent of per-country availability windows. Null for items that predate this field. Consumed by the weekly digest to detect genuinely new films."
+            "description": "ISO 8601 UTC timestamp of when this film was first observed as actually playable: the earliest availability window that had already started (available_at <= observation time) at first sighting. Frozen once and never overwritten, so it is immune to the per-country availability rotation that makes the live minimum available_at churn. Null while a film is only upcoming (all availability in the future) and for items that predate this field. Consumed by the weekly digest to feature a film in the week it becomes available."
         },
         "ratings": {
             "type": "array",

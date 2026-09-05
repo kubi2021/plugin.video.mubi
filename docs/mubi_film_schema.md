@@ -298,7 +298,7 @@ Top-level `consumable` field is removed. Availability is now stored per-country 
 
 | Field | Type | Description | Source |
 |-------|------|-------------|--------|
-| `first_seen_at` | string\|null | ISO 8601 UTC timestamp of when this `mubi_id` first entered the database. Stamped once on first sighting and never overwritten, so it is independent of the per-country `available_at` windows Mubi rotates. `null` for items that predate this field. Consumed by the weekly digest to detect genuinely new films. | Scraper |
+| `first_available_at` | string\|null | ISO 8601 UTC timestamp of when the film was first observed as actually playable: the earliest availability window that had already started (`available_at` <= observation time) at first sighting. Frozen once and never overwritten, so it is immune to the per-country `available_at` rotation that makes the live minimum churn. `null` while a film is only upcoming (all availability in the future) and for items that predate this field. Consumed by the weekly digest to feature a film in the week it becomes available. | Scraper |
 
 Legacy `countries` list is removed. Use keys of `available_countries` instead.
 

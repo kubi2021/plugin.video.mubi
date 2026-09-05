@@ -163,9 +163,10 @@ class Film(BaseModel):
     # Scraper-added metadata
     available_countries: Dict[str, Consumable] = {}
 
-    # First time this mubi_id was seen in the database (ISO 8601 UTC).
-    # Set once by the scraper, never overwritten; null for pre-existing items.
-    first_seen_at: Optional[str] = None
+    # When the film was first observed as actually playable (ISO 8601 UTC):
+    # earliest availability window that had already started. Frozen once, never
+    # overwritten; null while upcoming or for pre-existing items.
+    first_available_at: Optional[str] = None
 
     # Multi-source ratings (enriched)
     ratings: List[Rating] = []
