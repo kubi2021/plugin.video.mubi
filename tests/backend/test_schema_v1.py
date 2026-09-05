@@ -11,11 +11,11 @@ These tests validate:
 4. Golden file (production data) passes validation
 """
 
-import pytest
 import json
-import os
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add backend to path for imports
 BACKEND_PATH = Path(__file__).parent.parent.parent / "backend"
@@ -394,4 +394,4 @@ class TestGoldenFile:
                 film_id = film.get("mubi_id", f"index_{idx}")
                 errors.append(f"Film {film_id}: {e.message}")
 
-        assert errors == [], f"Golden file validation failed:\n" + "\n".join(errors)
+        assert errors == [], "Golden file validation failed:\n" + "\n".join(errors)
