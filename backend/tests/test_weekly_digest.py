@@ -172,12 +172,8 @@ def test_parsers_survive_non_string_date(tmp_path):
     guards, so each returns None and the whole digest survives."""
     # Unit level: every parser tolerates a non-string value.
     assert get_first_available({"first_available_at": 1735999200}) is None
-    assert get_earliest_availability(
-        {"available_countries": {"US": {"available_at": 1735999200}}}
-    ) is None
-    assert get_latest_expiration(
-        {"available_countries": {"US": {"expires_at": 1735999200}}}
-    ) is None
+    assert get_earliest_availability({"available_countries": {"US": {"available_at": 1735999200}}}) is None
+    assert get_latest_expiration({"available_countries": {"US": {"expires_at": 1735999200}}}) is None
 
     # End-to-end: a film whose availability dates are numbers must not abort the
     # digest. It is still featured via its (valid) first_available_at.
