@@ -331,5 +331,98 @@ class TestScraperLogic(unittest.TestCase):
         self.assertEqual(films[999]['directors'], [], "director entry with no 'name' is dropped, film is kept")
 
 
+class TestUnreachableTerritories(unittest.TestCase):
+    """No-VPN territory shadows (Svalbard/Jan Mayen, Bouvet Island, ...) must be
+    dropped at the source so the published catalogue never offers an unreachable
+    country to any downstream consumer (Kodi plugin, weekly digest, coverage
+    optimizer)."""
+
+    def setUp(self):
+        self.scraper = MubiScraper()
+        self.scraper.MIN_TOTAL_FILMS = 0
+        self.scraper.CRITICAL_COUNTRIES = []
+        self.scraper.session = MagicMock()
+        self.test_dir = tempfile.mkdtemp()
+        self.films_json_path = os.path.join(self.test_dir, 'films.json')
+        self.series_json_path = os.path.join(self.test_dir, 'series.json')
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
+
+    def _run_shallow(self, existing_items, fetch_return, greedy_targets):
+        with open(self.films_json_path, 'w') as f:
+            json.dump({'items': existing_items}, f)
+        with patch.object(self.scraper, 'fetch_films_for_country', return_value=fetch_return):
+            with patch.object(self.scraper, 'calculate_greedy_targets', return_value=greedy_targets):
+                self.scraper.run(
+                    output_path=self.films_json_path,
+                    series_path=self.series_json_path,
+                    mode='shallow',
+                    input_path=self.films_json_path,
+                )
+        with open(self.films_json_path, 'r') as f:
+            return json.load(f)
+
+    def test_countries_list_excludes_territories(self):
+        """The scraper never queries an unreachable territory."""
+        from backend.scraper import NO_VPN_TERRITORIES
+        leaked = [t for t in NO_VPN_TERRITORIES if t in MubiScraper.COUNTRIES]
+        self.assertEqual(leaked, [], f"territories must be absent from COUNTRIES: {leaked}")
+
+    def test_strip_helper_removes_territories_keeps_real(self):
+        strip = MubiScraper._strip_unreachable_countries
+        avail = {'NO': {'x': 1}, 'SJ': {'x': 2}, 'BV': {'x': 3}, 'US': {'x': 4}}
+        self.assertEqual(sorted(strip(avail)), ['NO', 'US'])
+        self.assertEqual(strip({'SJ': {}, 'AQ': {}}), {})
+        self.assertEqual(strip(None), {})
+
+    def test_shallow_sync_purges_lingering_territory_shadows(self):
+        """The Conformist case: existing data carries NO plus Svalbard/Bouvet
+        shadows from a pre-fix run; the next sync strips the shadows, keeps NO."""
+        existing = [{
+            'mubi_id': 2313, 'title': 'The Conformist',
+            'available_countries': {
+                'NO': {'status': 'live'}, 'SJ': {'status': 'live'}, 'BV': {'status': 'live'},
+            },
+        }]
+        fetch = [{'id': 2313, 'title': 'The Conformist', 'year': 1970, 'consumable': {'status': 'live'}}]
+        data = self._run_shallow(existing, fetch, greedy_targets=['NO'])
+        film = next(x for x in data['items'] if x['mubi_id'] == 2313)
+        self.assertEqual(sorted(film['available_countries'].keys()), ['NO'])
+
+    def test_territory_only_film_dropped_as_zombie(self):
+        """A film whose only availability is a territory collapses to empty and is
+        dropped; a normally-available film survives."""
+        existing = [
+            {'mubi_id': 1, 'title': 'Real Film',
+             'available_countries': {'US': {'status': 'live'}}},
+            {'mubi_id': 2, 'title': 'Territory Only',
+             'available_countries': {'SJ': {'status': 'live'}, 'BV': {'status': 'live'}}},
+        ]
+        fetch = [{'id': 1, 'title': 'Real Film', 'year': 2020, 'consumable': {'status': 'live'}}]
+        data = self._run_shallow(existing, fetch, greedy_targets=['US'])
+        ids = [x['mubi_id'] for x in data['items']]
+        self.assertIn(1, ids)
+        self.assertNotIn(2, ids, "territory-only film must be dropped as a zombie")
+
+    def test_first_available_at_ignores_territory_windows(self):
+        """first_available_at is computed after stripping, so a long-live territory
+        shadow cannot backdate a film whose real market is still upcoming."""
+        existing = [{
+            'mubi_id': 5, 'title': 'Upcoming Film',
+            'available_countries': {
+                'US': {'available_at': '2999-01-01T00:00:00Z', 'status': 'upcoming'},
+                'SJ': {'available_at': '2020-01-01T00:00:00Z', 'status': 'live'},
+            },
+        }]
+        data = self._run_shallow(existing, fetch_return=[], greedy_targets=['US'])
+        film = next(x for x in data['items'] if x['mubi_id'] == 5)
+        self.assertEqual(sorted(film['available_countries'].keys()), ['US'])
+        self.assertIsNone(
+            film.get('first_available_at'),
+            "a territory window must not backdate first_available_at",
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

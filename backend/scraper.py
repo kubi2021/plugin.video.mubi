@@ -21,6 +21,28 @@ from backend.external_urls import MUBI_API_V4_URL, MUBI_WEB_URL
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+# ISO 3166-1 alpha-2 codes for uninhabited or no-consumer-market dependencies
+# that Mubi attaches to a parent market's licence (e.g. Norway -> Svalbard/Jan
+# Mayen + Bouvet Island) but where no commercial VPN offers an exit node. Their
+# availability windows are unreachable by any user, so we neither scrape them nor
+# publish them: dropping them at the source keeps the catalogue consistent for
+# every downstream consumer (the Kodi plugin, the weekly digest, the coverage
+# optimizer). A film whose only live windows are such territories collapses to no
+# availability and is dropped as a zombie. Kept deliberately small and
+# conservative — only genuine no-consumer-market territories. Uppercase, to match
+# the alpha-2 codes used throughout the scraper.
+NO_VPN_TERRITORIES = frozenset(
+    {
+        "SJ",  # Svalbard and Jan Mayen
+        "BV",  # Bouvet Island
+        "AQ",  # Antarctica
+        "GS",  # South Georgia and the South Sandwich Islands
+        "HM",  # Heard Island and McDonald Islands
+        "TF",  # French Southern Territories
+        "UM",  # United States Minor Outlying Islands
+    }
+)
+
 
 class MubiScraper:
     BASE_URL = MUBI_API_V4_URL
@@ -30,8 +52,10 @@ class MubiScraper:
     CRITICAL_COUNTRIES = ["US", "GB", "FR", "DE"]
     MAX_MISSING_PERCENT = 5.0  # Max % of films allowed to have missing critical fields before failure
 
-    # Dynamically generate full country list
-    COUNTRIES = [country.alpha_2 for country in pycountry.countries]
+    # Dynamically generate full country list, excluding unreachable territories
+    # (see NO_VPN_TERRITORIES) so a deep sync never wastes an API round-trip on
+    # Svalbard/Bouvet/etc. or admits their shadow availability into the data.
+    COUNTRIES = [country.alpha_2 for country in pycountry.countries if country.alpha_2 not in NO_VPN_TERRITORIES]
 
     # Mubi to US MPAA Mapping Table
     MUBI_TO_MPAA_MAP = {
@@ -362,6 +386,17 @@ class MubiScraper:
             if dt <= now_dt and (earliest is None or dt < earliest):
                 earliest = dt
         return earliest.isoformat() if earliest is not None else None
+
+    @staticmethod
+    def _strip_unreachable_countries(available_countries):
+        """Drop no-VPN territory shadows (see NO_VPN_TERRITORIES) from an
+        availability map. Applied at finalization so a territory-only film
+        collapses to an empty map and is caught by the zombie filter, and any
+        territory entries carried over from a previous (pre-fix) run are purged.
+        """
+        return {
+            code: details for code, details in (available_countries or {}).items() if code not in NO_VPN_TERRITORIES
+        }
 
     def run(self, output_path="films.json", series_path="series.json", mode="deep", input_path=None):
         all_films = {}  # id -> film_data
@@ -697,8 +732,11 @@ class MubiScraper:
                 # User's json was likely from a Deep Sync.
                 pass
 
-            # Assign aggregated availability data
-            combined_avail = film_countries.get(fid, {})
+            # Assign aggregated availability data. Strip unreachable-territory
+            # shadows (Svalbard/Jan Mayen, Bouvet Island, ...) first, so a film
+            # whose only live windows are territories collapses to {} and is
+            # dropped by the zombie filter below — in both deep and shallow modes.
+            combined_avail = self._strip_unreachable_countries(film_countries.get(fid, {}))
 
             # IMPORTANT: For Zombie filtering, we need to be careful not to drop films in shallow sync
             # if we simply didn't scrape their countries.
@@ -730,8 +768,9 @@ class MubiScraper:
 
         final_series = []
         for sid, item in all_series.items():
-            # Assign aggregated availability data
-            item["available_countries"] = series_countries.get(sid, {})
+            # Assign aggregated availability data (territory shadows stripped, as
+            # for films, so downstream consumers see a consistent country set).
+            item["available_countries"] = self._strip_unreachable_countries(series_countries.get(sid, {}))
             # Remove legacy list if present
             item.pop("countries", None)
             final_series.append(item)
